@@ -16,4 +16,10 @@ relay_cli.egg-info/PKG-INFO
 relay_cli.egg-info/SOURCES.txt
 relay_cli.egg-info/dependency_links.txt
 relay_cli.egg-info/entry_points.txt
+relay_cli.egg-info/requires.txt
 relay_cli.egg-info/top_level.txt
+tests/test_ai.py
+tests/test_cli.py
+tests/test_commit.py
+tests/test_git_manager.py
+tests/test_orchestrator.py

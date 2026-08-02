@@ -14,8 +14,15 @@ license = { text = "MIT" }
 # so `pip install .` succeeds anywhere, including fully offline machines.
 dependencies = []
 
+[project.optional-dependencies]
+# Dev-only extras used for testing. Not needed to run Relay itself.
+dev = ["pytest>=8"]
+
 [project.scripts]
 relay = "relay.cli:main"
 
 [tool.setuptools]
 packages = ["relay", "relay.ai"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
