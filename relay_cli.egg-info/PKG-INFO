@@ -1,0 +1,219 @@
+Metadata-Version: 2.4
+Name: relay-cli
+Version: 0.1.0
+Summary: Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback.
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# Relay
+
+**Your Git workflow, on autopilot.**
+
+One command. From a messy working tree to a clean, AI-authored **Conventional Commit**, pushed and done — in Solo or Team mode.
+
+```
+git add .  →  generate commit message  →  git commit  →  git push
+```
+
+Relay reads your staged diff, hands it to an LLM (local **Ollama** or **Gemini API**), and returns a standards-compliant Conventional Commit message. If the AI is down, rate-limited, or offline, Relay never blocks your flow — it drops you straight into a manual commit-message prompt in the same terminal, and continues the workflow from there.
+
+---
+
+## Table of Contents
+
+- [Why Relay](#why-relay)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Product Requirements Document (PRD)](#product-requirements-document-prd)
+- [Roadmap](#roadmap)
+- [Documentation](#documentation)
+
+---
+
+## Why Relay
+
+Daily Git work is repetitive and context-switching: stage files, invent a commit message, push, and (in teams) carefully manage branch names. Commit messages are often lazy, inconsistent, or convention-free — which pollutes history and hurts `git bisect`, changelog generation, and code review.
+
+Relay collapses this into a single decision-free command while keeping the developer in control at every meaningful checkpoint.
+
+## Features
+
+- **Solo mode** — stage all, generate message, commit, push to the current branch.
+- **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `status/<feature>`), push that branch.
+- **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
+- **Pluggable AI providers** — local **Ollama** (default, offline-friendly) and **Gemini API**.
+- **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
+- **Configurable & safe** — TOML config file, env-var overrides, `--dry-run`, `--yes`, explicit confirm step.
+- **Cross-platform** — ships as a single static binary for Windows, macOS, and Linux.
+
+## Installation
+
+_Planned._ Distribute via:
+
+- `go install github.com/relay/relay@latest` (source)
+- Homebrew (macOS/Linux)
+- Scoop / winget (Windows)
+- GitHub Releases (prebuilt binaries)
+
+## Quick Start
+
+```bash
+# 1. Configure (first run only)
+relay init                          # writes ~/.config/relay/config.toml
+
+# 2. Run the workflow
+relay go                            # solo mode (default)
+
+relay go --mode team --feature payments   # team mode, new branch status/payments
+```
+
+### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--mode solo\|team` | Override workflow mode. |
+| `--provider ollama\|gemini` | Override AI provider. |
+| `--feature <name>` | Branch feature name for team mode. |
+| `--yes` | Skip the final confirmation prompt. |
+| `--no-push` | Commit but do not push. |
+| `--dry-run` | Show the plan and the generated message, change nothing. |
+| `--verbose` | Structured debug logging. |
+
+## Configuration
+
+Config lives at `~/.config/relay/config.toml` (env-var overrides supported).
+
+```toml
+[mode]
+default = "solo"          # solo | team | ask
+
+[ai]
+provider = "ollama"       # ollama | gemini
+timeout_seconds = 30
+
+[ai.ollama]
+model = "qwen2.5-coder:7b"
+base_url = "http://localhost:11434"
+
+[ai.gemini]
+model = "gemini-2.5-pro"
+
+[branch]
+template = "status/<feature>"   # team mode only
+feature_source = "prompt"       # prompt | flag | current_branch
+
+[push]
+set_upstream = true             # set upstream (-u) in team mode
+```
+
+**Environment variables**
+
+| Variable | Purpose |
+| --- | --- |
+| `RELAY_MODE` | `solo` \| `team` \| `ask` |
+| `RELAY_AI_PROVIDER` | `ollama` \| `gemini` |
+| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Ollama endpoint + model |
+| `GEMINI_API_KEY` | Gemini key — **preferred over config file** |
+| `GEMINI_MODEL` | Gemini model id |
+| `RELAY_BRANCH_TEMPLATE` | Team-mode branch template |
+
+---
+
+## Product Requirements Document (PRD)
+
+### 1. Problem Statement
+
+Developers repeat a tedious, error-prone Git loop multiple times per day. Common pain points:
+
+1. **Context switching** — staging, message writing, branch admin, and pushing are separate mental tasks.
+2. **Low-quality messages** — "wip", "fix stuff", and convention-free messages degrade history.
+3. **Manual branch discipline** — team members forget or misname feature branches.
+4. **AI adoption friction** — AI tools that fail hard (block the flow) when the model is unreachable are worse than none.
+
+### 2. Goals
+
+- **G1.** Provide a single command that takes the working tree to a pushed commit in both solo and team workflows.
+- **G2.** Generate meaningful, Conventional Commits-compliant messages from the staged diff via LLMs.
+- **G3.** Guarantee the workflow always completes even when the AI is unavailable (offline, rate-limited, misconfigured) via a manual-input fallback.
+- **G4.** Keep the developer in control: preview, confirm, edit, and abort at meaningful checkpoints.
+- **G5.** Ship as a fast, dependency-light, cross-platform global CLI.
+
+### 3. Non-Goals (v1)
+
+- No partial staging / interactive hunk selection — always `git add .`.
+- No CI/CD integration, no PR creation, no changelog generation.
+- No commit signing flows beyond what `git` supports natively (pass-through).
+- No support for git LFS, submodules, or exotic custom hooks handling.
+- No multi-provider routing/failover beyond a single configured provider + manual fallback.
+
+### 4. Personas
+
+- **Solo Developer (Sana)** — works on her own repos, wants speed and clean history, rarely thinks about branches.
+- **Team Developer (Marcus)** — works on a shared repo, must keep `main` clean, relies on `status/<feature>`-style branches.
+- **On-call / Low-connectivity Developer (Priya)** — works offline or on flaky networks; needs the tool to never be a blocker.
+
+### 5. Functional Requirements
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| FR-1 | Provide `relay go` as the primary command; default mode **solo**, overridable via flag and config. | P0 |
+| FR-2 | **Solo mode:** `git add .` → generate message → `git commit` → `git push origin <current-branch>`. | P0 |
+| FR-3 | **Team mode:** `git add .` → generate message → `git checkout -b <branch>` → `git commit` → `git push -u origin <branch>`. | P0 |
+| FR-4 | Read the staged diff (`git diff --cached`) and send it to the configured LLM provider. | P0 |
+| FR-5 | Support **Ollama** (local, default) and **Gemini API** providers behind a common interface. | P0 |
+| FR-6 | Parse/validate the AI response into a **Conventional Commit** message (`type(scope): subject`). | P0 |
+| FR-7 | On AI failure (timeout, rate limit, offline, invalid output), **fall back to a manual message prompt** in the same terminal and continue the workflow. | P0 |
+| FR-8 | Preflight checks: is a Git repo present? are there staged/unstaged changes? is a remote configured? Abort early with clear messages otherwise. | P0 |
+| FR-9 | Team-mode branch naming uses a configurable template (default `status/<feature>`); feature name from `--feature`, prompt, or current branch. | P1 |
+| FR-10 | Show the generated message and request confirmation before committing (skippable via `--yes`). | P1 |
+| FR-11 | Support `--dry-run` (plan + message, no mutations) and `--no-push`. | P1 |
+| FR-12 | Respect git pre-commit hooks; surface hook output and abort cleanly on failure. | P1 |
+| FR-13 | Handle push rejection (non-fast-forward) with actionable guidance (`pull --rebase`). | P1 |
+| FR-14 | Truncate very large diffs to the provider's token budget and report truncation. | P2 |
+| FR-15 | Provide `--verbose` structured logging and a `relay doctor` diagnostic command. | P2 |
+
+### 6. Non-Functional Requirements
+
+| ID | Requirement |
+| --- | --- |
+| NFR-1 | **Performance:** sub-500 ms CLI overhead excluding LLM latency; parallel-safe, no network calls during preflight. |
+| NFR-2 | **Portability:** single static binary on Windows, macOS, Linux; no runtime deps beyond `git` itself. |
+| NFR-3 | **Security:** API keys read from env var or config; secrets never logged; config file permissions `0600` on POSIX. |
+| NFR-4 | **Reliability:** no partial states. If push fails after commit, the error reports state and the exact retry command. |
+| NFR-5 | **Observability:** structured logs, clear exit codes (0 success, 1 workflow error, 130 user abort). |
+| NFR-6 | **Testability:** AI providers behind an interface with a mock; Git executor unit-testable. |
+| NFR-7 | **Usability:** every failure has a human-readable explanation plus a suggested next action. |
+
+### 7. Success Metrics
+
+- **Adoption:** % of daily commits made through Relay within target teams.
+- **Acceptance:** % of AI-generated messages committed **without edits** after confirmation.
+- **Reliability:** % of Relay runs that complete end-to-end without manual intervention.
+- **Quality:** Conventional-Commits compliance rate across commits made with Relay.
+
+### 8. Milestones
+
+| Milestone | Scope | Exit criteria |
+| --- | --- | --- |
+| **M0 — MVP** | CLI skeleton, solo + team modes, manual commit input, preflight, push. | `relay go` completes both modes with zero AI dependency. |
+| **M1 — Ollama** | Ollama provider, diff collection, message validation, confirm step. | AI-generated messages with local model; fallback proven via forced failure. |
+| **M2 — Gemini** | Gemini provider, config file, env overrides, `relay init`. | Both providers selectable; keys never logged. |
+| **M3 — Polish** | `--dry-run`, `--yes`, doctor, truncation, hooks handling, CI + tests + release pipeline. | Full feature set; binaries published for 3 platforms. |
+
+## Roadmap
+
+- v0.x — milestones M0→M3 above.
+- v1.0 — GA: stable config schema, telemetry opt-in, man pages / completions.
+- Later — GitHub/GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, local llama.cpp), team default-branch safety rules.
+
+## Documentation
+
+- [System Architecture](docs/ARCHITECTURE.md)
+- [Logical Flow & State Machine](docs/FLOW.md)
+
+---
+
+_License: MIT (planned). Maintained for developers who value clean Git history._

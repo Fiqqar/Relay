@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "relay-cli"
+version = "0.1.0"
+description = "Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+# Zero runtime dependencies on purpose: the whole tool uses only the stdlib,
+# so `pip install .` succeeds anywhere, including fully offline machines.
+dependencies = []
+
+[project.scripts]
+relay = "relay.cli:main"
+
+[tool.setuptools]
+packages = ["relay", "relay.ai"]
