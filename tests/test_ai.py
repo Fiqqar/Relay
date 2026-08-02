@@ -16,6 +16,7 @@ from unittest import mock
 import pytest
 
 from relay.ai import AIManager, GeminiProvider, OllamaProvider
+from relay.ai.base import truncate_diff
 from relay.errors import AIError, ConfigError
 
 
@@ -78,6 +79,20 @@ class TestGemini:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
 
+    def test_direct_timeout_maps_to_unavailable_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+        assert "timeout" in str(exc_info.value)
+
+    def test_wrapped_timeout_maps_to_unavailable_aierror(self):
+        wrapped = urllib.error.URLError(TimeoutError("timed out"))
+        with mock.patch("urllib.request.urlopen", side_effect=wrapped):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+
     def test_malformed_payload_maps_to_bad_response_aierror(self):
         payload = {"unexpected": "shape"}
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -118,6 +133,12 @@ class TestOllama:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
 
+    def test_direct_timeout_maps_to_unavailable_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value.__enter__.return_value = fake_http({"error": "model not found"})
@@ -133,6 +154,51 @@ class TestBuildPrompt:
         assert "STAT" in prompt
         assert "main" in prompt
         assert "type(scope): subject" in prompt
+
+
+class TestDiffTruncation:
+    def test_small_diff_is_passthrough(self):
+        small = "line1\nline2\n"
+        result, was_truncated = truncate_diff(small, max_lines=120)
+        assert result == small
+        assert was_truncated is False
+
+    def test_large_diff_is_capped_with_notice(self):
+        big = "\n".join(f"+line {i}" for i in range(200))
+        result, was_truncated = truncate_diff(big, max_lines=100)
+        assert was_truncated is True
+        assert result.startswith("+line 0")
+        assert "+line 199" not in result
+        assert "truncated" in result
+
+    def test_build_prompt_keeps_stat_and_caps_diff(self):
+        big = "\n".join(f"+line {i}" for i in range(500))
+        prompt = AIManager.build_prompt(big, "STAT-SUMMARY", "main")
+        assert "STAT-SUMMARY" in prompt  # --stat summary is always intact
+        assert "+line 499" not in prompt
+        assert "truncated" in prompt
+
+    def test_build_prompt_small_diff_has_no_truncation_notice(self):
+        prompt = AIManager.build_prompt("+small\n", "S", "main")
+        assert "truncated" not in prompt
+
+
+class TestTimeoutCaps:
+    def test_gemini_timeout_clamped_to_120_seconds_max(self):
+        assert GeminiProvider(api_key="k", model="m", timeout=999).timeout == 120
+
+    def test_gemini_reasonable_override_is_preserved(self):
+        assert GeminiProvider(api_key="k", model="m", timeout=45).timeout == 45
+
+    def test_gemini_timeout_defaults_from_env(self, monkeypatch):
+        monkeypatch.delenv("RELAY_AI_TIMEOUT", raising=False)
+        assert GeminiProvider(api_key="k", model="m").timeout == 30
+
+    def test_ollama_timeout_clamped_to_120_seconds_max(self):
+        assert OllamaProvider(model="m", timeout=999).timeout == 120
+
+    def test_ollama_reasonable_override_is_preserved(self):
+        assert OllamaProvider(model="m", timeout=45).timeout == 45
 
 
 class TestGenerateWrapper:

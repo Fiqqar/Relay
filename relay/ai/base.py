@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from ..config import max_diff_lines
 from ..errors import AIError
 
 # The single source of truth for how the AI must write commit messages.
@@ -31,19 +32,46 @@ SYSTEM_PROMPT = (
 )
 
 
+def truncate_diff(diff: str, max_lines: int | None = None):
+    """Cap a staged diff to ``max_lines`` lines, preserving its head.
+
+    Large diffs are the single biggest latency driver for LLM commit messages.
+    We keep the first ``max_lines`` lines (the most representative hunk) and
+    append a one-line notice; the concise ``--stat`` summary is passed to the
+    provider separately and is never truncated.
+
+    Returns ``(truncated_diff, was_truncated)``.
+    """
+    cap = max_lines if max_lines is not None else max_diff_lines()
+    lines = diff.splitlines()
+    if len(lines) <= cap:
+        return diff, False
+    kept = lines[:cap]
+    kept.append(f"... [{len(lines) - cap} more diff lines truncated]")
+    return "\n".join(kept), True
+
+
 class AIManager(ABC):
     """Interface every provider implements."""
 
     provider_name = "base"
 
     @staticmethod
-    def build_prompt(diff: str, stat: str, branch: str) -> str:
-        """Compose the full prompt: repo context (branch + diffstat) + diff."""
+    def build_prompt(diff: str, stat: str, branch: str, max_lines: int | None = None) -> str:
+        """Compose the full prompt: repo context (branch + diffstat) + diff.
+
+        The diff is truncated to a strict line budget before it is sent; the
+        ``--stat`` summary is always included in full.
+        """
+        diff, was_truncated = truncate_diff(diff, max_lines)
+        cap = max_lines if max_lines is not None else max_diff_lines()
+        notice = f"\nNote: the diff was truncated to its first {cap} lines.\n" if was_truncated else ""
         return (
             f"Current branch: {branch}\n"
             f"Changed files summary:\n{stat}\n"
-            f"Full staged diff:\n{diff}\n"
+            f"Staged diff:\n{diff}\n"
             f"---\n{SYSTEM_PROMPT}"
+            f"{notice}"
         )
 
     @abstractmethod

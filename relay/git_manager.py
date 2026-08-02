@@ -77,8 +77,14 @@ class GitManager:
         self._run("add", ".")
 
     def staged_diff(self) -> str:
-        """Full staged diff — this is what gets sent to the AI."""
-        return self._run("diff", "--cached").stdout
+        """Optimized staged diff for the AI: changed lines only (``--unified=0``).
+
+        Dropping unchanged context shrinks the payload sent to the LLM by a
+        large margin — for commit-message generation the actual +/- lines are
+        what matter, and a smaller prompt means a much faster generation. The
+        concise ``--stat`` summary is available separately via staged_stat().
+        """
+        return self._run("diff", "--cached", "--unified=0").stdout
 
     def staged_stat(self) -> str:
         """Short diffstat of staged changes (context for the AI prompt)."""

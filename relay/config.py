@@ -15,6 +15,13 @@ DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_BRANCH_TEMPLATE = "status/<feature>"
 
+# Performance knobs: keep the diff payload small and give the LLM a realistic
+# window to respond. 30s is enough for normal network conditions (and large
+# diffs) while still falling back to manual input if the provider hangs.
+DEFAULT_AI_TIMEOUT_SECONDS = 30
+MAX_AI_TIMEOUT_SECONDS = 120  # safety clamp: never wait longer than this on an LLM
+DEFAULT_MAX_DIFF_LINES = 120
+
 
 def provider_from_env() -> str:
     return os.environ.get("RELAY_AI_PROVIDER", DEFAULT_PROVIDER).lower()
@@ -38,3 +45,30 @@ def ollama_model() -> str:
 
 def branch_template() -> str:
     return os.environ.get("RELAY_BRANCH_TEMPLATE", DEFAULT_BRANCH_TEMPLATE)
+
+
+def ai_timeout(override: int | None = None) -> int:
+    """HTTP timeout in seconds for AI calls.
+
+    Resolution order: explicit ``override`` (CLI ``--timeout``) > the
+    ``RELAY_AI_TIMEOUT`` env var > the default. The result is always clamped to
+    the safety range [1, MAX_AI_TIMEOUT_SECONDS] so a typo like ``--timeout 0``
+    or ``99999`` can never disable the fallback or hang the workflow forever.
+    """
+    try:
+        requested = int(
+            os.environ.get("RELAY_AI_TIMEOUT", DEFAULT_AI_TIMEOUT_SECONDS)
+            if override is None
+            else override
+        )
+    except (ValueError, TypeError):
+        requested = DEFAULT_AI_TIMEOUT_SECONDS
+    return max(1, min(requested, MAX_AI_TIMEOUT_SECONDS))
+
+
+def max_diff_lines() -> int:
+    """Line cap applied to the staged diff before it is sent to the LLM."""
+    try:
+        return int(os.environ.get("RELAY_MAX_DIFF_LINES", DEFAULT_MAX_DIFF_LINES))
+    except ValueError:
+        return DEFAULT_MAX_DIFF_LINES

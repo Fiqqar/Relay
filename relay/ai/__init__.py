@@ -14,8 +14,11 @@ _PROVIDERS = {
 }
 
 
-def build_provider(name: str | None = None) -> AIManager:
+def build_provider(name: str | None = None, timeout: int | None = None) -> AIManager:
     """Construct the requested provider (or the default from the environment).
+
+    ``timeout`` is an optional per-run override in seconds (e.g. from
+    ``relay --timeout``); the provider still clamps it to a safe maximum.
 
     Imported lazily to avoid a circular import at module load time.
     """
@@ -26,7 +29,7 @@ def build_provider(name: str | None = None) -> AIManager:
         raise ConfigError(
             f"unknown AI provider '{chosen}'; choose from: {', '.join(sorted(_PROVIDERS))}"
         )
-    return _PROVIDERS[chosen]()
+    return _PROVIDERS[chosen](timeout=timeout)
 
 
 __all__ = ["AIManager", "build_provider"]

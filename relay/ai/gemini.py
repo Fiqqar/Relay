@@ -10,7 +10,7 @@ import json
 import urllib.error
 import urllib.request
 
-from ..config import gemini_api_key, gemini_model
+from ..config import ai_timeout, gemini_api_key, gemini_model
 from ..errors import AIError, ConfigError
 from .base import AIManager
 
@@ -23,7 +23,7 @@ _ENDPOINT = (
 class GeminiProvider(AIManager):
     provider_name = "gemini"
 
-    def __init__(self, api_key: str | None = None, model: str | None = None, timeout: int = 30):
+    def __init__(self, api_key: str | None = None, model: str | None = None, timeout: int | None = None):
         self.api_key = api_key or gemini_api_key()
         if not self.api_key:
             # Fail fast with a clear, platform-specific message BEFORE the
@@ -35,7 +35,10 @@ class GeminiProvider(AIManager):
                 '    export GEMINI_API_KEY=your_key     (macOS/Linux)'
             )
         self.model = model or gemini_model()
-        self.timeout = timeout
+        # Give the API a realistic window to respond (default 30s, safety cap
+        # 120s). A genuinely hung provider still hits the cap and the
+        # Orchestrator falls back to manual input.
+        self.timeout = ai_timeout(timeout)
 
     def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:
         prompt = self.build_prompt(diff, stat, branch)
@@ -43,10 +46,17 @@ class GeminiProvider(AIManager):
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.2},
         }
+        
+        headers = {"Content-Type": "application/json"}
+        if self.api_key.startswith("AQ."):
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        else:
+            headers["X-Goog-Api-Key"] = self.api_key
+
         request = urllib.request.Request(
             _ENDPOINT.format(model=self.model),
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json", "X-Goog-Api-Key": self.api_key},
+            headers=headers,
             method="POST",
         )
         try:
@@ -62,8 +72,19 @@ class GeminiProvider(AIManager):
             else:
                 kind = "api_error"
             raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {exc.reason}") from exc
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+        except TimeoutError as exc:
+            # Timeout hit (a real network outage or a hung provider): treat as
+            # "unavailable" so the Orchestrator falls back to manual input
+            # instead of hanging.
+            raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
+        except urllib.error.URLError as exc:
+            # urllib wraps socket.timeout (and other OSErrors) in URLError; a
+            # wrapped timeout must be treated identically to a direct one.
+            if isinstance(exc.reason, TimeoutError):
+                raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
             raise AIError(self.provider_name, "unavailable", f"network error: {exc}") from exc
+        except ConnectionError as exc:
+            raise AIError(self.provider_name, "unavailable", f"connection error: {exc}") from exc
 
         # Gemini wraps the answer in candidates[0].content.parts[0].text.
         try:

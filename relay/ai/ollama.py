@@ -12,7 +12,7 @@ import json
 import urllib.error
 import urllib.request
 
-from ..config import ollama_base_url, ollama_model
+from ..config import ai_timeout, ollama_base_url, ollama_model
 from ..errors import AIError
 from .base import AIManager
 
@@ -20,10 +20,12 @@ from .base import AIManager
 class OllamaProvider(AIManager):
     provider_name = "ollama"
 
-    def __init__(self, base_url: str | None = None, model: str | None = None, timeout: int = 120):
+    def __init__(self, base_url: str | None = None, model: str | None = None, timeout: int | None = None):
         self.base_url = (base_url or ollama_base_url()).rstrip("/")
         self.model = model or ollama_model()
-        self.timeout = timeout
+        # Same timeout policy as Gemini: a realistic window by default with a
+        # safety clamp, so a slow local model still falls back to manual input.
+        self.timeout = ai_timeout(timeout)
 
     def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:
         prompt = self.build_prompt(diff, stat, branch)
@@ -44,9 +46,17 @@ class OllamaProvider(AIManager):
                 data = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             raise AIError(self.provider_name, "unavailable", f"HTTP {exc.code}: {exc.reason}") from exc
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+        except TimeoutError as exc:
+            # Timeout hit -> "unavailable" so the Orchestrator falls back to
+            # manual input rather than waiting on a hung model.
+            raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
             # Connection refused -> the local Ollama server is not running.
-            raise AIError(self.provider_name, "unavailable", str(exc)) from exc
+            raise AIError(self.provider_name, "unavailable", f"network error: {exc}") from exc
+        except ConnectionError as exc:
+            raise AIError(self.provider_name, "unavailable", f"connection error: {exc}") from exc
 
         if data.get("error"):
             raise AIError(self.provider_name, "bad_response", data["error"])

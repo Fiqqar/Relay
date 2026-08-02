@@ -55,27 +55,36 @@ Relay collapses this into a single decision-free command while keeping the devel
 
 Requires **Python 3.10+** and `git` on your `PATH`.
 
+**One-command install (recommended):** the bundled installer verifies the
+prerequisites, pip-installs Relay as a user-level editable package, and puts
+`relay` on your `PATH` for every new terminal (Windows, macOS, Linux).
+
+```bash
+# from this repository
+python install.py --yes      # skip the PATH prompt
+```
+
+> **Windows note:** pip installs the `relay` script into Python's `Scripts`
+> directory. `install.py` adds that directory to your **user** `PATH`
+> automatically (via PowerShell's `SetEnvironmentVariable(..., 'User')`).
+> If it wasn't run with `--yes`, it asks first; you can always run `relay doctor`
+> later to check whether `relay` is reachable.
+
+Manual fallback (same thing, by hand):
+
 ```bash
 # from this repository
 python -m pip install -e .     # editable install -> `relay` on your PATH
 ```
-
-> **Windows note:** pip installs the `relay` script into Python's `Scripts` directory.
-> If `relay` isn't found in a new terminal, add that directory to your user `PATH`:
->
-> ```powershell
-> [Environment]::SetEnvironmentVariable(
->   'Path',
->   [Environment]::GetEnvironmentVariable('Path','User') + ';' +
->   'C:\Users\<you>\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_*\LocalCache\local-packages\Python311\Scripts',
->   'User')
-> ```
 
 Distribution via Homebrew / Scoop / GitHub Releases is planned.
 
 ## Quick Start
 
 ```bash
+# 0. (Optional but useful) verify the install in a fresh terminal
+relay doctor
+
 # 1. Configure your AI key (once)
 set GEMINI_API_KEY=your_key              # Windows cmd
 $env:GEMINI_API_KEY="your_key"           # PowerShell
@@ -88,10 +97,35 @@ relay --team "payments"          # new branch status/payments, commit, push
 # AI is down / offline? Relay drops you into a manual message prompt and continues.
 ```
 
+### `relay doctor`
+
+A read-only self-diagnostic. It checks that Python/git are available, that the
+`relay` script is reachable on your `PATH`, that the current directory is a git
+work tree, and that your AI provider's credentials are configured. Exits `0`
+when everything is healthy and `1` when a fix is needed.
+
+```
+$ relay doctor
+[relay doctor] Relay 0.1.0 - gemini provider
+
+  Python 3.10+       PASS   3.11.9
+  relay on PATH      PASS   C:\Users\you\...\Python311\Scripts\relay.exe
+  git installed      PASS   C:\Program Files\Git\cmd\git.EXE (2.42.0)
+  inside a git repo  PASS   branch: main, remote: yes, working tree: clean
+  provider: gemini   PASS   Gemini API
+  AI credentials     FAIL   GEMINI_API_KEY is not set; see `relay --help`
+
+  4 pass, 1 warn, 1 fail - 1 issue(s) need fixing.
+```
+
+Use `relay doctor --provider ollama` to check the Ollama provider instead
+(which verifies that the local Ollama server is reachable).
+
 ### Flags
 
 | Flag | Description |
 | --- | --- |
+| `doctor` | Diagnose this installation (PATH, git, AI credentials). |
 | `--solo` | Stage, commit and push to the current branch (default). |
 | `--team [FEATURE]` | Create & checkout `status/<feature>`, commit, push it (feature optional). |
 | `--provider {gemini,ollama}` | Override the AI provider (default: gemini). |

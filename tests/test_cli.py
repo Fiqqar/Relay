@@ -30,6 +30,14 @@ class TestParser:
         with pytest.raises(SystemExit):
             build_parser().parse_args(["--solo", "--team"])
 
+    def test_timeout_flag_parses_seconds(self):
+        args = build_parser().parse_args(["--timeout", "45"])
+        assert args.timeout == 45
+
+    def test_timeout_defaults_to_none(self):
+        args = build_parser().parse_args([])
+        assert args.timeout is None
+
 
 @pytest.fixture
 def wired():
@@ -61,6 +69,12 @@ def test_main_team_with_feature(wired):
     main(["--team", "payments"])
     assert orchestrator_cls.call_args.kwargs["mode"] == "team"
     assert orchestrator_cls.call_args.kwargs["feature"] == "payments"
+
+
+def test_main_forwards_timeout_to_provider(wired):
+    build_provider, _ = wired
+    main(["--solo", "--timeout", "45"])
+    build_provider.assert_called_once_with(None, timeout=45)
 
 
 def test_main_team_without_feature_passes_none(wired):

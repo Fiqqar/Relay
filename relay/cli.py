@@ -15,6 +15,7 @@ import sys
 
 from . import __version__
 from .ai import build_provider
+from .doctor import run_doctor
 from .errors import RelayError, UserAbort
 from .orchestrator import Orchestrator
 
@@ -44,6 +45,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--provider", choices=["gemini", "ollama"],
                         help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
+    parser.add_argument("--timeout", type=int, metavar="SECONDS",
+                        help="seconds to wait for the AI response (default: 30, max: 120)")
     parser.add_argument("--yes", action="store_true",
                         help="skip the confirmation prompt")
     parser.add_argument("--dry-run", action="store_true",
@@ -52,11 +55,32 @@ def build_parser() -> argparse.ArgumentParser:
                         help="commit but do not push")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
+
+    # `relay doctor` is a separate subcommand; every other invocation runs the
+    # solo/team workflow. Subparsers are optional, so existing flags keep working.
+    subparsers = parser.add_subparsers(dest="command", metavar="")
+    doctor = subparsers.add_parser(
+        "doctor",
+        help="diagnose this Relay installation (PATH, git, AI credentials)",
+        description="Read-only self-diagnostic. Exits 0 when healthy, 1 when a fix is needed.",
+    )
+    doctor.add_argument("--provider", choices=["gemini", "ollama"],
+                        help="AI provider to check (default: gemini, or RELAY_AI_PROVIDER)")
+    doctor.add_argument("--verbose", action="store_true",
+                        help="print the git commands being run")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    # Subcommand routing: `relay doctor` never touches the git workflow.
+    if getattr(args, "command", None) == "doctor":
+        try:
+            return run_doctor(provider=args.provider, verbose=args.verbose)
+        except Exception as exc:  # noqa: BLE001 - doctor must never traceback
+            print(f"[relay doctor] error: {exc}")
+            return 1
 
     # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
     # `--solo` / nothing leaves it None.
@@ -64,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     feature = args.team or None
 
     try:
-        ai = build_provider(args.provider)
+        ai = build_provider(args.provider, timeout=args.timeout)
         orchestrator = Orchestrator(
             mode=mode,
             feature=feature,

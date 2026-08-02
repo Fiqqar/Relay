@@ -85,7 +85,7 @@ class TestMutations:
     def test_staged_diff_and_stat(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc(stdout="diff output")
         assert git.staged_diff() == "diff output"
-        assert mock_run.call_args.args[0] == ["git", "diff", "--cached"]
+        assert mock_run.call_args.args[0] == ["git", "diff", "--cached", "--unified=0"]
 
         mock_run.return_value = make_proc(stdout="stat output")
         assert git.staged_stat() == "stat output"
