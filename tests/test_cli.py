@@ -39,6 +39,47 @@ class TestParser:
         assert args.timeout is None
 
 
+class TestPrSubcommand:
+    def test_pr_parses_base_and_title(self):
+        args = build_parser().parse_args(["pr", "--base", "develop", "--title", "My PR"])
+        assert args.command == "pr"
+        assert args.base == "develop"
+        assert args.title == "My PR"
+
+    def test_pr_defaults_base_to_main(self):
+        args = build_parser().parse_args(["pr"])
+        assert args.command == "pr"
+        assert args.base == "main"
+        assert args.title is None
+
+    def test_pr_accepts_verbose(self):
+        args = build_parser().parse_args(["pr", "--verbose"])
+        assert args.verbose is True
+
+    def test_pr_flag_named_team_is_not_a_subcommand(self):
+        args = build_parser().parse_args(["--team", "pr"])
+        assert args.command is None
+        assert args.team == "pr"
+
+    def test_main_routes_pr_and_propagates_exit_code(self):
+        with mock.patch("relay.cli.run_pr", return_value=3) as run:
+            assert main(["pr"]) == 3
+        run.assert_called_once_with(base="main", title=None, verbose=False)
+
+    def test_main_forwards_pr_flags(self):
+        with mock.patch("relay.cli.run_pr", return_value=0) as run:
+            main(["pr", "--base", "develop", "--title", "T", "--verbose"])
+        run.assert_called_once_with(base="develop", title="T", verbose=True)
+
+    def test_pr_error_maps_to_exit_1(self):
+        with mock.patch("relay.cli.run_pr", side_effect=GitError("boom")):
+            assert main(["pr"]) == 1
+
+    def test_pr_unexpected_error_maps_to_exit_1(self):
+        with mock.patch("relay.cli.run_pr", side_effect=RuntimeError("bug")):
+            assert main(["pr"]) == 1
+
+
 @pytest.fixture
 def wired():
     """Patch the CLI's provider factory and Orchestrator, returning the mocks."""

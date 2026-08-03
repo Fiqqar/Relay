@@ -18,6 +18,7 @@ from .ai import build_provider
 from .doctor import run_doctor
 from .errors import RelayError, UserAbort
 from .orchestrator import Orchestrator
+from .pr import run_pr
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +69,19 @@ def build_parser() -> argparse.ArgumentParser:
                         help="AI provider to check (default: gemini, or RELAY_AI_PROVIDER)")
     doctor.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
+
+    pr = subparsers.add_parser(
+        "pr",
+        help="open a GitHub pull request for the current branch",
+        description="Opens a PR against --base (default: main). Title falls back to "
+                    "the latest commit message; requires GITHUB_TOKEN.",
+    )
+    pr.add_argument("--base", default="main",
+                    help="base branch to merge into (default: main)")
+    pr.add_argument("--title", metavar="TITLE",
+                    help="PR title (default: latest commit message)")
+    pr.add_argument("--verbose", action="store_true",
+                    help="print the git commands being run")
     return parser
 
 
@@ -82,12 +96,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[relay doctor] error: {exc}")
             return 1
 
-    # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
-    # `--solo` / nothing leaves it None.
-    mode = "team" if args.team is not None else "solo"
-    feature = args.team or None
-
+    # `relay pr` posts to GitHub; errors fall through to the shared handlers
+    # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
     try:
+        if getattr(args, "command", None) == "pr":
+            return run_pr(base=args.base, title=args.title, verbose=args.verbose)
+
+        # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
+        # `--solo` / nothing leaves it None.
+        mode = "team" if args.team is not None else "solo"
+        feature = args.team or None
+
         ai = build_provider(args.provider, timeout=args.timeout)
         orchestrator = Orchestrator(
             mode=mode,

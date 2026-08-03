@@ -15,6 +15,49 @@ import subprocess
 from .errors import GitError
 
 
+def parse_remote_url(url: str) -> tuple[str, str]:
+    """Parse an HTTPS or SSH GitHub remote URL into ``(owner, repo)``.
+
+    Handles the two formats ``git`` writes for ``remote.origin.url``, with or
+    without the trailing ``.git`` suffix::
+
+        https://github.com/owner/repo.git
+        git@github.com:owner/repo.git
+
+    Raises ValueError when the URL is empty, not a GitHub remote, or has no
+    owner/repo path, so the caller can surface a clear, actionable error.
+    """
+    url = url.strip()
+    if not url:
+        raise ValueError("empty remote URL")
+
+    if "://" in url:
+        # URL style: https://host/owner/repo.git  (ssh:// is also handled here)
+        rest = url.split("://", 1)[1]
+        host, _, path = rest.partition("/")
+    elif "@" in url:
+        # scp style: git@host:owner/repo.git
+        host, _, path = url.rpartition(":")
+    else:
+        raise ValueError(f"unsupported remote URL: {url}")
+
+    # Drop a trailing slash and any username prefix (git@github.com -> github.com).
+    host = host.rstrip("/").rsplit("@", 1)[-1].lower()
+    if host != "github.com":
+        raise ValueError(f"not a GitHub remote (host: {host})")
+
+    parts = [part for part in path.strip("/").split("/") if part]
+    if len(parts) < 2:
+        raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
+
+    owner, repo = parts[0], parts[1]
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+    if not owner or not repo:
+        raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
+    return owner, repo
+
+
 class GitManager:
     def __init__(self, cwd: str | None = None, verbose: bool = False):
         self.cwd = cwd
@@ -70,6 +113,29 @@ class GitManager:
     def current_branch(self) -> str:
         """Name of the checked-out branch (empty string if HEAD is detached)."""
         return self._run("branch", "--show-current").stdout.strip()
+
+    def remote_url(self, name: str = "origin") -> str:
+        """Value of ``remote.<name>.url`` ('' if that remote is not configured).
+
+        ``git config --get`` exits 1 when the key is absent; that is treated as
+        "no remote" rather than an error so ``relay pr`` can give its own message.
+        """
+        proc = self._run("config", "--get", f"remote.{name}.url", check=False)
+        return proc.stdout.strip() if proc.returncode == 0 else ""
+
+    def latest_commit_message(self) -> str:
+        """Full message of the most recent commit ('' if the repo has no commits)."""
+        proc = self._run("log", "-1", "--format=%B", check=False)
+        return proc.stdout.strip() if proc.returncode == 0 else ""
+
+    def log_between(self, base: str, head: str) -> str:
+        """One-line subjects of commits reachable from ``head`` but not ``base``.
+
+        Empty when ``base`` does not exist yet (or the range is empty), so
+        callers can fall back to a plain body without handling git errors.
+        """
+        proc = self._run("log", "--format=%s", f"{base}..{head}", check=False)
+        return proc.stdout.strip() if proc.returncode == 0 else ""
 
     # ---- Staging / diff -----------------------------------------------------
 

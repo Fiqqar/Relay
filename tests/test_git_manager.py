@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from relay.errors import GitError
-from relay.git_manager import GitManager
+from relay.git_manager import GitManager, parse_remote_url
 
 
 @pytest.fixture
@@ -115,6 +115,81 @@ class TestMutations:
         mock_run.return_value = make_proc()
         git.push("status/payments", set_upstream=True)
         assert mock_run.call_args.args[0] == ["git", "push", "-u", "origin", "status/payments"]
+
+
+class TestParseRemoteUrl:
+    @pytest.mark.parametrize(
+        "url, expected",
+        [
+            ("https://github.com/owner/repo.git", ("owner", "repo")),
+            ("https://github.com/owner/repo", ("owner", "repo")),
+            ("git@github.com:owner/repo.git", ("owner", "repo")),
+            ("git@github.com:owner/repo", ("owner", "repo")),
+            ("ssh://git@github.com/owner/repo.git", ("owner", "repo")),
+            ("  https://github.com/Acme/Widget.git  ", ("Acme", "Widget")),
+            ("https://github.com/Owner/Sub/Repo.git", ("Owner", "Sub")),
+        ],
+    )
+    def test_supported_github_urls(self, url, expected):
+        assert parse_remote_url(url) == expected
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "",
+            "   ",
+            "git@gitlab.com:owner/repo.git",
+            "https://gitlab.com/owner/repo.git",
+            "https://github.com/",
+            "git@github.com:",
+            "git@github.com:/repo.git",
+            "not-a-remote-url",
+        ],
+    )
+    def test_invalid_urls_raise_value_error(self, url):
+        with pytest.raises(ValueError):
+            parse_remote_url(url)
+
+
+class TestRemoteHelpers:
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_remote_url_returns_stripped_value(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="git@github.com:acme/widget.git\n")
+        assert git.remote_url() == "git@github.com:acme/widget.git"
+        assert mock_run.call_args.args[0] == ["git", "config", "--get", "remote.origin.url"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_remote_url_empty_when_unset(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=1)
+        assert git.remote_url() == ""
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_remote_url_supports_custom_remote_name(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="https://github.com/acme/widget.git")
+        git.remote_url("upstream")
+        assert mock_run.call_args.args[0] == ["git", "config", "--get", "remote.upstream.url"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_latest_commit_message_returns_full_message(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="feat: add login\n\nAdds OAuth.\n")
+        assert git.latest_commit_message() == "feat: add login\n\nAdds OAuth."
+        assert mock_run.call_args.args[0] == ["git", "log", "-1", "--format=%B"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_latest_commit_message_empty_when_no_commits(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: bad default revision")
+        assert git.latest_commit_message() == ""
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_log_between_returns_subjects(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="feat: one\nfix: two\n")
+        assert git.log_between("main", "feat/login") == "feat: one\nfix: two"
+        assert mock_run.call_args.args[0] == ["git", "log", "--format=%s", "main..feat/login"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_log_between_empty_when_base_missing(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: ambiguous")
+        assert git.log_between("nope", "feat/login") == ""
 
 
 class TestVerbose:
