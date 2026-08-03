@@ -7,11 +7,17 @@ import io
 import json
 import os
 import urllib.error
+import urllib.parse
 from unittest import mock
 
 import pytest
 
-from relay.github import GitHubClient, GitHubError, github_token
+from relay.github import (
+    DuplicatePullRequestError,
+    GitHubClient,
+    GitHubError,
+    github_token,
+)
 
 
 class TestGithubToken:
@@ -33,6 +39,202 @@ class TestPullsUrl:
         assert GitHubClient("acme", "widget").pulls_url == (
             "https://api.github.com/repos/acme/widget/pulls"
         )
+
+
+class TestFindOpenPr:
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_queries_pulls_with_owner_head_and_state(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = json.dumps(
+            [{"number": 9, "html_url": "https://github.com/acme/widget/pull/9"}]
+        ).encode()
+
+        client = GitHubClient("acme", "widget", token="secret")
+        result = client.find_open_pr(head="feat/login")
+
+        request = mock_urlopen.call_args.args[0]
+        assert request.get_method() == "GET"
+        assert request.get_header("Authorization") == "Bearer secret"
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)
+        assert query["head"] == ["acme:feat/login"]
+        assert query["state"] == ["open"]
+        assert result["number"] == 9
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_returns_none_when_no_open_pr(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
+        client = GitHubClient("acme", "widget", token="t")
+        assert client.find_open_pr(head="feat/login") is None
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_owner_head_uses_client_owner_by_default(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
+        client = GitHubClient("acme", "widget", token="t")
+        client.find_open_pr(head="feat/login")
+        query = urllib.parse.parse_qs(
+            urllib.parse.urlsplit(mock_urlopen.call_args.args[0].full_url).query
+        )
+        assert query["head"] == ["acme:feat/login"]
+
+    def test_raises_when_token_missing(self):
+        with mock.patch("relay.github.github_token", return_value=None):
+            client = GitHubClient("acme", "widget")
+            with pytest.raises(GitHubError) as exc_info:
+                client.find_open_pr(head="feat/login")
+        assert "GITHUB_TOKEN" in str(exc_info.value)
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_raises_with_status_on_http_error(self, mock_urlopen):
+        error = urllib.error.HTTPError(
+            "url", 401, "Unauthorized", {}, io.BytesIO(b'{"message":"bad creds"}')
+        )
+        mock_urlopen.side_effect = error
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError) as exc_info:
+            client.find_open_pr(head="feat/login")
+        assert exc_info.value.status == 401
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_strips_whitespace_from_head_and_owner(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
+        client = GitHubClient("acme", "widget", token="t")
+        client.find_open_pr(head="  feat/login  ", owner=" acme ")
+        query = urllib.parse.parse_qs(
+            urllib.parse.urlsplit(mock_urlopen.call_args.args[0].full_url).query
+        )
+        assert query["head"] == ["acme:feat/login"]
+
+
+class TestDuplicateFallback:
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_open_pull_raises_duplicate_error_on_422_already_exists(self, mock_urlopen):
+        body = json.dumps(
+            {
+                "message": "Validation Failed",
+                "errors": [
+                    {
+                        "resource": "PullRequest",
+                        "field": "head",
+                        "message": "A pull request already exists for acme:feat/login.",
+                    }
+                ],
+            }
+        )
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "url", 422, "Unprocessable Entity", {}, io.BytesIO(body.encode())
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(DuplicatePullRequestError) as exc_info:
+            client.open_pull(title="x", head="feat/login")
+        assert exc_info.value.status == 422
+        assert "already exists" in exc_info.value.body
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_open_pull_keeps_plain_error_for_other_422s(self, mock_urlopen):
+        body = json.dumps({"message": "Validation Failed", "errors": []})
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "url", 422, "Unprocessable Entity", {}, io.BytesIO(body.encode())
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError) as exc_info:
+            client.open_pull(title="x", head="feat/login")
+        assert type(exc_info.value) is GitHubError  # not the duplicate subclass
+        assert str(exc_info.value) == "GitHub API error 422: Validation Failed"
+        assert exc_info.value.reason == "Validation Failed"
+
+
+class TestErrorDetail:
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_top_level_message_is_surfaced(self, mock_urlopen):
+        body = json.dumps({"message": "No commits between main and fix/pr-bug-fix"})
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "url", 422, "Unprocessable Entity", {}, io.BytesIO(body.encode())
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError) as exc_info:
+            client.open_pull(title="x", head="fix/pr-bug-fix")
+
+        error = exc_info.value
+        assert str(error) == "GitHub API error 422: No commits between main and fix/pr-bug-fix"
+        assert error.reason == "No commits between main and fix/pr-bug-fix"
+        assert error.status == 422
+        assert error.payload == {"message": "No commits between main and fix/pr-bug-fix"}
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_errors_list_is_formatted_in_message(self, mock_urlopen):
+        body = json.dumps(
+            {
+                "message": "Validation Failed",
+                "errors": [{"message": "A pull request already exists for acme:feat/login."}],
+            }
+        )
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "url", 422, "Unprocessable Entity", {}, io.BytesIO(body.encode())
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError) as exc_info:
+            client.open_pull(title="x", head="feat/login")
+
+        error = exc_info.value
+        assert error.reason == (
+            "Validation Failed (A pull request already exists for acme:feat/login.)"
+        )
+        assert "Validation Failed (A pull request already exists for acme:feat/login.)" in str(error)
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_non_json_body_falls_back_to_raw_text(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "url", 500, "Internal Server Error", {}, io.BytesIO(b"oops")
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError) as exc_info:
+            client.open_pull(title="x", head="feat/login")
+
+        error = exc_info.value
+        assert str(error) == "GitHub API error 500: oops"
+        assert error.reason == "oops"
+        assert error.payload is None
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_duplicate_error_reason_exposed(self, mock_urlopen):
+        body = json.dumps(
+            {
+                "message": "Validation Failed",
+                "errors": [{"message": "A pull request already exists for acme:feat/login."}],
+            }
+        )
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "url", 422, "Unprocessable Entity", {}, io.BytesIO(body.encode())
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(DuplicatePullRequestError) as exc_info:
+            client.open_pull(title="x", head="feat/login")
+        assert exc_info.value.reason == (
+            "Validation Failed (A pull request already exists for acme:feat/login.)"
+        )
+        assert exc_info.value.payload == json.loads(body)
+
+
+class TestVerboseLogging:
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_prints_get_and_post_endpoints(self, mock_urlopen, capsys):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
+        client = GitHubClient("acme", "widget", token="t", verbose=True)
+        client.find_open_pr(head="feat/login")
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"{}"
+        client.open_pull(title="x", head="feat/login")
+
+        out = capsys.readouterr().out
+        assert "[relay] github GET" in out
+        assert "pulls?head=acme%3Afeat%2Flogin&state=open" in out
+        assert "[relay] github POST" in out
+        assert "repos/acme/widget/pulls" in out
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_does_not_log_when_quiet(self, mock_urlopen, capsys):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"{}"
+        client = GitHubClient("acme", "widget", token="t", verbose=False)
+        client.open_pull(title="x", head="feat/login")
+        assert capsys.readouterr().out == ""
 
 
 class TestOpenPull:

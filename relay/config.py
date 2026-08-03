@@ -72,3 +72,14 @@ def max_diff_lines() -> int:
         return int(os.environ.get("RELAY_MAX_DIFF_LINES", DEFAULT_MAX_DIFF_LINES))
     except ValueError:
         return DEFAULT_MAX_DIFF_LINES
+
+
+def pr_open_browser() -> bool:
+    """Whether ``relay pr`` should auto-open the PR in the default browser.
+
+    Honors a truthy ``RELAY_PR_OPEN`` env var (1/true/yes/on), so the behavior
+    can be enabled globally without repeating ``--open`` on every invocation.
+    """
+    return os.environ.get("RELAY_PR_OPEN", "").strip().lower() in (
+        "1", "true", "yes", "on",
+    )

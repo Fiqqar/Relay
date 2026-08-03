@@ -12,12 +12,32 @@ Title resolution order (first match wins):
 """
 from __future__ import annotations
 
+import webbrowser
+
 from .commit import sanitize_ai_message
 from .errors import RelayError
 from .git_manager import GitManager, parse_remote_url
-from .github import GitHubClient
+from .github import DuplicatePullRequestError, GitHubClient, GitHubError
 
 _PR_TITLE_MAX = 200
+
+
+def _pr_url(owner: str, repo: str, number) -> str:
+    return f"https://github.com/{owner}/{repo}/pull/{number}"
+
+
+def _exit_existing_pr(
+    client: GitHubClient, owner: str, repo: str, existing, open_browser: bool
+) -> int:
+    """Report an existing PR (or the best URL we can build) and stop gracefully."""
+    if existing is not None:
+        url = existing.get("html_url") or _pr_url(owner, repo, existing.get("number"))
+    else:
+        url = f"https://github.com/{owner}/{repo}/pulls"
+    print(f"[relay] PR already exists: {url}")
+    if open_browser:
+        webbrowser.open(url)
+    return 0
 
 
 def _resolve_title(
@@ -62,9 +82,15 @@ def run_pr(
     base: str = "main",
     title: str | None = None,
     provider=None,
+    open_browser: bool = False,
     verbose: bool = False,
 ) -> int:
-    """Open a PR for the current branch. Returns the process exit code."""
+    """Open a PR for the current branch. Returns the process exit code.
+
+    ``open_browser`` opens the PR URL (created or pre-existing) in the default
+    web browser via ``webbrowser``. The duplicate check happens up front, so a
+    branch that already has an open PR never triggers a fetch or an AI call.
+    """
     git = git or GitManager(verbose=verbose)
 
     if not git.is_repo():
@@ -84,6 +110,13 @@ def run_pr(
     if not head:
         raise RelayError("HEAD is detached; check out a branch before opening a PR")
 
+    client = GitHubClient(owner, repo, verbose=verbose)
+
+    # Anti-duplicate: an open PR for this head branch is a no-op, not a 422.
+    existing = client.find_open_pr(head=head)
+    if existing is not None:
+        return _exit_existing_pr(client, owner, repo, existing, open_browser)
+
     # Refresh the remote base so the body reflects commits GitHub actually knows
     # about, not a stale local branch. A failed fetch is fine — log_between()
     # then falls back to the local base ref.
@@ -92,12 +125,29 @@ def run_pr(
     pr_title = _resolve_title(git, title=title, provider=provider)
     body = _build_body(git, base=base, head=head)
 
-    client = GitHubClient(owner, repo)
-    created = client.open_pull(title=pr_title, head=head, base=base, body=body)
+    try:
+        created = client.open_pull(title=pr_title, head=head, base=base, body=body)
+    except DuplicatePullRequestError:
+        # Safety net: the GET above missed it (race, or a fork-owner head), but
+        # GitHub rejected the POST as a duplicate. Re-query and exit gracefully
+        # instead of surfacing a raw 422 to the user.
+        return _exit_existing_pr(
+            client, owner, repo, client.find_open_pr(head=head), open_browser
+        )
+    except GitHubError as exc:
+        if exc.status == 422:
+            # No commits between base and head, or the PR is already merged or
+            # closed: GitHub refused to create it. Report the exact reason
+            # instead of letting a cryptic 422 crash the workflow.
+            print(f"[relay] Cannot open PR: {exc.reason}")
+            return 1
+        raise
 
     number = created.get("number")
-    url = created.get("html_url") or f"https://github.com/{owner}/{repo}/pull/{number}"
+    url = created.get("html_url") or _pr_url(owner, repo, number)
     print(f"[relay] opened PR #{number}: {url}")
+    if open_browser:
+        webbrowser.open(url)
     return 0
 
 
