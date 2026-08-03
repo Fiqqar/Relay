@@ -51,6 +51,10 @@ Relay collapses this into a single decision-free command while keeping the devel
 
 Requires **Python 3.10+** and `git` on your `PATH`.
 
+```bash
+pip install git+[https://github.com/Fiqqar/Relay.git](https://github.com/Fiqqar/Relay.git)
+```
+
 **One-command install (recommended):** the bundled installer verifies the
 prerequisites, pip-installs Relay as a user-level editable package, and puts
 `relay` on your `PATH` for every new terminal (Windows, macOS, Linux).
