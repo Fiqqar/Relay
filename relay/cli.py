@@ -15,6 +15,7 @@ import sys
 
 from . import __version__
 from .ai import build_provider
+from .config import pr_open_browser
 from .doctor import run_doctor
 from .errors import RelayError, UserAbort
 from .orchestrator import Orchestrator
@@ -80,6 +81,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="base branch to merge into (default: main)")
     pr.add_argument("--title", metavar="TITLE",
                     help="PR title (default: latest commit message)")
+    pr.add_argument("-o", "--open", action="store_true",
+                    help="open the PR in the default web browser")
+    pr.add_argument("--yes", action="store_true",
+                    help="act without prompting (implies --open)")
     pr.add_argument("--verbose", action="store_true",
                     help="print the git commands being run")
     return parser
@@ -100,7 +105,12 @@ def main(argv: list[str] | None = None) -> int:
     # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
     try:
         if getattr(args, "command", None) == "pr":
-            return run_pr(base=args.base, title=args.title, verbose=args.verbose)
+            return run_pr(
+                base=args.base,
+                title=args.title,
+                open_browser=args.open or args.yes or pr_open_browser(),
+                verbose=args.verbose,
+            )
 
         # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
         # `--solo` / nothing leaves it None.

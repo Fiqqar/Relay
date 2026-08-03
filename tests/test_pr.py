@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 
 from relay.errors import RelayError
+from relay.github import DuplicatePullRequestError, GitHubError
 from relay.pr import run_pr
 
 
@@ -56,6 +57,7 @@ class FakeGit:
 @pytest.fixture
 def fake_client():
     with mock.patch("relay.pr.GitHubClient") as client_cls:
+        client_cls.return_value.find_open_pr.return_value = None
         client_cls.return_value.open_pull.return_value = {
             "number": 12,
             "html_url": "https://github.com/acme/widget/pull/12",
@@ -85,11 +87,11 @@ class TestRunPr:
 
     def test_owner_repo_parsed_from_ssh_remote(self, fake_client):
         run_pr(git=FakeGit(remote="git@github.com:owner/repo.git"))
-        fake_client.assert_called_once_with("owner", "repo")
+        fake_client.assert_called_once_with("owner", "repo", verbose=False)
 
     def test_owner_repo_parsed_from_https_remote(self, fake_client):
         run_pr(git=FakeGit(remote="https://github.com/acme/widget.git"))
-        fake_client.assert_called_once_with("acme", "widget")
+        fake_client.assert_called_once_with("acme", "widget", verbose=False)
 
     def test_body_lists_commits(self, fake_client):
         run_pr(git=FakeGit(log="feat: one\nfix: two"))
@@ -151,3 +153,112 @@ class TestRunPr:
     def test_non_github_remote_raises(self, fake_client):
         with pytest.raises(RelayError):
             run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"))
+
+
+class TestAntiDuplicate:
+    def test_queries_open_prs_for_head_branch(self, fake_client):
+        run_pr(git=FakeGit())
+        fake_client.return_value.find_open_pr.assert_called_once_with(head="feat/login")
+
+    def test_existing_pr_skips_creation_and_exits_zero(self, fake_client, capsys):
+        fake_client.return_value.find_open_pr.return_value = {
+            "number": 9,
+            "html_url": "https://github.com/acme/widget/pull/9",
+        }
+        assert run_pr(git=FakeGit()) == 0
+        fake_client.return_value.open_pull.assert_not_called()
+        out = capsys.readouterr().out
+        assert "PR already exists" in out
+        assert "acme/widget/pull/9" in out
+
+    def test_existing_pr_opens_browser_when_requested(self, fake_client):
+        fake_client.return_value.find_open_pr.return_value = {
+            "number": 9,
+            "html_url": "https://github.com/acme/widget/pull/9",
+        }
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            run_pr(git=FakeGit(), open_browser=True)
+        browser.assert_called_once_with("https://github.com/acme/widget/pull/9")
+
+
+class TestDuplicate422SafetyNet:
+    def test_post_422_recovers_and_reports_existing_pr(self, fake_client, capsys):
+        # The GET missed it (returns None), but the POST is rejected as a duplicate.
+        find = fake_client.return_value.find_open_pr
+        find.side_effect = [None, {"number": 9, "html_url": "https://github.com/acme/widget/pull/9"}]
+        fake_client.return_value.open_pull.side_effect = DuplicatePullRequestError(
+            "a pull request already exists", status=422, body="already exists"
+        )
+
+        assert run_pr(git=FakeGit()) == 0
+        assert find.call_count == 2
+        assert "PR already exists: https://github.com/acme/widget/pull/9" in capsys.readouterr().out
+
+    def test_post_422_opens_browser_for_existing_pr(self, fake_client):
+        find = fake_client.return_value.find_open_pr
+        find.side_effect = [None, {"html_url": "https://github.com/acme/widget/pull/9"}]
+        fake_client.return_value.open_pull.side_effect = DuplicatePullRequestError(
+            "already exists", status=422
+        )
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            run_pr(git=FakeGit(), open_browser=True)
+        browser.assert_called_once_with("https://github.com/acme/widget/pull/9")
+
+    def test_post_422_without_lookup_result_falls_back_to_pulls_page(self, fake_client, capsys):
+        find = fake_client.return_value.find_open_pr
+        find.side_effect = [None, None]  # GET missed it AND the re-query finds nothing
+        fake_client.return_value.open_pull.side_effect = DuplicatePullRequestError(
+            "already exists", status=422
+        )
+        assert run_pr(git=FakeGit()) == 0
+        assert "PR already exists: https://github.com/acme/widget/pulls" in capsys.readouterr().out
+
+    def test_post_422_uses_git_verbose_for_client(self, fake_client):
+        fake_client.return_value.find_open_pr.return_value = None
+        fake_client.return_value.open_pull.return_value = {
+            "number": 12,
+            "html_url": "https://github.com/acme/widget/pull/12",
+        }
+        run_pr(git=FakeGit(), verbose=True)
+        fake_client.assert_called_once_with("acme", "widget", verbose=True)
+
+
+class TestCannotOpenPr:
+    def test_no_commits_422_prints_reason_and_exits_nonzero(self, fake_client, capsys):
+        fake_client.return_value.open_pull.side_effect = GitHubError(
+            "GitHub API error 422: No commits between main and dev",
+            status=422,
+            payload={"message": "No commits between main and dev"},
+            detail="No commits between main and dev",
+        )
+        assert run_pr(git=FakeGit()) == 1
+        assert "[relay] Cannot open PR: No commits between main and dev" in capsys.readouterr().out
+
+    def test_merged_or_closed_422_prints_reason(self, fake_client, capsys):
+        fake_client.return_value.open_pull.side_effect = GitHubError(
+            "GitHub API error 422: Validation Failed",
+            status=422,
+            payload={"message": "Validation Failed"},
+            detail="Validation Failed",
+        )
+        assert run_pr(git=FakeGit()) == 1
+        assert "[relay] Cannot open PR: Validation Failed" in capsys.readouterr().out
+
+    def test_non_422_errors_propagate(self, fake_client):
+        fake_client.return_value.open_pull.side_effect = GitHubError(
+            "GitHub API error 500: boom", status=500, payload=None, detail="boom"
+        )
+        with pytest.raises(GitHubError):
+            run_pr(git=FakeGit())
+
+
+class TestOpenBrowser:
+    def test_created_pr_opens_browser_when_requested(self, fake_client):
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            run_pr(git=FakeGit(), open_browser=True)
+        browser.assert_called_once_with("https://github.com/acme/widget/pull/12")
+
+    def test_created_pr_does_not_open_browser_by_default(self, fake_client):
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            run_pr(git=FakeGit())
+        browser.assert_not_called()

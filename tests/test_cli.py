@@ -1,5 +1,6 @@
 """Unit tests for the CLI entry point (relay/cli.py): flag parsing, mode
 resolution, and exit-code mapping."""
+import os
 from unittest import mock
 
 import pytest
@@ -56,6 +57,14 @@ class TestPrSubcommand:
         args = build_parser().parse_args(["pr", "--verbose"])
         assert args.verbose is True
 
+    def test_pr_parses_open_flag(self):
+        assert build_parser().parse_args(["pr", "--open"]).open is True
+        assert build_parser().parse_args(["pr", "-o"]).open is True
+        assert build_parser().parse_args(["pr"]).open is False
+
+    def test_pr_parses_yes_flag(self):
+        assert build_parser().parse_args(["pr", "--yes"]).yes is True
+
     def test_pr_flag_named_team_is_not_a_subcommand(self):
         args = build_parser().parse_args(["--team", "pr"])
         assert args.command is None
@@ -64,12 +73,38 @@ class TestPrSubcommand:
     def test_main_routes_pr_and_propagates_exit_code(self):
         with mock.patch("relay.cli.run_pr", return_value=3) as run:
             assert main(["pr"]) == 3
-        run.assert_called_once_with(base="main", title=None, verbose=False)
+        run.assert_called_once_with(
+            base="main", title=None, open_browser=False, verbose=False
+        )
 
     def test_main_forwards_pr_flags(self):
         with mock.patch("relay.cli.run_pr", return_value=0) as run:
             main(["pr", "--base", "develop", "--title", "T", "--verbose"])
-        run.assert_called_once_with(base="develop", title="T", verbose=True)
+        run.assert_called_once_with(
+            base="develop", title="T", open_browser=False, verbose=True
+        )
+
+    def test_main_open_flag_enables_browser(self):
+        with mock.patch("relay.cli.run_pr", return_value=0) as run:
+            main(["pr", "--open"])
+        assert run.call_args.kwargs["open_browser"] is True
+
+    def test_main_yes_implies_open(self):
+        with mock.patch("relay.cli.run_pr", return_value=0) as run:
+            main(["pr", "--yes"])
+        assert run.call_args.kwargs["open_browser"] is True
+
+    def test_main_env_var_enables_open(self):
+        with mock.patch.dict(os.environ, {"RELAY_PR_OPEN": "1"}):
+            with mock.patch("relay.cli.run_pr", return_value=0) as run:
+                main(["pr"])
+        assert run.call_args.kwargs["open_browser"] is True
+
+    def test_main_env_var_off_by_default(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with mock.patch("relay.cli.run_pr", return_value=0) as run:
+                main(["pr"])
+        assert run.call_args.kwargs["open_browser"] is False
 
     def test_pr_error_maps_to_exit_1(self):
         with mock.patch("relay.cli.run_pr", side_effect=GitError("boom")):
