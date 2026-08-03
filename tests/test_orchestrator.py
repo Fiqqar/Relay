@@ -200,8 +200,8 @@ def test_team_mode_creates_branch_and_pushes_upstream(mock_input, git):
         git, provider=ai, mode="team", feature="payments", no_push=False
     ).run()
     assert code == 0
-    git.create_branch.assert_called_once_with("status/payments")
-    git.push.assert_called_once_with("status/payments", set_upstream=True)
+    git.create_branch.assert_called_once_with("feat/payments")
+    git.push.assert_called_once_with("feat/payments", set_upstream=True)
 
 
 @mock.patch("builtins.input", return_value="feat: derived")
@@ -210,8 +210,39 @@ def test_team_feature_derived_from_current_branch(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, mode="team", no_push=False).run()
     assert code == 0
-    git.create_branch.assert_called_once_with("status/payments")
-    git.push.assert_called_once_with("status/payments", set_upstream=True)
+    git.create_branch.assert_called_once_with("feat/payments")
+    git.push.assert_called_once_with("feat/payments", set_upstream=True)
+
+
+@mock.patch("builtins.input", side_effect=["a"])
+def test_team_branch_uses_commit_type_from_ai_message(mock_input, git):
+    ai = StubAI(responses=["fix(api): correct validation"])
+    code = make_orchestrator(
+        git, provider=ai, mode="team", feature="payments", no_push=True
+    ).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("fix/payments")
+    git.commit.assert_called_once_with("fix(api): correct validation")
+
+
+@mock.patch("builtins.input", return_value="WIP stuff")
+def test_team_branch_falls_back_to_feat_for_non_conventional_message(mock_input, git):
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(
+        git, provider=ai, mode="team", feature="payments", no_push=True
+    ).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("feat/payments")
+
+
+@mock.patch("builtins.input", side_effect=["a"])
+def test_team_branch_uses_docs_type_from_ai_message(mock_input, git):
+    ai = StubAI(responses=["docs(readme): clarify install"])
+    code = make_orchestrator(
+        git, provider=ai, mode="team", feature="setup", no_push=True
+    ).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("docs/setup")
 
 
 @mock.patch("builtins.input", return_value="fix: push fails but commit stays")

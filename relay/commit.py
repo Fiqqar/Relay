@@ -53,13 +53,31 @@ def validate_conventional(message: str):
     return True, ""
 
 
-def build_branch_name(template: str, feature: str) -> str:
-    """Expand a template like ``status/<feature>`` into a valid git ref name.
+def extract_commit_type(message: str) -> str | None:
+    """Extract the Conventional Commit type prefix from a message.
 
-    Sanitizes the feature so it can never produce an illegal ref: lowercase,
-    whitespace -> '-', strip dangerous chars, drop '.' / '..' path segments,
-    cap length. The result is still run through `git checkout -b`, which is
-    git's final authority.
+    ``feat(auth): add login`` -> ``feat``, ``fix: correct validation`` ->
+    ``fix``. Returns None when the first line has no valid type, so callers can
+    fall back to a default.
+    """
+    first_line = message.strip().splitlines()[0] if message.strip() else ""
+    match = _CONVENTIONAL_RE.match(first_line)
+    if not match:
+        return None
+    commit_type = match.group("type").lower()
+    return commit_type if commit_type in CONVENTIONAL_TYPES else None
+
+
+def build_branch_name(template: str, feature: str, commit_type: str = "feat") -> str:
+    """Expand a template like ``<type>/<feature>`` into a valid git ref name.
+
+    ``<feature>`` is required; ``<type>`` (defaults to ``feat``) is used only
+    when the template contains the placeholder, so legacy templates such as
+    ``status/<feature>`` keep working unchanged. Sanitizes the feature (and the
+    type) so neither can produce an illegal ref: lowercase, whitespace -> '-',
+    strip dangerous chars, drop '.' / '..' path segments, cap length. The
+    result is still run through `git checkout -b`, which is git's final
+    authority.
     """
     slug = feature.strip().lower()
     # Anything that is not word/period/underscore/slash/dash becomes a dash.
@@ -70,4 +88,6 @@ def build_branch_name(template: str, feature: str) -> str:
     slug = "/".join(parts).strip(".-")[:100]
     if not slug:
         raise ValueError("feature name is empty after sanitization")
-    return template.replace("<feature>", slug)
+
+    prefix = re.sub(r"[^a-z0-9]", "-", commit_type.strip().lower()) or "feat"
+    return template.replace("<type>", prefix).replace("<feature>", slug)

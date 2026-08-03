@@ -5,6 +5,7 @@ import pytest
 from relay.commit import (
     CONVENTIONAL_TYPES,
     build_branch_name,
+    extract_commit_type,
     sanitize_ai_message,
     validate_conventional,
 )
@@ -85,9 +86,73 @@ class TestValidateConventional:
             assert valid, f"type {commit_type!r} should validate"
 
 
+class TestExtractCommitType:
+    @pytest.mark.parametrize(
+        "message, expected",
+        [
+            ("feat: add login", "feat"),
+            ("feat(auth): add login", "feat"),
+            ("fix: correct validation", "fix"),
+            ("docs(readme): clarify install", "docs"),
+            ("refactor(api): split handler", "refactor"),
+            ("style: format code", "style"),
+            ("test(unit): cover fallback", "test"),
+            ("chore: bump deps", "chore"),
+            ("feat(api)!: breaking change", "feat"),
+        ],
+    )
+    def test_extracts_valid_types(self, message, expected):
+        assert extract_commit_type(message) == expected
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "",
+            "   ",
+            "no type here",
+            "wip stuff",
+            "bogus: not a known type",
+            "feat(auth",
+            "feat",
+            "feat:",
+        ],
+    )
+    def test_returns_none_for_invalid_messages(self, message):
+        assert extract_commit_type(message) is None
+
+    def test_multiline_message_uses_first_line(self):
+        assert extract_commit_type("feat(api): add login\n\nBody") == "feat"
+
+    def test_all_supported_types_are_extracted(self):
+        for commit_type in CONVENTIONAL_TYPES:
+            assert extract_commit_type(f"{commit_type}: something") == commit_type
+
+
 class TestBuildBranchName:
     def test_basic_template_expansion(self):
         assert build_branch_name("status/<feature>", "payments") == "status/payments"
+
+    def test_type_placeholder_uses_commit_type(self):
+        assert build_branch_name("<type>/<feature>", "payments", commit_type="fix") == "fix/payments"
+        assert build_branch_name("<type>/<feature>", "payments", commit_type="docs") == "docs/payments"
+
+    def test_type_placeholder_defaults_to_feat(self):
+        assert build_branch_name("<type>/<feature>", "payments") == "feat/payments"
+
+    def test_type_placeholder_with_feature_slug(self):
+        assert (
+            build_branch_name("<type>/<feature>", "Prompt Fix Test", commit_type="fix")
+            == "fix/prompt-fix-test"
+        )
+
+    def test_template_without_type_placeholder_ignores_commit_type(self):
+        assert (
+            build_branch_name("status/<feature>", "payments", commit_type="feat")
+            == "status/payments"
+        )
+
+    def test_commit_type_is_sanitized(self):
+        assert build_branch_name("<type>/<feature>", "payments", commit_type="Bug Fix") == "bug-fix/payments"
 
     def test_uppercase_and_spaces_are_slugified(self):
         assert build_branch_name("status/<feature>", "Payments API") == "status/payments-api"

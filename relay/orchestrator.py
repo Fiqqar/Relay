@@ -11,7 +11,13 @@ never leave the developer stranded.
 """
 from __future__ import annotations
 
-from .commit import build_branch_name, sanitize_ai_message, validate_conventional
+from .commit import (
+    build_branch_name,
+    extract_commit_type,
+    sanitize_ai_message,
+    validate_conventional,
+)
+from .config import DEFAULT_BRANCH_TEMPLATE
 from .errors import AIError, GitError, UserAbort
 from .git_manager import GitManager
 from .prompt import CONFIRM_PROMPT, interpret_choice
@@ -29,7 +35,7 @@ class Orchestrator:
         no_push: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
-        branch_template: str = "status/<feature>",
+        branch_template: str = DEFAULT_BRANCH_TEMPLATE,
     ):
         self.mode = mode
         self.feature = feature
@@ -57,14 +63,16 @@ class Orchestrator:
 
         branch = self.git.current_branch()
 
+        # GENERATE (with built-in fallback to manual input). The message is
+        # produced BEFORE the team branch name is resolved, because the branch
+        # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
+        message = self._obtain_message(diff, stat, branch)
+
         # Resolve the team-mode branch name BEFORE any mutation so --dry-run
         # can report the plan without creating the branch.
         team_branch = None
         if self.mode == "team":
-            team_branch = self._resolve_team_branch_name()
-
-        # GENERATE (with built-in fallback to manual input).
-        message = self._obtain_message(diff, stat, branch)
+            team_branch = self._resolve_team_branch_name(message)
 
         if self.dry_run:
             target = team_branch if self.mode == "team" else branch
@@ -162,12 +170,18 @@ class Orchestrator:
             raise UserAbort("aborted - no commit message provided")
         return message
 
-    def _resolve_team_branch_name(self) -> str:
-        """Feature-name precedence: --team <name> > prompt > current branch."""
+    def _resolve_team_branch_name(self, message: str) -> str:
+        """Feature-name precedence: --team <name> > prompt > current branch.
+
+        The branch prefix is the Conventional Commit type extracted from the
+        (already confirmed) message — ``feat(auth): ...`` -> ``feat/...`` —
+        falling back to ``feat/...`` when the message has no valid type.
+        """
         feature = self.feature
         if not feature:
             current = self.git.current_branch()
             feature = current.split("/")[-1] if current else None
             if not feature:
                 feature = input("Feature name (for branch): ").strip()
-        return build_branch_name(self.branch_template, feature)
+        commit_type = extract_commit_type(message) or "feat"
+        return build_branch_name(self.branch_template, feature, commit_type=commit_type)
