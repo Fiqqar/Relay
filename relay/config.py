@@ -13,7 +13,7 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-DEFAULT_BRANCH_TEMPLATE = "status/<feature>"
+DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
 
 # Performance knobs: keep the diff payload small and give the LLM a realistic
 # window to respond. 30s is enough for normal network conditions (and large

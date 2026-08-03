@@ -3,7 +3,7 @@
 Usage:
     relay                      # solo mode (default)
     relay --solo               # explicit solo
-    relay --team payments      # team mode -> branch status/payments
+    relay --team payments      # team mode -> branch feat/payments (type from AI)
     relay --team               # team mode, feature derived/prompted
     relay --provider ollama    # override the AI provider
     relay --dry-run --yes      # show the plan, change nothing
@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         const="",
         metavar="FEATURE",
-        help="create & checkout status/<feature>, commit, and push it (feature optional)",
+        help="create & checkout <type>/<feature>, commit, and push it (feature optional)",
     )
 
     parser.add_argument("--provider", choices=["gemini", "ollama"],
