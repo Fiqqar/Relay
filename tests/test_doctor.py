@@ -37,9 +37,11 @@ def healthy_env():
     ), mock.patch("relay.doctor.shutil.which", side_effect=lambda name: {
         "relay": r"C:\tools\Scripts\relay.exe",
         "git": r"C:\tools\git.exe",
-    }.get(name)), mock.patch(
+    }.get(name)    ), mock.patch(
         "relay.doctor.provider_from_env", return_value="gemini"
-    ), mock.patch("relay.doctor.gemini_api_key", return_value="test-key"):
+    ), mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), mock.patch(
+        "relay.doctor.github_token", return_value="test-token"
+    ):
         yield
 
 
@@ -95,6 +97,19 @@ def test_unknown_provider_warns(healthy_env, capsys):
     with mock.patch("relay.doctor.provider_from_env", return_value="wat"):
         assert run_doctor() == 0  # warn only, not a hard failure
     assert "unknown provider" in capsys.readouterr().out
+
+
+def test_github_token_set_passes(healthy_env, capsys):
+    assert run_doctor() == 0
+    assert "GITHUB_TOKEN is set" in capsys.readouterr().out
+
+
+def test_github_token_missing_warns_but_passes(healthy_env, capsys):
+    with mock.patch("relay.doctor.github_token", return_value=None):
+        assert run_doctor() == 0  # a missing token is a warn, not a failure
+    out = capsys.readouterr().out
+    assert "GITHUB_TOKEN is not set" in out
+    assert "WARN" in out
 
 
 def test_provider_override_flag(healthy_env):

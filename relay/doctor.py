@@ -23,6 +23,7 @@ from .config import (
     provider_from_env,
 )
 from .git_manager import GitManager
+from .github import github_token
 
 _MARKS = {"ok": "PASS", "warn": "WARN", "fail": "FAIL", "skip": "SKIP"}
 
@@ -87,6 +88,7 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         Check("inside a git repo", "skip", ""),
         Check(f"provider: {chosen}", "skip", ""),
         Check("AI credentials", "skip", ""),
+        Check("GitHub token", "skip", ""),
     ]
 
     # relay on PATH
@@ -135,6 +137,15 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
             reachable, detail = _ollama_reachable(base)
             checks[5].status = "ok" if reachable else "warn"
             checks[5].detail = detail
+
+    # GitHub token for `relay pr`. Missing is a warning, not a failure, since
+    # `relay pr` is an optional part of the workflow.
+    if github_token():
+        checks[6].status = "ok"
+        checks[6].detail = "GITHUB_TOKEN is set"
+    else:
+        checks[6].status = "warn"
+        checks[6].detail = "GITHUB_TOKEN is not set; `relay pr` cannot open pull requests"
 
     # ---- report -----------------------------------------------------------
     print(f"[relay doctor] Relay {__version__} - {chosen} provider")
