@@ -14,6 +14,7 @@ from __future__ import annotations
 from .commit import build_branch_name, sanitize_ai_message, validate_conventional
 from .errors import AIError, GitError, UserAbort
 from .git_manager import GitManager
+from .prompt import CONFIRM_PROMPT, interpret_choice
 
 
 class Orchestrator:
@@ -140,12 +141,12 @@ class Orchestrator:
             # Confirmation gate (skippable with --yes).
             if self.yes:
                 return message
-            choice = input("[Accept] [Edit] [Retry] [Abort] (a/e/r/A): ").strip().lower()
-            if choice in ("", "a", "accept"):
+            action = interpret_choice(input(CONFIRM_PROMPT))
+            if action == "accept":
                 return message
-            if choice in ("e", "edit"):
+            if action == "edit":
                 return self._manual_input()
-            if choice in ("r", "retry") and attempts < 3:
+            if action == "retry" and attempts < 3:
                 print("[relay] regenerating...")
                 continue
             raise UserAbort("workflow aborted by user")
