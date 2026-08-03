@@ -140,6 +140,48 @@ def test_unknown_confirm_choice_aborts(mock_input, git):
     git.commit.assert_not_called()
 
 
+@mock.patch("builtins.input", return_value="a")
+def test_lowercase_a_accepts(mock_input, git):
+    ai = StubAI(responses=["feat(api): add login"])
+    code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    git.commit.assert_called_once_with("feat(api): add login")
+
+
+@mock.patch("builtins.input", return_value="A")
+def test_uppercase_a_aborts_without_committing(mock_input, git):
+    # Regression: Shift+A used to be lowercased to "a" and accidentally commit.
+    ai = StubAI(responses=["feat(api): add login"])
+    with pytest.raises(UserAbort):
+        make_orchestrator(git, provider=ai).run()
+    git.commit.assert_not_called()
+
+
+@mock.patch("builtins.input", return_value="")
+def test_enter_at_confirmation_aborts(mock_input, git):
+    # Empty input aborts (Abort is the capitalized default); it must NOT accept.
+    ai = StubAI(responses=["feat(api): add login"])
+    with pytest.raises(UserAbort):
+        make_orchestrator(git, provider=ai).run()
+    git.commit.assert_not_called()
+
+
+@mock.patch("builtins.input", return_value="y")
+def test_yes_accepts(mock_input, git):
+    ai = StubAI(responses=["feat(api): add login"])
+    code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    git.commit.assert_called_once_with("feat(api): add login")
+
+
+@mock.patch("builtins.input", return_value="q")
+def test_q_aborts_without_committing(mock_input, git):
+    ai = StubAI(responses=["feat(api): add login"])
+    with pytest.raises(UserAbort):
+        make_orchestrator(git, provider=ai).run()
+    git.commit.assert_not_called()
+
+
 # ---- Modes and push ----------------------------------------------------------
 
 
