@@ -1,11 +1,16 @@
 # Relay
 
+<!-- Badges -->
+[![GitHub Developer Program](https://img.shields.io/badge/GitHub-Developer_Program-2ea44f?style=for-the-badge&logo=github)](https://github.com/settings/developer-program)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-success?style=for-the-badge)](./pyproject.toml)
+
 **Your Git workflow, on autopilot.**
 
-One command. From a messy working tree to a clean, AI-authored **Conventional Commit**, pushed and done - in Solo or Team mode.
+One command. From a messy working tree to a clean, AI-authored **Conventional Commit**, pushed, and instantly opened as a Pull Request - in Solo or Team mode.
 
 ```
-git add .  →  generate commit message  →  git commit  →  git push
+git add .  →  generate commit message  →  git commit  →  git push  →  open PR
 ```
 
 Relay reads your staged diff, hands it to an LLM (local **Ollama** or **Gemini API**), and returns a standards-compliant Conventional Commit message. If the AI is down, rate-limited, or offline, Relay never blocks your flow — it drops you straight into a manual commit-message prompt in the same terminal, and continues the workflow from there.
@@ -27,7 +32,7 @@ Relay reads your staged diff, hands it to an LLM (local **Ollama** or **Gemini A
 
 ## Why Relay
 
-Daily Git work is repetitive and context-switching: stage files, invent a commit message, push, and (in teams) carefully manage branch names. Commit messages are often lazy, inconsistent, or convention-free — which pollutes history and hurts `git bisect`, changelog generation, and code review.
+Daily Git work is repetitive and context-switching: stage files, invent a commit message, push, open a browser, and create a Pull Request. Commit messages are often lazy, inconsistent, or convention-free — which pollutes history and hurts `git bisect`, changelog generation, and code review.
 
 Relay collapses this into a single decision-free command while keeping the developer in control at every meaningful checkpoint.
 
@@ -35,6 +40,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 
 - **Solo mode** — stage all, generate message, commit, push to the current branch.
 - **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `status/<feature>`), push that branch.
+- **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`).
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
@@ -75,26 +81,25 @@ Distribution via Homebrew / Scoop / GitHub Releases is planned.
 # 0. (Optional but useful) verify the install in a fresh terminal
 relay doctor
 
-# 1. Configure your AI key (once)
-set GEMINI_API_KEY=your_key              # Windows cmd
-$env:GEMINI_API_KEY="your_key"           # PowerShell
-export GEMINI_API_KEY=your_key           # macOS / Linux
+# 1. Configure your API keys (once)
+set GEMINI_API_KEY=your_key              # Windows cmd (for commit generation)
+set GITHUB_TOKEN=ghp_your_token          # Windows cmd (for GitHub PR)
 
 # 2. Run the workflow
 relay --solo                     # stage, commit, push to the current branch
 relay --team "payments"          # new branch status/payments, commit, push
 
-# AI is down / offline? Relay drops you into a manual message prompt and continues.
+# 3. Open a Pull Request natively
+relay pr                         # opens a PR from current branch to main
 ```
 
 ### `relay doctor`
 
 A read-only self-diagnostic. It checks that Python/git are available, that the
 `relay` script is reachable on your `PATH`, that the current directory is a git
-work tree, and that your AI provider's credentials are configured. Exits `0`
-when everything is healthy and `1` when a fix is needed.
+work tree, and that your AI provider and GitHub tokens are configured.
 
-```
+```text
 $ relay doctor
 [relay doctor] Relay 0.1.0 - gemini provider
 
@@ -104,17 +109,16 @@ $ relay doctor
   inside a git repo  PASS   branch: main, remote: yes, working tree: clean
   provider: gemini   PASS   Gemini API
   AI credentials     FAIL   GEMINI_API_KEY is not set; see `relay --help`
+  GitHub token       WARN   GITHUB_TOKEN is not set; `relay pr` cannot open pull requests
 
-  4 pass, 1 warn, 1 fail - 1 issue(s) need fixing.
+  5 pass, 1 warn, 1 fail - 1 issue(s) need fixing.
 ```
 
-Use `relay doctor --provider ollama` to check the Ollama provider instead
-(which verifies that the local Ollama server is reachable).
+### Commands & Flags
 
-### Flags
-
-| Flag | Description |
+| Command / Flag | Description |
 | --- | --- |
+| `pr` | Open a GitHub Pull Request for the current branch (`--base`, `--title`). |
 | `doctor` | Diagnose this installation (PATH, git, AI credentials). |
 | `--solo` | Stage, commit and push to the current branch (default). |
 | `--team [FEATURE]` | Create & checkout `status/<feature>`, commit, push it (feature optional). |
@@ -133,6 +137,7 @@ Relay is configured entirely through **environment variables** — no config fil
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Gemini API key (**required** when provider is `gemini`) | — |
+| `GITHUB_TOKEN` | GitHub Personal Access Token (for `relay pr`) | — |
 | `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash` |
 | `OLLAMA_BASE_URL` | Ollama server endpoint | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Ollama model id | `qwen2.5-coder:7b` |
@@ -150,7 +155,7 @@ The `--provider` flag overrides `RELAY_AI_PROVIDER`; `--timeout` overrides `RELA
 
 Developers repeat a tedious, error-prone Git loop multiple times per day. Common pain points:
 
-1. **Context switching** — staging, message writing, branch admin, and pushing are separate mental tasks.
+1. **Context switching** — staging, message writing, branch admin, pushing, and opening PRs are separate mental tasks.
 2. **Low-quality messages** — "wip", "fix stuff", and convention-free messages degrade history.
 3. **Manual branch discipline** — team members forget or misname feature branches.
 4. **AI adoption friction** — AI tools that fail hard (block the flow) when the model is unreachable are worse than none.
@@ -166,7 +171,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 ### 3. Non-Goals (v1)
 
 - No partial staging / interactive hunk selection — always `git add .`.
-- No CI/CD integration, no PR creation, no changelog generation.
+- No CI/CD integration, no changelog generation.
 - No commit signing flows beyond what `git` supports natively (pass-through).
 - No support for git LFS, submodules, or exotic custom hooks handling.
 - No multi-provider routing/failover beyond a single configured provider + manual fallback.
@@ -196,6 +201,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | FR-13 | Handle push rejection (non-fast-forward) with actionable guidance (`pull --rebase`). | P1 |
 | FR-14 | Truncate very large diffs to the provider's token budget and report truncation. | P2 |
 | FR-15 | Provide `--verbose` command logging. (`relay doctor` deferred.) | P2 |
+| FR-16 | Provide `relay pr` to create GitHub Pull Requests via GitHub REST API without third-party dependencies. | P1 |
 
 ### 6. Non-Functional Requirements
 
@@ -223,14 +229,14 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | **M0 — MVP** | CLI, solo + team modes, manual commit input, preflight, push. | `relay` completes both modes with zero AI dependency. | ✅ done |
 | **M1 — Ollama** | Ollama provider, diff collection, message validation, confirm step. | AI messages with a local model; fallback proven via forced failure. | ✅ done |
 | **M2 — Gemini** | Gemini provider, env-var config. | Gemini selectable; keys never logged. | ✅ done |
-| **M3 — Polish** | `--dry-run`, `--yes`, diff truncation, hooks handling, `relay doctor`, CI + tests + release. | Full feature set; package published for 3 platforms. | in progress |
+| **M3 — Polish** | `--dry-run`, `--yes`, diff truncation, hooks handling, `relay doctor`, GitHub PR automation (`relay pr`). | Full feature set; package published for 3 platforms. | in progress |
 
 ## Roadmap
 
 - v0.1 — current Python implementation (solo + team, Gemini + Ollama, manual fallback).
-- v0.2 — diff truncation (FR-14), `relay doctor`, CI + pytest suite, release builds.
+- v0.2 — diff truncation (FR-14), `relay doctor`, GitHub PR creation (`relay pr`), CI + pytest suite, release builds.
 - v1.0 — GA: stable config (TOML file), telemetry opt-in, man pages / shell completions.
-- Later — GitHub/GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, llama.cpp), team default-branch safety rules.
+- Later — GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, llama.cpp), team default-branch safety rules.
 
 ## Documentation
 
