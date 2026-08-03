@@ -176,3 +176,16 @@ class GitManager:
             cmd.append("-u")
         cmd += ["origin", branch]
         self._run(*cmd)
+
+    def fetch(self, remote: str = "origin", ref: str = "", check: bool = True) -> None:
+        """Fetch ``ref`` from ``remote`` into the local refs.
+
+        A best-effort sync so PR helpers can compare against the *remote* state
+        (e.g. ``origin/main``) instead of a possibly-stale local branch. Callers
+        that tolerate an offline network should pass ``check=False`` — a failed
+        fetch falls back to whatever refs are already present.
+        """
+        cmd = ["fetch", remote]
+        if ref:
+            cmd.append(ref)
+        self._run(*cmd, check=check)
