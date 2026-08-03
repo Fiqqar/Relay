@@ -23,6 +23,8 @@ class FakeGit:
         self._branch = branch
         self._commit = commit
         self._log = log
+        self.fetch_calls = []
+        self.log_calls = []
 
     def is_repo(self):
         return self._is_repo
@@ -37,6 +39,7 @@ class FakeGit:
         return self._commit
 
     def log_between(self, base, head):
+        self.log_calls.append((base, head))
         return self._log
 
     def staged_diff(self):
@@ -44,6 +47,10 @@ class FakeGit:
 
     def staged_stat(self):
         return " 1 file changed\n"
+
+    def fetch(self, remote, ref="", check=True):
+        self.fetch_calls.append((remote, ref, check))
+        return None
 
 
 @pytest.fixture
@@ -89,6 +96,28 @@ class TestRunPr:
         body = fake_client.return_value.open_pull.call_args.kwargs["body"]
         assert "- feat: one" in body
         assert "- fix: two" in body
+
+    def test_body_compares_against_remote_base(self, fake_client):
+        git = FakeGit()
+        run_pr(git=git)
+        assert git.log_calls == [("origin/main", "feat/login")]
+        body = fake_client.return_value.open_pull.call_args.kwargs["body"]
+        assert "origin/main" in body
+
+    def test_body_uses_custom_remote_base(self, fake_client):
+        git = FakeGit()
+        run_pr(git=git, base="develop")
+        assert git.log_calls == [("origin/develop", "feat/login")]
+
+    def test_fetches_base_before_building_body(self, fake_client):
+        git = FakeGit()
+        run_pr(git=git)
+        assert ("origin", "main", False) in git.fetch_calls
+
+    def test_fetch_uses_custom_base(self, fake_client):
+        git = FakeGit()
+        run_pr(git=git, base="develop")
+        assert ("origin", "develop", False) in git.fetch_calls
 
     def test_ai_title_when_no_commit(self, fake_client):
         class FakeProvider:

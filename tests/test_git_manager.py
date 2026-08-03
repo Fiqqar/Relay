@@ -116,6 +116,29 @@ class TestMutations:
         git.push("status/payments", set_upstream=True)
         assert mock_run.call_args.args[0] == ["git", "push", "-u", "origin", "status/payments"]
 
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_fetch_remote_and_ref(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.fetch("origin", "main")
+        assert mock_run.call_args.args[0] == ["git", "fetch", "origin", "main"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_fetch_defaults_to_origin_no_ref(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.fetch()
+        assert mock_run.call_args.args[0] == ["git", "fetch", "origin"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_fetch_with_check_false_ignores_errors(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="couldn't resolve host")
+        git.fetch("origin", "main", check=False)  # must not raise
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_fetch_with_check_true_raises_on_error(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="couldn't resolve host")
+        with pytest.raises(GitError):
+            git.fetch("origin", "main")
+
 
 class TestParseRemoteUrl:
     @pytest.mark.parametrize(

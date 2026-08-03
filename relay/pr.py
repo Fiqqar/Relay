@@ -42,11 +42,16 @@ def _resolve_title(
 
 
 def _build_body(git: GitManager, *, base: str, head: str) -> str:
-    """A short markdown body listing the commits on ``head`` since ``base``."""
-    subjects = git.log_between(base, head)
+    """A short markdown body listing the commits on ``head`` since the remote base.
+
+    Compares against ``origin/{base}`` (refreshed by ``run_pr`` via fetch) so a
+    stale local base branch cannot make the body list already-merged commits.
+    """
+    remote_base = f"origin/{base}"
+    subjects = git.log_between(remote_base, head)
     if not subjects:
         return ""
-    lines = [f"Commits in `{head}` (vs `{base}`):", ""]
+    lines = [f"Commits in `{head}` (vs `{remote_base}`):", ""]
     lines += [f"- {subject}" for subject in subjects.splitlines()]
     return "\n".join(lines)
 
@@ -78,6 +83,11 @@ def run_pr(
     head = git.current_branch()
     if not head:
         raise RelayError("HEAD is detached; check out a branch before opening a PR")
+
+    # Refresh the remote base so the body reflects commits GitHub actually knows
+    # about, not a stale local branch. A failed fetch is fine — log_between()
+    # then falls back to the local base ref.
+    git.fetch("origin", base, check=False)
 
     pr_title = _resolve_title(git, title=title, provider=provider)
     body = _build_body(git, base=base, head=head)
