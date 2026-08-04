@@ -1,8 +1,6 @@
 # Relay
 
-<!-- Badges -->
-[![Works with GitHub](https://img.shields.io/badge/Works_with-GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Fiqqar/Relay)
-[![GitHub Developer Program](https://img.shields.io/badge/Member-GitHub_Developer_Program-2ea44f?style=for-the-badge&logo=github&logoColor=white)](https://github.com/settings/developer-program)
+
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-success?style=for-the-badge)](./pyproject.toml)
 
