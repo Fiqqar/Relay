@@ -2,7 +2,6 @@
 
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-success?style=for-the-badge)](./pyproject.toml)
 
 **Your Git workflow, on autopilot.**
 
