@@ -48,7 +48,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 
 ## Installation
 
-Requires **Python 3.10+** and `git` on your `PATH`.
+Requires **Python 3.10+** and `git` on your `PATH`
 
 ```bash
 pip install git+[https://github.com/Fiqqar/Relay.git](https://github.com/Fiqqar/Relay.git)
