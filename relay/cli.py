@@ -58,6 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="commit but do not push")
     parser.add_argument("--staged", action="store_true",
                         help="only commit what is already staged (skip `git add .`)")
+    parser.add_argument("--no-verify", action="store_true",
+                        help="skip git pre-commit and commit-msg hooks")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -140,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             yes=args.yes,
             no_push=args.no_push,
             staged_only=args.staged,
+            no_verify=args.no_verify,
             dry_run=args.dry_run,
             verbose=args.verbose,
         )

@@ -128,6 +128,18 @@ class GitManager:
         """Value of ``remote.<name>.url`` ('' if that remote is not configured)."""
         return self.config_get(f"remote.{name}.url")
 
+    def remote_has_branch(self, branch: str, remote: str = "origin") -> bool:
+        """True when ``branch`` exists on the given remote.
+
+        ``git ls-remote --exit-code --heads`` exits 0 when the ref is found and
+        1 otherwise, so a missing branch (or an offline remote) simply yields
+        False instead of raising.
+        """
+        proc = self._run(
+            "ls-remote", "--exit-code", "--heads", remote, branch, check=False
+        )
+        return proc.returncode == 0
+
     def latest_commit_message(self) -> str:
         """Full message of the most recent commit ('' if the repo has no commits)."""
         proc = self._run("log", "-1", "--format=%B", check=False)
@@ -163,13 +175,23 @@ class GitManager:
 
     # ---- Commit / branch / push ---------------------------------------------
 
-    def commit(self, message: str) -> None:
+    def commit(
+        self, message: str, *, amend: bool = False, no_verify: bool = False
+    ) -> None:
         """Commit with the message piped via stdin (`git commit -F -`).
 
         Using stdin instead of `-m` avoids shell-quoting bugs with special
         characters and lets multi-line manual messages pass through unchanged.
+        ``amend`` rewrites the last commit (`git commit --amend`) instead of
+        creating a new one; ``no_verify`` skips pre-commit and commit-msg hooks.
         """
-        self._run("commit", "-F", "-", input_text=message)
+        cmd = ["commit"]
+        if no_verify:
+            cmd.append("--no-verify")
+        if amend:
+            cmd.append("--amend")
+        cmd += ["-F", "-"]
+        self._run(*cmd, input_text=message)
 
     def create_branch(self, name: str) -> None:
         """Create and check out a new branch (`git checkout -b`)."""

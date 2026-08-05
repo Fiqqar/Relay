@@ -34,6 +34,7 @@ class Orchestrator:
         yes: bool = False,
         no_push: bool = False,
         staged_only: bool = False,
+        no_verify: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
@@ -45,6 +46,7 @@ class Orchestrator:
         self.yes = yes
         self.no_push = no_push
         self.staged_only = staged_only
+        self.no_verify = no_verify
         self.dry_run = dry_run
         self.branch_template = branch_template
 
@@ -63,7 +65,8 @@ class Orchestrator:
         diff = self.git.staged_diff()
         stat = self.git.staged_stat()
         if not diff.strip():
-            print("[relay] nothing to commit: staged diff is empty.")
+            label = "amend" if self.mode == "amend" else "commit"
+            print(f"[relay] nothing to {label}: staged diff is empty.")
             return 0
 
         branch = self.git.current_branch()
@@ -72,6 +75,11 @@ class Orchestrator:
         # produced BEFORE the team branch name is resolved, because the branch
         # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
         message = self._obtain_message(diff, stat, branch)
+
+        # AMEND (mode only): rewrite the last commit instead of adding a new
+        # one. Never pushes — amending a pushed commit is a history rewrite.
+        if self.mode == "amend":
+            return self._run_amend(message, branch)
 
         # Resolve the team-mode branch name BEFORE any mutation so --dry-run
         # can report the plan without creating the branch.
@@ -91,7 +99,7 @@ class Orchestrator:
             branch = team_branch
 
         # COMMIT — the irreversible point. Everything before it is reversible.
-        self.git.commit(message)
+        self.git.commit(message, no_verify=self.no_verify)
 
         if self.no_push:
             print(f"[relay] committed (--no-push): {message}")
@@ -108,6 +116,27 @@ class Orchestrator:
             return 1
 
         print(f"[relay] done: pushed to '{branch}'")
+        return 0
+
+    def _run_amend(self, message: str, branch: str) -> int:
+        """Rewrite the last commit with the confirmed message.
+
+        Deliberately never pushes: amending an already-pushed commit rewrites
+        history, so the force-push decision stays with the developer. If the
+        previous tip is on the remote, we say so and show the exact command.
+        """
+        old_tip = self.git.rev_parse("HEAD")
+        if self.dry_run:
+            print(f"[relay] dry-run (mode=amend): amend last commit on '{branch}'")
+            print(f"[relay]     message: {message}")
+            return 0
+        self.git.commit(message, amend=True)
+        print(f"[relay] amended last commit on '{branch}'")
+        if old_tip and self.git.is_ancestor(old_tip, f"origin/{branch}"):
+            print(
+                "[relay] note: the amended commit was already pushed; syncing the "
+                "remote needs `git push --force-with-lease`"
+            )
         return 0
 
     # ---- Steps --------------------------------------------------------------
