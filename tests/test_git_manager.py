@@ -99,6 +99,15 @@ class TestMutations:
         assert mock_run.call_args.kwargs["input"] == "feat: subject\n\nbody line"
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_no_verify_appends_flag(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.commit("fix: urgent", no_verify=True)
+        assert mock_run.call_args.args[0] == [
+            "git", "commit", "--no-verify", "-F", "-",
+        ]
+        assert mock_run.call_args.kwargs["input"] == "fix: urgent"
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_create_branch(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.create_branch("status/payments")

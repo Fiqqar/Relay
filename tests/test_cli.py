@@ -43,6 +43,10 @@ class TestParser:
         assert build_parser().parse_args(["--staged"]).staged is True
         assert build_parser().parse_args([]).staged is False
 
+    def test_no_verify_flag_parses(self):
+        assert build_parser().parse_args(["--no-verify"]).no_verify is True
+        assert build_parser().parse_args([]).no_verify is False
+
 
 class TestUndoSubcommand:
     def test_undo_parses(self):
@@ -163,6 +167,7 @@ def test_main_solo_wires_orchestrator(wired):
         yes=True,
         no_push=True,
         staged_only=False,
+        no_verify=False,
         dry_run=False,
         verbose=False,
     )
@@ -188,6 +193,14 @@ def test_main_forwards_staged_flag(wired):
     assert orchestrator_cls.call_args.kwargs["staged_only"] is True
     main(["--solo"])
     assert orchestrator_cls.call_args.kwargs["staged_only"] is False
+
+
+def test_main_forwards_no_verify_flag(wired):
+    _, orchestrator_cls = wired
+    main(["--solo", "--no-verify"])
+    assert orchestrator_cls.call_args.kwargs["no_verify"] is True
+    main(["--solo"])
+    assert orchestrator_cls.call_args.kwargs["no_verify"] is False
 
 
 def test_main_team_without_feature_passes_none(wired):

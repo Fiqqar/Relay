@@ -163,15 +163,19 @@ class GitManager:
 
     # ---- Commit / branch / push ---------------------------------------------
 
-    def commit(self, message: str, *, amend: bool = False) -> None:
+    def commit(
+        self, message: str, *, amend: bool = False, no_verify: bool = False
+    ) -> None:
         """Commit with the message piped via stdin (`git commit -F -`).
 
         Using stdin instead of `-m` avoids shell-quoting bugs with special
         characters and lets multi-line manual messages pass through unchanged.
         ``amend`` rewrites the last commit (`git commit --amend`) instead of
-        creating a new one.
+        creating a new one; ``no_verify`` skips pre-commit and commit-msg hooks.
         """
         cmd = ["commit"]
+        if no_verify:
+            cmd.append("--no-verify")
         if amend:
             cmd.append("--amend")
         cmd += ["-F", "-"]
