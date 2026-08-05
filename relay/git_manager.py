@@ -114,14 +114,19 @@ class GitManager:
         """Name of the checked-out branch (empty string if HEAD is detached)."""
         return self._run("branch", "--show-current").stdout.strip()
 
-    def remote_url(self, name: str = "origin") -> str:
-        """Value of ``remote.<name>.url`` ('' if that remote is not configured).
+    def config_get(self, key: str) -> str:
+        """Value of a git config key ('' when unset, local or global).
 
         ``git config --get`` exits 1 when the key is absent; that is treated as
-        "no remote" rather than an error so ``relay pr`` can give its own message.
+        "unset" rather than an error so callers can give their own message
+        (e.g. a missing user.name before a commit).
         """
-        proc = self._run("config", "--get", f"remote.{name}.url", check=False)
+        proc = self._run("config", "--get", key, check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
+
+    def remote_url(self, name: str = "origin") -> str:
+        """Value of ``remote.<name>.url`` ('' if that remote is not configured)."""
+        return self.config_get(f"remote.{name}.url")
 
     def latest_commit_message(self) -> str:
         """Full message of the most recent commit ('' if the repo has no commits)."""
@@ -189,3 +194,28 @@ class GitManager:
         if ref:
             cmd.append(ref)
         self._run(*cmd, check=check)
+
+    # ---- Undo helpers ---------------------------------------------------------
+
+    def has_commits(self) -> bool:
+        """True if the current HEAD points at a real commit (repo is not empty)."""
+        return self._run("rev-parse", "--verify", "HEAD", check=False).returncode == 0
+
+    def rev_parse(self, ref: str) -> str:
+        """Full SHA of a ref ('' when the ref does not exist)."""
+        proc = self._run("rev-parse", ref, check=False)
+        return proc.stdout.strip() if proc.returncode == 0 else ""
+
+    def is_ancestor(self, ancestor: str, descendant: str) -> bool:
+        """True when ``ancestor`` is reachable from ``descendant``."""
+        return self._run(
+            "merge-base", "--is-ancestor", ancestor, descendant, check=False
+        ).returncode == 0
+
+    def reset_soft(self) -> None:
+        """Non-destructive undo: move HEAD back one commit, keep the changes staged.
+
+        Nothing is discarded — the undone commit's diff stays in the index, so a
+        new commit (or an amend) can reuse it exactly.
+        """
+        self._run("reset", "--soft", "HEAD~1")

@@ -44,11 +44,14 @@ Relay collapses this into a single decision-free command while keeping the devel
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
 - **Zero-config & safe** — configuration via environment variables only; `--dry-run`, `--yes`, and an explicit confirm step.
+- **Respect your staging** — `--staged` commits only what you already staged instead of `git add .`.
+- **Non-destructive undo** — `relay undo` soft-resets the last commit (changes stay staged, nothing lost).
+- **Multi-line messages** — manual fallback (and Edit) accept a Conventional-Commits subject plus an optional body.
 - **Cross-platform** — pure-stdlib Python (no runtime deps beyond `git`), runs on Windows, macOS, and Linux.
 
 ## Installation
 
-Requires **Python 3.10+** and `git` on your `PATH`.
+Requires **Python 3.10+** and `git` on your `PATH`
 
 ```bash
 pip install git+[https://github.com/Fiqqar/Relay.git](https://github.com/Fiqqar/Relay.git)
@@ -122,6 +125,7 @@ $ relay doctor
 | Command / Flag | Description |
 | --- | --- |
 | `pr` | Open a GitHub Pull Request for the current branch (`--base`, `--title`). |
+| `undo` | Undo the last commit (`git reset --soft HEAD~1`); changes stay staged. |
 | `doctor` | Diagnose this installation (PATH, git, AI credentials). |
 | `--solo` | Stage, commit and push to the current branch (default). |
 | `--team [FEATURE]` | Create & checkout `status/<feature>`, commit, push it (feature optional). |
@@ -129,6 +133,7 @@ $ relay doctor
 | `--timeout SECONDS` | Seconds to wait for the AI response (default: 30, max: 120). |
 | `--yes` | Skip the confirmation prompt. |
 | `--no-push` | Commit but do not push. |
+| `--staged` | Commit only what is already staged (skip `git add .`). |
 | `--dry-run` | Show the plan and the generated message, change nothing. |
 | `--verbose` | Print the git commands being run. |
 | `--version` | Print the version. |
@@ -173,7 +178,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 
 ### 3. Non-Goals (v1)
 
-- No partial staging / interactive hunk selection — always `git add .`.
+- No interactive hunk selection (`git add -p`) — Relay stages all (`git add .`) unless `--staged` is used to commit only what is already staged.
 - No CI/CD integration, no changelog generation.
 - No commit signing flows beyond what `git` supports natively (pass-through).
 - No support for git LFS, submodules, or exotic custom hooks handling.

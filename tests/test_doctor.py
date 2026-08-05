@@ -10,11 +10,13 @@ from relay.doctor import Check, run_doctor
 class FakeGit:
     """Stand-in for GitManager with controllable results."""
 
-    def __init__(self, is_repo=True, has_changes=False, has_remote=True, branch="main"):
+    def __init__(self, is_repo=True, has_changes=False, has_remote=True, branch="main",
+                 config=None):
         self._is_repo = is_repo
         self._changes = has_changes
         self._remote = has_remote
         self._branch = branch
+        self._config = dict(config or {"user.name": "Ada L.", "user.email": "ada@dev.io"})
 
     def is_repo(self):
         return self._is_repo
@@ -27,6 +29,9 @@ class FakeGit:
 
     def current_branch(self):
         return self._branch
+
+    def config_get(self, key):
+        return self._config.get(key, "")
 
 
 @pytest.fixture
@@ -57,6 +62,23 @@ def test_missing_gemini_key_fails(healthy_env, capsys):
         assert run_doctor() == 1
     out = capsys.readouterr().out
     assert "GEMINI_API_KEY is not set" in out
+
+
+def test_git_identity_set_passes(healthy_env, capsys):
+    assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "Ada L. <ada@dev.io>" in out
+
+
+def test_missing_git_identity_fails(healthy_env, capsys):
+    with mock.patch(
+        "relay.doctor.GitManager",
+        return_value=FakeGit(config={"user.name": "Ada L."}),
+    ):
+        assert run_doctor() == 1
+    out = capsys.readouterr().out
+    assert "user.email" in out
+    assert "git config --global user.email" in out
 
 
 def test_missing_git_fails(healthy_env, capsys):

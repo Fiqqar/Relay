@@ -51,7 +51,7 @@ def make_orchestrator(git, **kwargs):
 # ---- The fallback mechanism -------------------------------------------------
 
 
-@mock.patch("builtins.input", return_value="fix: manual fallback message")
+@mock.patch("builtins.input", side_effect=["fix: manual fallback message", ""])
 def test_ai_failure_falls_back_to_manual_input_and_commits(mock_input, git):
     ai = StubAI(error=AIError("fake", "rate_limited", "out of quota"))
     code = make_orchestrator(git, provider=ai).run()
@@ -62,7 +62,7 @@ def test_ai_failure_falls_back_to_manual_input_and_commits(mock_input, git):
     assert ai.generate_calls, "the AI must have been tried before falling back"
 
 
-@mock.patch("builtins.input", return_value="fix: manual fallback message")
+@mock.patch("builtins.input", side_effect=["fix: manual fallback message", ""])
 def test_connection_refused_also_falls_back(mock_input, git):
     ai = StubAI(error=AIError("ollama", "unavailable", "connection refused"))
     code = make_orchestrator(git, provider=ai).run()
@@ -78,7 +78,7 @@ def test_empty_manual_input_aborts_without_committing(mock_input, git):
     git.commit.assert_not_called()
 
 
-@mock.patch("builtins.input", return_value="WIP stuff")
+@mock.patch("builtins.input", side_effect=["WIP stuff", ""])
 def test_manual_message_is_committed_verbatim_even_if_not_conventional(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai).run()
@@ -87,7 +87,7 @@ def test_manual_message_is_committed_verbatim_even_if_not_conventional(mock_inpu
     git.commit.assert_called_once_with("WIP stuff")
 
 
-@mock.patch("builtins.input", return_value="fix: garbage response fallback")
+@mock.patch("builtins.input", side_effect=["fix: garbage response fallback", ""])
 def test_garbage_ai_response_triggers_fallback(mock_input, git):
     # Model returns a non-Conventional line -> treated exactly like an outage.
     ai = StubAI(responses=["wip stuff"])
@@ -115,7 +115,7 @@ def test_yes_skips_confirmation_prompt(git):
     git.commit.assert_called_once_with("feat(api): add login")
 
 
-@mock.patch("builtins.input", side_effect=["e", "fix: edited by hand"])
+@mock.patch("builtins.input", side_effect=["e", "fix: edited by hand", ""])
 def test_edit_confirmation_uses_manual_input(mock_input, git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai).run()
@@ -185,7 +185,7 @@ def test_q_aborts_without_committing(mock_input, git):
 # ---- Modes and push ----------------------------------------------------------
 
 
-@mock.patch("builtins.input", return_value="feat: push it")
+@mock.patch("builtins.input", side_effect=["feat: push it", ""])
 def test_solo_mode_pushes_current_branch(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, no_push=False).run()
@@ -193,7 +193,7 @@ def test_solo_mode_pushes_current_branch(mock_input, git):
     git.push.assert_called_once_with("main", set_upstream=False)
 
 
-@mock.patch("builtins.input", return_value="feat: team work")
+@mock.patch("builtins.input", side_effect=["feat: team work", ""])
 def test_team_mode_creates_branch_and_pushes_upstream(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(
@@ -204,7 +204,7 @@ def test_team_mode_creates_branch_and_pushes_upstream(mock_input, git):
     git.push.assert_called_once_with("feat/payments", set_upstream=True)
 
 
-@mock.patch("builtins.input", return_value="feat: derived")
+@mock.patch("builtins.input", side_effect=["feat: derived", ""])
 def test_team_feature_derived_from_current_branch(mock_input, git):
     git.current_branch.return_value = "feature/payments"
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
@@ -225,7 +225,7 @@ def test_team_branch_uses_commit_type_from_ai_message(mock_input, git):
     git.commit.assert_called_once_with("fix(api): correct validation")
 
 
-@mock.patch("builtins.input", return_value="WIP stuff")
+@mock.patch("builtins.input", side_effect=["WIP stuff", ""])
 def test_team_branch_falls_back_to_feat_for_non_conventional_message(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(
@@ -245,7 +245,7 @@ def test_team_branch_uses_docs_type_from_ai_message(mock_input, git):
     git.create_branch.assert_called_once_with("docs/setup")
 
 
-@mock.patch("builtins.input", return_value="fix: push fails but commit stays")
+@mock.patch("builtins.input", side_effect=["fix: push fails but commit stays", ""])
 def test_push_failure_returns_1_and_keeps_commit(mock_input, git):
     git.push.side_effect = GitError("push rejected", stderr="! [rejected]")
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
@@ -280,7 +280,7 @@ def test_empty_staged_diff_returns_0_without_calling_ai(git):
     git.commit.assert_not_called()
 
 
-@mock.patch("builtins.input", return_value="fix: dry run")
+@mock.patch("builtins.input", side_effect=["fix: dry run", ""])
 def test_dry_run_reports_plan_without_mutating(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, dry_run=True).run()
@@ -288,3 +288,44 @@ def test_dry_run_reports_plan_without_mutating(mock_input, git):
     git.commit.assert_not_called()
     git.push.assert_not_called()
     git.create_branch.assert_not_called()
+
+
+# ---- --staged: respect the developer's own staging ----------------------------
+
+
+@mock.patch("builtins.input", side_effect=["fix: already staged", ""])
+def test_staged_only_skips_git_add(mock_input, git):
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, staged_only=True).run()
+    assert code == 0
+    git.stage_all.assert_not_called()  # the user's staging is left untouched
+    git.commit.assert_called_once_with("fix: already staged")
+
+
+def test_staged_only_still_commits_the_staged_diff(git):
+    git.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(2)\n"
+    ai = StubAI(responses=["feat: staged only"])
+    code = make_orchestrator(git, provider=ai, staged_only=True, yes=True).run()
+    assert code == 0
+    assert ai.generate_calls, "the staged diff must still be read and sent"
+    git.commit.assert_called_once_with("feat: staged only")
+
+
+# ---- Multi-line manual message (subject + body) -------------------------------
+
+
+@mock.patch(
+    "builtins.input",
+    side_effect=[
+        "feat(auth): add login",
+        "Adds the login form and session handling.",
+        "",
+    ],
+)
+def test_multi_line_manual_message_separates_subject_and_body(mock_input, git):
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    git.commit.assert_called_once_with(
+        "feat(auth): add login\n\nAdds the login form and session handling."
+    )
