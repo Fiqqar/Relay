@@ -163,13 +163,18 @@ class GitManager:
 
     # ---- Commit / branch / push ---------------------------------------------
 
-    def commit(self, message: str) -> None:
+    def commit(self, message: str, *, no_verify: bool = False) -> None:
         """Commit with the message piped via stdin (`git commit -F -`).
 
         Using stdin instead of `-m` avoids shell-quoting bugs with special
         characters and lets multi-line manual messages pass through unchanged.
+        ``no_verify`` skips pre-commit and commit-msg hooks.
         """
-        self._run("commit", "-F", "-", input_text=message)
+        cmd = ["commit"]
+        if no_verify:
+            cmd.append("--no-verify")
+        cmd += ["-F", "-"]
+        self._run(*cmd, input_text=message)
 
     def create_branch(self, name: str) -> None:
         """Create and check out a new branch (`git checkout -b`)."""

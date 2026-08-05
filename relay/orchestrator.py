@@ -34,6 +34,7 @@ class Orchestrator:
         yes: bool = False,
         no_push: bool = False,
         staged_only: bool = False,
+        no_verify: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
@@ -45,6 +46,7 @@ class Orchestrator:
         self.yes = yes
         self.no_push = no_push
         self.staged_only = staged_only
+        self.no_verify = no_verify
         self.dry_run = dry_run
         self.branch_template = branch_template
 
@@ -91,7 +93,7 @@ class Orchestrator:
             branch = team_branch
 
         # COMMIT — the irreversible point. Everything before it is reversible.
-        self.git.commit(message)
+        self.git.commit(message, no_verify=self.no_verify)
 
         if self.no_push:
             print(f"[relay] committed (--no-push): {message}")
