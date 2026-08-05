@@ -33,6 +33,7 @@ class Orchestrator:
         git: GitManager | None = None,
         yes: bool = False,
         no_push: bool = False,
+        staged_only: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
@@ -43,6 +44,7 @@ class Orchestrator:
         self.git = git or GitManager(verbose=verbose)
         self.yes = yes
         self.no_push = no_push
+        self.staged_only = staged_only
         self.dry_run = dry_run
         self.branch_template = branch_template
 
@@ -53,7 +55,10 @@ class Orchestrator:
         if early is not None:
             return early
 
-        self.git.stage_all()
+        # --staged: honor the developer's own staging instead of `git add .`.
+        # Skip only the staging step — the diff is still read from the index.
+        if not self.staged_only:
+            self.git.stage_all()
 
         diff = self.git.staged_diff()
         stat = self.git.staged_stat()
@@ -162,12 +167,27 @@ class Orchestrator:
     def _manual_input(self) -> str:
         """The exact fallback we designed: a plain input() prompt, no exit.
 
-        An empty answer aborts; anything else is committed verbatim.
+        Supports a Conventional Commits body: type the subject on the first
+        line, add body lines below, then press Enter on an empty line to
+        finish. An immediately empty answer aborts; anything typed is
+        committed (subject + optional body, blank line separated) verbatim.
         """
-        print("Enter your commit message (one line; empty to abort):")
-        message = input("> ").strip()
+        print("Enter your commit message (subject, then optional body;")
+        print("blank line to finish, Ctrl-C to abort):")
+        lines = []
+        while True:
+            line = input("> ")
+            if not line.strip():
+                break
+            lines.append(line.rstrip())
+        message = "\n".join(lines).strip()
         if not message:
             raise UserAbort("aborted - no commit message provided")
+        # Keep the subject as the first line and separate a body with a blank
+        # line, so git (and changelog tools) treat the first line as subject.
+        first, _, rest = message.partition("\n")
+        if rest:
+            return f"{first}\n\n{rest}"
         return message
 
     def _resolve_team_branch_name(self, message: str) -> str:

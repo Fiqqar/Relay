@@ -39,6 +39,34 @@ class TestParser:
         args = build_parser().parse_args([])
         assert args.timeout is None
 
+    def test_staged_flag_parses(self):
+        assert build_parser().parse_args(["--staged"]).staged is True
+        assert build_parser().parse_args([]).staged is False
+
+
+class TestUndoSubcommand:
+    def test_undo_parses(self):
+        args = build_parser().parse_args(["undo"])
+        assert args.command == "undo"
+
+    def test_undo_accepts_verbose(self):
+        assert build_parser().parse_args(["undo", "--verbose"]).verbose is True
+
+    def test_main_routes_undo_and_propagates_exit_code(self):
+        with mock.patch("relay.cli.run_undo", return_value=0) as run:
+            assert main(["undo"]) == 0
+        run.assert_called_once_with(verbose=False)
+
+    def test_main_forwards_undo_verbose(self):
+        with mock.patch("relay.cli.run_undo", return_value=0) as run:
+            main(["undo", "--verbose"])
+        run.assert_called_once_with(verbose=True)
+
+    def test_team_feature_named_undo_is_not_a_subcommand(self):
+        args = build_parser().parse_args(["--team", "undo"])
+        assert args.command is None
+        assert args.team == "undo"
+
 
 class TestPrSubcommand:
     def test_pr_parses_base_and_title(self):
@@ -134,6 +162,7 @@ def test_main_solo_wires_orchestrator(wired):
         provider=build_provider.return_value,
         yes=True,
         no_push=True,
+        staged_only=False,
         dry_run=False,
         verbose=False,
     )
@@ -151,6 +180,14 @@ def test_main_forwards_timeout_to_provider(wired):
     build_provider, _ = wired
     main(["--solo", "--timeout", "45"])
     build_provider.assert_called_once_with(None, timeout=45)
+
+
+def test_main_forwards_staged_flag(wired):
+    _, orchestrator_cls = wired
+    main(["--solo", "--staged"])
+    assert orchestrator_cls.call_args.kwargs["staged_only"] is True
+    main(["--solo"])
+    assert orchestrator_cls.call_args.kwargs["staged_only"] is False
 
 
 def test_main_team_without_feature_passes_none(wired):

@@ -86,6 +86,7 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         Check("relay on PATH", "skip", ""),
         Check("git installed", "skip", ""),
         Check("inside a git repo", "skip", ""),
+        Check("git identity", "skip", ""),
         Check(f"provider: {chosen}", "skip", ""),
         Check("AI credentials", "skip", ""),
         Check("GitHub token", "skip", ""),
@@ -114,38 +115,52 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
     checks[3].status = "ok" if clean else "warn"
     checks[3].detail = detail
 
+    # git identity: a commit is impossible without user.name / user.email.
+    name = git.config_get("user.name")
+    email = git.config_get("user.email")
+    if name and email:
+        checks[4].status = "ok"
+        checks[4].detail = f"{name} <{email}>"
+    else:
+        missing = [k for k, v in (("user.name", name), ("user.email", email)) if not v]
+        checks[4].status = "fail"
+        checks[4].detail = (
+            f"not set ({', '.join(missing)}); run "
+            f"`git config --global {missing[0]} \"you@example.com\"`"
+        )
+
     # provider-specific credential checks
-    checks[4].status = "ok"
+    checks[5].status = "ok"
     if chosen == "gemini":
-        checks[4].detail = "Gemini API"
+        checks[5].detail = "Gemini API"
         key = gemini_api_key()
         if key:
-            checks[5].status = "ok"
-            checks[5].detail = "GEMINI_API_KEY is set"
+            checks[6].status = "ok"
+            checks[6].detail = "GEMINI_API_KEY is set"
         else:
-            checks[5].status = "fail"
-            checks[5].detail = "GEMINI_API_KEY is not set; see `relay --help`"
+            checks[6].status = "fail"
+            checks[6].detail = "GEMINI_API_KEY is not set; see `relay --help`"
     else:
-        checks[4].detail = "Ollama"
+        checks[5].detail = "Ollama"
         base = ollama_base_url()
         if base != DEFAULT_OLLAMA_BASE_URL:
-            checks[4].detail = f"Ollama ({base})"
+            checks[5].detail = f"Ollama ({base})"
         if chosen != "ollama":
-            checks[5].status = "warn"
-            checks[5].detail = f"unknown provider '{chosen}' (expected gemini|ollama)"
+            checks[6].status = "warn"
+            checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama)"
         else:
             reachable, detail = _ollama_reachable(base)
-            checks[5].status = "ok" if reachable else "warn"
-            checks[5].detail = detail
+            checks[6].status = "ok" if reachable else "warn"
+            checks[6].detail = detail
 
     # GitHub token for `relay pr`. Missing is a warning, not a failure, since
     # `relay pr` is an optional part of the workflow.
     if github_token():
-        checks[6].status = "ok"
-        checks[6].detail = "GITHUB_TOKEN is set"
+        checks[7].status = "ok"
+        checks[7].detail = "GITHUB_TOKEN is set"
     else:
-        checks[6].status = "warn"
-        checks[6].detail = "GITHUB_TOKEN is not set; `relay pr` cannot open pull requests"
+        checks[7].status = "warn"
+        checks[7].detail = "GITHUB_TOKEN is not set; `relay pr` cannot open pull requests"
 
     # ---- report -----------------------------------------------------------
     print(f"[relay doctor] Relay {__version__} - {chosen} provider")

@@ -161,7 +161,9 @@ Developer        relay               git                LLM
                     │         ▼
                     │  ┌─────────────────────────────┐
                     │  │   MANUAL INPUT (input())    │
-                    │  │   "Commit message:"         │
+                    │  │   subject line, then an     │
+                    │  │   optional body; blank line │
+                    │  │   to finish                 │
                     │  └──────┬──────────┬───────────┘
                     │         │          │
                     │     message   empty / abort
@@ -175,7 +177,8 @@ Developer        relay               git                LLM
                                           manually typed messages)
 ```
 
-- The user's typed message is committed **verbatim** — no validation and no re-prompt.
+- The user's typed message is committed **verbatim** — no validation and no re-prompt. A body is accepted: type the subject on the first line, add body lines below, and press Enter on an empty line to finish; the subject and body are separated by a blank line so `git` keeps the first line as the subject.
+- An immediately empty answer (blank first line) aborts the run.
 - Non-TTY (piped) environments: the manual prompt cannot be answered (`EOFError`); the run ends with exit `1` and nothing committed — it never hangs.
 
 ### 4.3 Confirmation prompt (CONFIRM state)
@@ -223,6 +226,8 @@ Generated message:
 | 13 | Diff exceeds token budget | truncation (FR-14) deferred to v0.2 | — |
 | 14 | Non-TTY, AI fails | no hang; ends with exit 1, nothing committed | 1 |
 | 15 | Missing `GEMINI_API_KEY` / unknown provider | fail fast at startup, before any git action | 1 |
+| 16 | `--staged` but nothing staged | preflight passes (unstaged changes exist), staged diff is empty → "nothing to commit" | 0 |
+| 17 | `relay undo` with no commits / not a repo | clear GitError, nothing changed | 1 |
 
 ## 7. Branch Naming Rules (Team Mode)
 

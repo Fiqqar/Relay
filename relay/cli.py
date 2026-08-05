@@ -20,6 +20,7 @@ from .doctor import run_doctor
 from .errors import RelayError, UserAbort
 from .orchestrator import Orchestrator
 from .pr import run_pr
+from .undo import run_undo
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,6 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="show the plan; change nothing")
     parser.add_argument("--no-push", action="store_true",
                         help="commit but do not push")
+    parser.add_argument("--staged", action="store_true",
+                        help="only commit what is already staged (skip `git add .`)")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -87,6 +90,14 @@ def build_parser() -> argparse.ArgumentParser:
                     help="act without prompting (implies --open)")
     pr.add_argument("--verbose", action="store_true",
                     help="print the git commands being run")
+
+    undo = subparsers.add_parser(
+        "undo",
+        help="undo the last commit (soft reset; changes stay staged)",
+        description="Moves HEAD back one commit with `git reset --soft HEAD~1`.",
+    )
+    undo.add_argument("--verbose", action="store_true",
+                      help="print the git commands being run")
     return parser
 
 
@@ -112,6 +123,10 @@ def main(argv: list[str] | None = None) -> int:
                 verbose=args.verbose,
             )
 
+        # `relay undo` is a pure local, non-destructive git op (no AI involved).
+        if getattr(args, "command", None) == "undo":
+            return run_undo(verbose=args.verbose)
+
         # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
         # `--solo` / nothing leaves it None.
         mode = "team" if args.team is not None else "solo"
@@ -124,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=ai,
             yes=args.yes,
             no_push=args.no_push,
+            staged_only=args.staged,
             dry_run=args.dry_run,
             verbose=args.verbose,
         )
