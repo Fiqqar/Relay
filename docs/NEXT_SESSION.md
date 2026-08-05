@@ -1,5 +1,4 @@
 # NEXT SESSION — handoff notes
-
 > **Temporary handoff doc.** Delete this file once the remaining work below is done.
 
 ## Where things stand
