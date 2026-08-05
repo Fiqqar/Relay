@@ -163,13 +163,19 @@ class GitManager:
 
     # ---- Commit / branch / push ---------------------------------------------
 
-    def commit(self, message: str) -> None:
+    def commit(self, message: str, *, amend: bool = False) -> None:
         """Commit with the message piped via stdin (`git commit -F -`).
 
         Using stdin instead of `-m` avoids shell-quoting bugs with special
         characters and lets multi-line manual messages pass through unchanged.
+        ``amend`` rewrites the last commit (`git commit --amend`) instead of
+        creating a new one.
         """
-        self._run("commit", "-F", "-", input_text=message)
+        cmd = ["commit"]
+        if amend:
+            cmd.append("--amend")
+        cmd += ["-F", "-"]
+        self._run(*cmd, input_text=message)
 
     def create_branch(self, name: str) -> None:
         """Create and check out a new branch (`git checkout -b`)."""
