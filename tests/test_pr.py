@@ -18,12 +18,14 @@ class FakeGit:
         branch="feat/login",
         commit="feat: add login\n\nAdds OAuth.",
         log="feat: add login",
+        has_branch=True,
     ):
         self._is_repo = is_repo
         self._remote = remote
         self._branch = branch
         self._commit = commit
         self._log = log
+        self._has_branch = has_branch
         self.fetch_calls = []
         self.log_calls = []
 
@@ -35,6 +37,9 @@ class FakeGit:
 
     def current_branch(self):
         return self._branch
+
+    def remote_has_branch(self, branch):
+        return self._has_branch
 
     def latest_commit_message(self):
         return self._commit
@@ -149,6 +154,16 @@ class TestRunPr:
         with pytest.raises(RelayError) as exc_info:
             run_pr(git=FakeGit(branch=""))
         assert "detached" in str(exc_info.value)
+
+    def test_unpushed_branch_raises_with_push_hint(self, fake_client):
+        with pytest.raises(RelayError) as exc_info:
+            run_pr(git=FakeGit(has_branch=False))
+        assert "git push -u origin feat/login" in str(exc_info.value)
+        fake_client.return_value.open_pull.assert_not_called()
+
+    def test_pushed_branch_proceeds_to_pr(self, fake_client):
+        assert run_pr(git=FakeGit(has_branch=True)) == 0
+        fake_client.return_value.open_pull.assert_called_once()
 
     def test_non_github_remote_raises(self, fake_client):
         with pytest.raises(RelayError):

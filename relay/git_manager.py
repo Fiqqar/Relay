@@ -128,6 +128,18 @@ class GitManager:
         """Value of ``remote.<name>.url`` ('' if that remote is not configured)."""
         return self.config_get(f"remote.{name}.url")
 
+    def remote_has_branch(self, branch: str, remote: str = "origin") -> bool:
+        """True when ``branch`` exists on the given remote.
+
+        ``git ls-remote --exit-code --heads`` exits 0 when the ref is found and
+        1 otherwise, so a missing branch (or an offline remote) simply yields
+        False instead of raising.
+        """
+        proc = self._run(
+            "ls-remote", "--exit-code", "--heads", remote, branch, check=False
+        )
+        return proc.returncode == 0
+
     def latest_commit_message(self) -> str:
         """Full message of the most recent commit ('' if the repo has no commits)."""
         proc = self._run("log", "-1", "--format=%B", check=False)

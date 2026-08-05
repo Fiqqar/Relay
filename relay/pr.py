@@ -110,6 +110,14 @@ def run_pr(
     if not head:
         raise RelayError("HEAD is detached; check out a branch before opening a PR")
 
+    # GitHub cannot open a PR for a branch it has never seen: fail fast with the
+    # exact push command instead of surfacing a confusing 422 from the API.
+    if not git.remote_has_branch(head):
+        raise RelayError(
+            f"branch '{head}' has not been pushed to origin; "
+            f"run `git push -u origin {head}` first"
+        )
+
     client = GitHubClient(owner, repo, verbose=verbose)
 
     # Anti-duplicate: an open PR for this head branch is a no-op, not a 422.
