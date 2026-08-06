@@ -100,6 +100,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     undo.add_argument("--verbose", action="store_true",
                       help="print the git commands being run")
+
+    amend = subparsers.add_parser(
+        "amend",
+        help="rewrite the last commit's message with a freshly generated one",
+        description="Amends the last commit (never pushes; syncing a pushed "
+                    "commit needs `git push --force-with-lease`).",
+    )
+    amend.add_argument("--provider", choices=["gemini", "ollama"],
+                       help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
+    amend.add_argument("--timeout", type=int, metavar="SECONDS",
+                       help="seconds to wait for the AI response (default: 30, max: 120)")
+    amend.add_argument("--yes", action="store_true",
+                       help="skip the confirmation prompt")
+    amend.add_argument("--staged", action="store_true",
+                       help="only amend what is already staged (skip `git add .`)")
+    amend.add_argument("--dry-run", action="store_true",
+                       help="show the plan; change nothing")
+    amend.add_argument("--verbose", action="store_true",
+                       help="print the git commands being run")
     return parser
 
 
@@ -128,6 +147,23 @@ def main(argv: list[str] | None = None) -> int:
         # `relay undo` is a pure local, non-destructive git op (no AI involved).
         if getattr(args, "command", None) == "undo":
             return run_undo(verbose=args.verbose)
+
+        # `relay amend` reuses the solo workflow but rewrites the last commit
+        # instead of creating a new one; it never pushes.
+        if getattr(args, "command", None) == "amend":
+            ai = build_provider(args.provider, timeout=args.timeout)
+            orchestrator = Orchestrator(
+                mode="amend",
+                feature=None,
+                provider=ai,
+                yes=args.yes,
+                no_push=True,
+                staged_only=args.staged,
+                no_verify=False,
+                dry_run=args.dry_run,
+                verbose=args.verbose,
+            )
+            return orchestrator.run()
 
         # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
         # `--solo` / nothing leaves it None.

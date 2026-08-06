@@ -45,6 +45,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 - **Zero-config & safe** — configuration via environment variables only; `--dry-run`, `--yes`, and an explicit confirm step.
 - **Respect your staging** — `--staged` commits only what you already staged instead of `git add .`.
 - **Non-destructive undo** — `relay undo` soft-resets the last commit (changes stay staged, nothing lost).
+- **Rewrite the last commit** — `relay amend` regenerates the commit message in place (never force-pushes).
 - **Multi-line messages** — manual fallback (and Edit) accept a Conventional-Commits subject plus an optional body.
 - **Cross-platform** — pure-stdlib Python (no runtime deps beyond `git`), runs on Windows, macOS, and Linux.
 
@@ -125,6 +126,7 @@ $ relay doctor
 | --- | --- |
 | `pr` | Open a GitHub Pull Request for the current branch (`--base`, `--title`). |
 | `undo` | Undo the last commit (`git reset --soft HEAD~1`); changes stay staged. |
+| `amend` | Rewrite the last commit's message with a freshly generated one (never pushes). |
 | `doctor` | Diagnose this installation (PATH, git, AI credentials). |
 | `--solo` | Stage, commit and push to the current branch (default). |
 | `--team [FEATURE]` | Create & checkout `status/<feature>`, commit, push it (feature optional). |

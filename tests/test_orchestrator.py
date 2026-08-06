@@ -338,3 +338,46 @@ def test_multi_line_manual_message_separates_subject_and_body(mock_input, git):
         "feat(auth): add login\n\nAdds the login form and session handling.",
         no_verify=False,
     )
+
+
+# ---- amend mode: rewrite the last commit, never push -------------------------
+
+@mock.patch("builtins.input", side_effect=["fix: amend last commit", ""])
+def test_amend_mode_commits_with_amend_and_never_pushes(mock_input, git):
+    git.rev_parse.return_value = "abc123"
+    git.is_ancestor.return_value = False
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="amend").run()
+    assert code == 0
+    git.commit.assert_called_once_with("fix: amend last commit", amend=True)
+    git.create_branch.assert_not_called()
+    git.push.assert_not_called()
+
+
+@mock.patch("builtins.input", side_effect=["fix: amend it", ""])
+def test_amend_mode_warns_when_commit_already_pushed(mock_input, git, capsys):
+    git.rev_parse.return_value = "abc123"
+    git.is_ancestor.return_value = True
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="amend").run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "--force-with-lease" in out
+    git.push.assert_not_called()
+
+
+@mock.patch("builtins.input", side_effect=["fix: amend dry", ""])
+def test_amend_mode_dry_run_does_not_commit(mock_input, git):
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="amend", dry_run=True).run()
+    assert code == 0
+    git.commit.assert_not_called()
+
+
+def test_amend_mode_empty_staged_diff_returns_0(git):
+    git.staged_diff.return_value = ""
+    ai = StubAI(responses=["feat: never used"])
+    code = make_orchestrator(git, provider=ai, mode="amend").run()
+    assert code == 0
+    assert ai.generate_calls == []
+    git.commit.assert_not_called()

@@ -108,6 +108,23 @@ class TestMutations:
         assert mock_run.call_args.kwargs["input"] == "fix: urgent"
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_amend_appends_flag(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.commit("fix: last commit", amend=True)
+        assert mock_run.call_args.args[0] == [
+            "git", "commit", "--amend", "-F", "-",
+        ]
+        assert mock_run.call_args.kwargs["input"] == "fix: last commit"
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_amend_and_no_verify_combined(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.commit("fix: x", amend=True, no_verify=True)
+        assert mock_run.call_args.args[0] == [
+            "git", "commit", "--no-verify", "--amend", "-F", "-",
+        ]
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_create_branch(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.create_branch("status/payments")

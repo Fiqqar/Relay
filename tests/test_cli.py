@@ -147,6 +147,83 @@ class TestPrSubcommand:
             assert main(["pr"]) == 1
 
 
+class TestAmendSubcommand:
+    def test_amend_parses_as_subcommand(self):
+        args = build_parser().parse_args(["amend"])
+        assert args.command == "amend"
+
+    def test_amend_accepts_workflow_flags(self):
+        args = build_parser().parse_args(
+            ["amend", "--provider", "ollama", "--timeout", "45", "--yes",
+             "--staged", "--dry-run", "--verbose"]
+        )
+        assert args.provider == "ollama"
+        assert args.timeout == 45
+        assert args.yes is True
+        assert args.staged is True
+        assert args.dry_run is True
+        assert args.verbose is True
+
+    def test_amend_flag_named_team_is_not_a_subcommand(self):
+        args = build_parser().parse_args(["--team", "amend"])
+        assert args.command is None
+        assert args.team == "amend"
+
+    def test_main_routes_amend_to_orchestrator(self):
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.Orchestrator"
+        ) as orchestrator_cls:
+            orchestrator_cls.return_value.run.return_value = 0
+            assert main(["amend"]) == 0
+        orchestrator_cls.assert_called_once_with(
+            mode="amend",
+            feature=None,
+            provider=build_provider.return_value,
+            yes=False,
+            no_push=True,
+            staged_only=False,
+            no_verify=False,
+            dry_run=False,
+            verbose=False,
+        )
+        orchestrator_cls.return_value.run.assert_called_once_with()
+
+    def test_main_forwards_amend_flags(self):
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.Orchestrator"
+        ) as orchestrator_cls:
+            main(["amend", "--yes", "--staged", "--dry-run", "--verbose",
+                  "--timeout", "50"])
+        kw = orchestrator_cls.call_args.kwargs
+        assert kw["mode"] == "amend"
+        assert kw["yes"] is True
+        assert kw["staged_only"] is True
+        assert kw["dry_run"] is True
+        assert kw["verbose"] is True
+        assert kw["no_push"] is True
+
+    def test_main_amend_forwards_provider_timeout(self):
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.Orchestrator"
+        ):
+            main(["amend", "--provider", "ollama", "--timeout", "30"])
+        build_provider.assert_called_once_with("ollama", timeout=30)
+
+    def test_main_amend_propagates_exit_code(self):
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.Orchestrator"
+        ) as orchestrator_cls:
+            orchestrator_cls.return_value.run.return_value = 7
+            assert main(["amend"]) == 7
+
+    def test_main_amend_user_abort_maps_to_exit_130(self):
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.Orchestrator"
+        ) as orchestrator_cls:
+            orchestrator_cls.return_value.run.side_effect = UserAbort("aborted")
+            assert main(["amend"]) == 130
+
+
 @pytest.fixture
 def wired():
     """Patch the CLI's provider factory and Orchestrator, returning the mocks."""
