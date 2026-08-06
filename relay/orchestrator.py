@@ -11,6 +11,8 @@ never leave the developer stranded.
 """
 from __future__ import annotations
 
+import time
+
 from .commit import (
     build_branch_name,
     extract_commit_type,
@@ -159,9 +161,12 @@ class Orchestrator:
         """Generate a message via AI with a hard fallback to manual input.
 
         Guarantees: never raises on AI failure; always returns a validated,
-        user-approved message string.
+        user-approved message string. Transient failures (429 rate limits and
+        5xx server errors) are retried twice with ~2s/4s backoff before the
+        manual-input fallback kicks in.
         """
         attempts = 0
+        transient_tries = 0
         while True:
             attempts += 1
             try:
@@ -175,6 +180,12 @@ class Orchestrator:
                     return self._manual_input()
                 print(f"[relay] AI message: {message}")
             except AIError as exc:
+                # Transient failures (429 / 5xx) get 2 retries with backoff.
+                if exc.kind in {"rate_limited", "api_error"} and transient_tries < 2:
+                    transient_tries += 1
+                    print(f"[relay] AI {exc}; retrying ({transient_tries}/2)...")
+                    time.sleep(2 * transient_tries)
+                    continue
                 # THE FALLBACK: catch any AI exception, ask the user for the
                 # message with plain input(), and continue the workflow.
                 print(f"[relay] AI unavailable ({exc}); falling back to manual input.")

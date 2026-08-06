@@ -77,6 +77,59 @@ def test_empty_manual_input_aborts_without_committing(mock_input, git):
         make_orchestrator(git, provider=ai).run()
     git.commit.assert_not_called()
 
+# ---- F4: transient (429/5xx) retry + backoff ----------------------------------
+
+
+class FlakyAI:
+    """A provider that replays a script of AIError raises and canned responses."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.generate_calls = []
+
+    def generate(self, diff, stat, branch):
+        self.generate_calls.append((diff, stat, branch))
+        item = self.script.pop(0)
+        if isinstance(item, AIError):
+            raise item
+        return item
+
+
+@mock.patch("relay.orchestrator.time.sleep")
+@mock.patch("builtins.input", side_effect=["fix: after retries", ""])
+def test_rate_limited_is_retried_twice_before_fallback(mock_input, mock_sleep, git):
+    # Two transient failures in a row, then a manual fallback.
+    ai = FlakyAI([
+        AIError("gemini", "rate_limited", "HTTP 429"),
+        AIError("gemini", "rate_limited", "HTTP 429"),
+        AIError("gemini", "rate_limited", "HTTP 429"),
+    ])
+    code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    assert len(ai.generate_calls) == 3  # 2 retries, then manual fallback
+    assert mock_sleep.call_args_list == [mock.call(2), mock.call(4)]
+    git.commit.assert_called_once_with("fix: after retries", no_verify=False)
+
+
+@mock.patch("relay.orchestrator.time.sleep")
+@mock.patch("builtins.input", return_value="")
+def test_rate_limited_recovers_on_second_attempt(mock_input, mock_sleep, git):
+    ai = FlakyAI([AIError("gemini", "rate_limited", "HTTP 429"), "feat(api): ok"])
+    code = make_orchestrator(git, provider=ai, yes=True).run()
+    assert code == 0
+    assert mock_sleep.call_count == 1  # one backoff before success
+    git.commit.assert_called_once_with("feat(api): ok", no_verify=False)
+
+
+@mock.patch("relay.orchestrator.time.sleep")
+def test_non_transient_error_is_not_retried(mock_sleep, git):
+    ai = FlakyAI([AIError("ollama", "unavailable", "down")])
+    with mock.patch("builtins.input",
+                    side_effect=["fix: straight to manual", ""]):
+        make_orchestrator(git, provider=ai).run()
+    assert mock_sleep.call_count == 0  # unavailable is never retried
+    git.commit.assert_called_once_with("fix: straight to manual", no_verify=False)
+
 
 @mock.patch("builtins.input", side_effect=["WIP stuff", ""])
 def test_manual_message_is_committed_verbatim_even_if_not_conventional(mock_input, git):
