@@ -38,7 +38,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 
 - **Solo mode** — stage all, generate message, commit, push to the current branch.
 - **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `status/<feature>`), push that branch.
-- **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`).
+- **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`, incl. draft PRs via `--draft`).
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
@@ -96,6 +96,7 @@ relay --team "payments"          # new branch status/payments, commit, push
 
 # 3. Open a Pull Request natively
 relay pr                         # opens a PR from current branch to main
+relay pr --draft                 # ... as a draft PR
 ```
 
 ### `relay doctor`
@@ -123,7 +124,7 @@ $ relay doctor
 
 | Command / Flag | Description |
 | --- | --- |
-| `pr` | Open a GitHub Pull Request for the current branch (`--base`, `--title`). |
+| `pr` | Open a GitHub Pull Request for the current branch (`--base`, `--title`, `--draft`). |
 | `undo` | Undo the last commit (`git reset --soft HEAD~1`); changes stay staged. |
 | `doctor` | Diagnose this installation (PATH, git, AI credentials). |
 | `--solo` | Stage, commit and push to the current branch (default). |

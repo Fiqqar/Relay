@@ -83,12 +83,14 @@ def run_pr(
     title: str | None = None,
     provider=None,
     open_browser: bool = False,
+    draft: bool = False,
     verbose: bool = False,
 ) -> int:
     """Open a PR for the current branch. Returns the process exit code.
 
     ``open_browser`` opens the PR URL (created or pre-existing) in the default
-    web browser via ``webbrowser``. The duplicate check happens up front, so a
+    web browser via ``webbrowser``. ``draft`` opens the PR as a draft (visible
+    but not ready for review). The duplicate check happens up front, so a
     branch that already has an open PR never triggers a fetch or an AI call.
     """
     git = git or GitManager(verbose=verbose)
@@ -134,7 +136,9 @@ def run_pr(
     body = _build_body(git, base=base, head=head)
 
     try:
-        created = client.open_pull(title=pr_title, head=head, base=base, body=body)
+        created = client.open_pull(
+            title=pr_title, head=head, base=base, body=body, draft=draft
+        )
     except DuplicatePullRequestError:
         # Safety net: the GET above missed it (race, or a fork-owner head), but
         # GitHub rejected the POST as a duplicate. Re-query and exit gracefully
