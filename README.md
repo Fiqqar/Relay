@@ -37,7 +37,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 ## Features
 
 - **Solo mode** — stage all, generate message, commit, push to the current branch.
-- **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `status/<feature>`), push that branch.
+- **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `feat/<feature>`), push that branch.
 - **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`).
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
@@ -92,7 +92,7 @@ set GITHUB_TOKEN=ghp_your_token          # Windows cmd (for GitHub PR)
 
 # 2. Run the workflow
 relay --solo                     # stage, commit, push to the current branch
-relay --team "payments"          # new branch status/payments, commit, push
+relay --team "payments"          # new branch feat/payments, commit, push
 
 # 3. Open a Pull Request natively
 relay pr                         # opens a PR from current branch to main
@@ -127,7 +127,7 @@ $ relay doctor
 | `undo` | Undo the last commit (`git reset --soft HEAD~1`); changes stay staged. |
 | `doctor` | Diagnose this installation (PATH, git, AI credentials). |
 | `--solo` | Stage, commit and push to the current branch (default). |
-| `--team [FEATURE]` | Create & checkout `status/<feature>`, commit, push it (feature optional). |
+| `--team [FEATURE]` | Create & checkout `<type>/<feature>`, commit, push it (feature optional). |
 | `--provider {gemini,ollama}` | Override the AI provider (default: gemini). |
 | `--timeout SECONDS` | Seconds to wait for the AI response (default: 30, max: 120). |
 | `--yes` | Skip the confirmation prompt. |
@@ -150,7 +150,7 @@ Relay is configured entirely through **environment variables** — no config fil
 | `OLLAMA_MODEL` | Ollama model id | `qwen2.5-coder:7b` |
 | `RELAY_AI_PROVIDER` | Default provider: `gemini` \| `ollama` | `gemini` |
 | `RELAY_AI_TIMEOUT` | Seconds to wait for the AI response (clamped to 120 max) | `30` |
-| `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `status/<feature>` |
+| `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `<type>/<feature>` |
 
 The `--provider` flag overrides `RELAY_AI_PROVIDER`; `--timeout` overrides `RELAY_AI_TIMEOUT`. A TOML config file is a planned addition.
 
@@ -186,7 +186,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 ### 4. Personas
 
 - **Solo Developer (Sana)** — works on her own repos, wants speed and clean history, rarely thinks about branches.
-- **Team Developer (Marcus)** — works on a shared repo, must keep `main` clean, relies on `status/<feature>`-style branches.
+- **Team Developer (Marcus)** — works on a shared repo, must keep `main` clean, relies on `<type>/<feature>`-style branches.
 - **On-call / Low-connectivity Developer (Priya)** — works offline or on flaky networks; needs the tool to never be a blocker.
 
 ### 5. Functional Requirements
@@ -201,7 +201,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | FR-6 | Parse/validate the AI response into a **Conventional Commit** message (`type(scope): subject`). | P0 |
 | FR-7 | On AI failure (timeout, rate limit, offline, invalid output), **fall back to a manual message prompt** in the same terminal and continue the workflow. | P0 |
 | FR-8 | Preflight checks: is a Git repo present? are there staged/unstaged changes? is a remote configured? Abort early with clear messages otherwise. | P0 |
-| FR-9 | Team-mode branch naming uses a configurable template (default `status/<feature>`); feature name from `--team <name>`, the current branch, or a prompt. | P1 |
+| FR-9 | Team-mode branch naming uses a configurable template (default `<type>/<feature>`); feature name from `--team <name>`, the current branch, or a prompt. | P1 |
 | FR-10 | Show the generated message and request confirmation before committing (skippable via `--yes`). | P1 |
 | FR-11 | Support `--dry-run` (plan + message, no mutations) and `--no-push`. | P1 |
 | FR-12 | Respect git pre-commit hooks; surface hook output and abort cleanly on failure. | P1 |
