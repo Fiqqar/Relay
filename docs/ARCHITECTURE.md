@@ -55,9 +55,10 @@ Relay is **zero-dependency by design**: everything uses the Python standard libr
 - Keeps zero business logic — it only translates CLI input into an `Orchestrator` call.
 
 ### 3.2 Config Manager — `relay/config.py`
-- Responsibility: resolve configuration from **environment variables only** (no config file in v0.1): `GEMINI_API_KEY`, `GEMINI_MODEL`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `RELAY_AI_PROVIDER`, `RELAY_BRANCH_TEMPLATE`.
-- Precedence: **flags > env vars > defaults**. A missing `GEMINI_API_KEY` (when provider is `gemini`) raises `ConfigError` with platform-specific instructions before any git mutation.
-- A TOML config file is a planned addition; because all reads flow through this module, adding one later requires no call-site changes.
+- Responsibility: resolve configuration from **environment variables** plus an optional **TOML config file**: `GEMINI_API_KEY`, `GEMINI_MODEL`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `RELAY_AI_PROVIDER`, `RELAY_BRANCH_TEMPLATE`, `RELAY_AI_TIMEOUT`, `RELAY_MAX_DIFF_LINES`, `RELAY_PR_OPEN`.
+- Precedence: **flags > env vars > config file > defaults**. The file lives at `$XDG_CONFIG_HOME/relay/config.toml` (or `%APPDATA%\relay\config.toml` on Windows), overridable via `RELAY_CONFIG`; a `[relay]` table holds the non-secret keys. Secrets (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`) are env-variable-only (NFR-3).
+- A missing `GEMINI_API_KEY` (when provider is `gemini`) raises `ConfigError` with platform-specific instructions before any git mutation. A missing or malformed config file is ignored.
+- All reads flow through `_resolve(env_key, cfg_key, default)`, so call sites never change when a key's source is added or moved.
 
 ### 3.3 Preflight — `Orchestrator._preflight` (`relay/orchestrator.py`)
 - Responsibility: fail fast, before any mutation:
@@ -155,8 +156,8 @@ user ──relay --solo--> CLI Parser ──> Config (env) ──> build AI prov
 
 Full reference lives in the [README](../README.md#configuration). Key points:
 
-- **Environment variables only** — no config file in v0.1. Precedence: flags > env > defaults.
-- **Secrets** — `GEMINI_API_KEY` must come from the environment; it is never logged, printed in `--verbose`, or included in error strings.
+- **Environment variables** plus an optional `[relay]` TOML config file. Precedence: flags > env > file > defaults.
+- **Secrets** — `GEMINI_API_KEY` must come from the environment; it is never logged, printed in `--verbose`, or included in error strings, and is never read from the config file.
 
 ## 6. Error Handling & Exit Codes
 
@@ -198,7 +199,7 @@ Errors flow through a small taxonomy in `relay/errors.py`: `RelayError` (base) �
 - **New AI provider** = subclass `AIManager` (implement `provider_name` + `generate_commit_message`) and register it in the `_PROVIDERS` dict in `relay/ai/__init__.py`. No workflow changes required.
 - **New branch template** = set `RELAY_BRANCH_TEMPLATE` to any template containing a `<feature>` placeholder; sanitization guarantees a valid git ref.
 - **New preflight checks** = add a check to `Orchestrator._preflight`; each is a pure predicate + message.
-- **Config file later** = all config reads go through `relay/config.py`, so a TOML layer can be added without touching call sites.
+- **Config file** = all config reads go through `relay/config.py`, so new keys (or new sources) can be added without touching call sites.
 
 ## 10. Testing Strategy
 

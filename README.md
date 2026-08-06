@@ -142,7 +142,11 @@ $ relay doctor
 
 ## Configuration
 
-Relay is configured entirely through **environment variables** — no config files to manage.
+Relay is configured through **environment variables**, optionally overridden by
+a **TOML config file**. Precedence: **flags > env vars > config file >
+defaults**.
+
+Environment variables (always win over the config file):
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
@@ -153,9 +157,37 @@ Relay is configured entirely through **environment variables** — no config fil
 | `OLLAMA_MODEL` | Ollama model id | `qwen2.5-coder:7b` |
 | `RELAY_AI_PROVIDER` | Default provider: `gemini` \| `ollama` | `gemini` |
 | `RELAY_AI_TIMEOUT` | Seconds to wait for the AI response (clamped to 120 max) | `30` |
-| `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `status/<feature>` |
+| `RELAY_MAX_DIFF_LINES` | Line cap on the staged diff sent to the LLM | `120` |
+| `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `<type>/<feature>` |
+| `RELAY_PR_OPEN` | Auto-open `relay pr` URLs in the browser (`1/true/yes/on`) | off |
+| `RELAY_CONFIG` | Override the TOML config file path | see below |
 
-The `--provider` flag overrides `RELAY_AI_PROVIDER`; `--timeout` overrides `RELAY_AI_TIMEOUT`. A TOML config file is a planned addition.
+The `--provider` flag overrides `RELAY_AI_PROVIDER`; `--timeout` overrides
+`RELAY_AI_TIMEOUT`. **Secrets** (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`)
+are only ever read from the environment — never from a file.
+
+### Config file (optional)
+
+Relay reads a `[relay]` TOML table at:
+
+- `$XDG_CONFIG_HOME/relay/config.toml` on macOS/Linux
+- `%APPDATA%\relay\config.toml` on Windows
+
+or anywhere the `RELAY_CONFIG` env var points. Example:
+
+```toml
+[relay]
+provider = "ollama"
+ai_timeout = 45
+branch_template = "release/<feature>"
+max_diff_lines = 250
+pr_open = true
+gemini_model = "gemini-2.5-flash"
+ollama_model = "qwen2.5-coder:7b"
+ollama_base_url = "http://localhost:11434"
+```
+
+Keys mirror the non-secret env vars above. A missing/malformed file is ignored.
 
 ---
 
