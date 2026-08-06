@@ -116,7 +116,7 @@ class AIError(RelayError):
 - `sanitize_ai_message` — trims raw LLM output, strips markdown code fences, keeps the first non-empty line.
 - `validate_conventional` — validates the subject line against the Conventional Commits grammar (`type(scope): subject`, type ∈ `feat|fix|refactor|docs|style|test|chore|perf|build|ci|revert`).
 - If validation fails, the Orchestrator treats it as an AI failure → **manual fallback** (a bad AI message is never silently committed or mangled).
-- `build_branch_name` — expands `status/<feature>` into a valid git ref (lowercase, whitespace → `-`, strips `~^:?*[\`, drops `.`/`..` path segments, caps at 100 chars).
+- `build_branch_name` — expands `<type>/<feature>` into a valid git ref (lowercase, whitespace → `-`, strips `~^:?*[\`, drops `.`/`..` path segments, caps at 100 chars).
 
 ### 3.9 PromptUI — built into `relay/orchestrator.py`
 - Library: plain `input()` — deliberately dependency-free.

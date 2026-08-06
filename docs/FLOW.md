@@ -79,7 +79,7 @@ Developer        relay              git               LLM
 
 ## 3. Team Mode
 
-**Goal:** working tree → new `status/<feature>` branch → committed & pushed.
+**Goal:** working tree → new `<type>/<feature>` branch → committed & pushed.
 
 Differences from Solo: an extra **BRANCH** step before commit, and `push -u` sets upstream.
 
@@ -94,20 +94,20 @@ TEAM
   │
   ├─ BRANCH       resolve feature name:
   │                 precedence: --team <name> > derive from current branch > prompt
-  │               build name from template (default "status/<feature>",
+  │               build name from template (default "<type>/<feature>",
   │                 env RELAY_BRANCH_TEMPLATE): lowercase, spaces→"-", strip
   │                 illegal chars and '.'/'..' path segments, cap at 100 chars
   │               if branch already exists locally → git error (exit 1, with stderr)
-  │               git checkout -b status/<feature>
+  │               git checkout -b <type>/<feature>
   │
   ├─ CONFIRM      same as solo
   │
   ├─ COMMIT       git commit -F <message>
   │
-  └─ PUSH         git push -u origin status/<feature>   (upstream set)
-                  ├─ success → "done: pushed to 'status/<feature>'" → exit 0
+  └─ PUSH         git push -u origin <type>/<feature>   (upstream set)
+                  ├─ success → "done: pushed to '<type>/<feature>'" → exit 0
                   └─ failure → report committed state + retry command:
-                         git push -u origin status/<feature>
+                         git push -u origin <type>/<feature>
                          → exit 1 (branch + commit are safe locally)
 ```
 
@@ -122,7 +122,7 @@ Developer        relay               git                LLM
    │              │──────────────────▶│                  │
    │              │  request ───────────────────────────▶│
    │              │  message ◀────────────────────────────│
-   │              │  checkout -b status/feat             │
+    │              │  checkout -b <type>/feat             │
    │              │──────────────────▶│                  │
    │  confirm     │                   │                  │
    │◀────────────▶│  commit -F        │                  │
@@ -202,7 +202,7 @@ Generated message:
 | Stage all | `git add .` | `git add .` |
 | Collect diff | `git diff --cached` | `git diff --cached` |
 | Generate message | AI → fallback → manual | AI → fallback → manual |
-| Branch | — (stay on current) | `git checkout -b status/<feature>` |
+| Branch | — (stay on current) | `git checkout -b <type>/<feature>` |
 | Commit | `git commit -F -` | `git commit -F -` |
 | Push | `git push origin <cur>` | `git push -u origin <branch>` |
 | On push failure | commit kept, retry hint shown | branch kept locally, retry hint shown |
@@ -232,7 +232,7 @@ Generated message:
 ## 7. Branch Naming Rules (Team Mode)
 
 1. Feature name resolution: `--team <name>` **>** derive from current branch (last path segment) **>** interactive prompt.
-2. Template expansion: `status/<feature>` (configurable via `RELAY_BRANCH_TEMPLATE`) → e.g. `status/payments`.
+2. Template expansion: `<type>/<feature>` (configurable via `RELAY_BRANCH_TEMPLATE`) → e.g. `feat/payments`.
 3. Sanitization: lowercase, whitespace → `-`, strip `~ ^ : ? * [ \`, drop `.`/`..` path segments, cap at 100 chars; `git checkout -b` is git's final authority.
 
 ## 8. Idempotency & Safety Guarantees
