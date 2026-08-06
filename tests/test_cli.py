@@ -97,6 +97,10 @@ class TestPrSubcommand:
     def test_pr_parses_yes_flag(self):
         assert build_parser().parse_args(["pr", "--yes"]).yes is True
 
+    def test_pr_parses_draft_flag(self):
+        assert build_parser().parse_args(["pr", "--draft"]).draft is True
+        assert build_parser().parse_args(["pr"]).draft is False
+
     def test_pr_flag_named_team_is_not_a_subcommand(self):
         args = build_parser().parse_args(["--team", "pr"])
         assert args.command is None
@@ -106,15 +110,20 @@ class TestPrSubcommand:
         with mock.patch("relay.cli.run_pr", return_value=3) as run:
             assert main(["pr"]) == 3
         run.assert_called_once_with(
-            base="main", title=None, open_browser=False, verbose=False
+            base="main", title=None, open_browser=False, draft=False, verbose=False
         )
 
     def test_main_forwards_pr_flags(self):
         with mock.patch("relay.cli.run_pr", return_value=0) as run:
             main(["pr", "--base", "develop", "--title", "T", "--verbose"])
         run.assert_called_once_with(
-            base="develop", title="T", open_browser=False, verbose=True
+            base="develop", title="T", open_browser=False, draft=False, verbose=True
         )
+
+    def test_main_forwards_pr_draft_flag(self):
+        with mock.patch("relay.cli.run_pr", return_value=0) as run:
+            main(["pr", "--draft"])
+        assert run.call_args.kwargs["draft"] is True
 
     def test_main_open_flag_enables_browser(self):
         with mock.patch("relay.cli.run_pr", return_value=0) as run:

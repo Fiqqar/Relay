@@ -173,16 +173,25 @@ class GitHubClient:
         head: str,
         base: str = "main",
         body: str = "",
+        draft: bool = False,
     ) -> dict:
         """Open a pull request and return the created resource as a dict.
 
-        Raises GitHubError when the token is missing or the request fails.
-        Raises DuplicatePullRequestError (a GitHubError subclass) when GitHub
-        rejects the POST with a 422 "PR already exists" error, so callers can
-        recover gracefully instead of crashing on the duplicate.
+        ``draft=True`` creates a draft pull request (visible to the repository
+        but not ready for review). Raises GitHubError when the token is missing
+        or the request fails. Raises DuplicatePullRequestError (a GitHubError
+        subclass) when GitHub rejects the POST with a 422 "PR already exists"
+        error, so callers can recover gracefully instead of crashing on the
+        duplicate.
         """
         token = self._require_token()
-        payload = {"title": title, "head": head, "base": base, "body": body}
+        payload = {
+            "title": title,
+            "head": head,
+            "base": base,
+            "body": body,
+            "draft": draft,
+        }
         request = urllib.request.Request(
             self.pulls_url,
             data=json.dumps(payload).encode("utf-8"),

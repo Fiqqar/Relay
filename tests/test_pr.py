@@ -74,11 +74,22 @@ class TestRunPr:
     def test_opens_pr_with_commit_title(self, fake_client, capsys):
         assert run_pr(git=FakeGit()) == 0
         fake_client.return_value.open_pull.assert_called_once_with(
-            title="feat: add login", head="feat/login", base="main", body=mock.ANY
+            title="feat: add login", head="feat/login", base="main",
+            body=mock.ANY, draft=False
         )
         out = capsys.readouterr().out
         assert "PR #12" in out
         assert "pull/12" in out
+
+    def test_opens_draft_pr_when_requested(self, fake_client):
+        run_pr(git=FakeGit(), draft=True)
+        args = fake_client.return_value.open_pull.call_args.kwargs
+        assert args["draft"] is True
+
+    def test_pr_is_not_draft_by_default(self, fake_client):
+        run_pr(git=FakeGit())
+        args = fake_client.return_value.open_pull.call_args.kwargs
+        assert args["draft"] is False
 
     def test_explicit_title_wins(self, fake_client):
         run_pr(git=FakeGit(), title="My PR")

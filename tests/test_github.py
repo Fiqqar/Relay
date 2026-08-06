@@ -257,8 +257,25 @@ class TestOpenPull:
             "head": "feat/login",
             "base": "main",
             "body": "Details",
+            "draft": False,
         }
         assert result["number"] == 7
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_open_pull_defaults_draft_to_false(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"{}"
+        GitHubClient("acme", "widget", token="t").open_pull(title="x", head="h")
+        request = mock_urlopen.call_args.args[0]
+        assert json.loads(request.data)["draft"] is False
+
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_open_pull_forwards_draft_true(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"{}"
+        GitHubClient("acme", "widget", token="t").open_pull(
+            title="x", head="h", draft=True
+        )
+        request = mock_urlopen.call_args.args[0]
+        assert json.loads(request.data)["draft"] is True
 
     @mock.patch("relay.github.urllib.request.urlopen")
     def test_base_defaults_to_main(self, mock_urlopen):

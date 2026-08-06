@@ -88,6 +88,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="PR title (default: latest commit message)")
     pr.add_argument("-o", "--open", action="store_true",
                     help="open the PR in the default web browser")
+    pr.add_argument("-d", "--draft", action="store_true",
+                    help="create the PR as a draft (visible, not ready for review)")
     pr.add_argument("--yes", action="store_true",
                     help="act without prompting (implies --open)")
     pr.add_argument("--verbose", action="store_true",
@@ -141,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
                 base=args.base,
                 title=args.title,
                 open_browser=args.open or args.yes or pr_open_browser(),
+                draft=args.draft,
                 verbose=args.verbose,
             )
 
