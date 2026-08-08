@@ -19,8 +19,17 @@ from pathlib import Path
 
 try:  # Python 3.11+
     import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10
-    tomllib = None
+
+    # Stdlib parser. tomllib.TOMLDecodeError is a ValueError subclass.
+    _load_toml = tomllib.load
+    _TOML_DECODE_ERROR = tomllib.TOMLDecodeError
+except ModuleNotFoundError:  # Python 3.10 — fall back to the bundled parser
+    from . import toml
+
+    # relay/toml.py is a tiny dependency-free parser with a tomllib-compatible
+    # load(); it raises ValueError (with a line number) on malformed TOML.
+    _load_toml = toml.load
+    _TOML_DECODE_ERROR = ValueError
 
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
@@ -75,15 +84,13 @@ def config_file_path() -> Path | None:
 
 def _load_config() -> dict:
     """Parse the ``[relay]`` table from the config file (or {} when absent)."""
-    if tomllib is None:
-        return {}  # Python 3.10 has no tomllib; env vars are the only source.
     path = config_file_path()
     if path is None or not path.is_file():
         return {}
     try:
         with open(path, "rb") as fh:
-            data = tomllib.load(fh)
-    except (OSError, tomllib.TOMLDecodeError):
+            data = _load_toml(fh)
+    except (OSError, _TOML_DECODE_ERROR):
         return {}
     section = data.get("relay")
     if not isinstance(section, dict):
