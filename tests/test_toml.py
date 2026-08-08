@@ -50,6 +50,42 @@ def test_empty_array():
     assert toml.parse("tags = []") == {"tags": []}
 
 
+def test_inline_table():
+    assert toml.parse('license = { text = "MIT", year = 2026 }') == {
+        "license": {"text": "MIT", "year": 2026}
+    }
+
+
+def test_empty_inline_table():
+    assert toml.parse("opts = {}") == {"opts": {}}
+
+
+def test_array_of_inline_tables():
+    assert toml.parse('items = [{ a = 1 }, { a = 2 }]') == {
+        "items": [{"a": 1}, {"a": 2}]
+    }
+
+
+def test_nested_inline_table_value():
+    assert toml.parse('cfg = { auth = { token = "x" } }') == {
+        "cfg": {"auth": {"token": "x"}}
+    }
+
+
+def test_pyproject_style_inline_table_and_arrays():
+    text = (
+        '[project]\n'
+        'name = "demo"\n'
+        'license = { text = "MIT" }\n'
+        'requires = ["setuptools>=68"]\n'
+        'dev = ["pytest>=8", "build>=1.0"]\n'
+    )
+    parsed = toml.parse(text)
+    assert parsed["project"]["license"] == {"text": "MIT"}
+    assert parsed["project"]["requires"] == ["setuptools>=68"]
+    assert parsed["project"]["dev"] == ["pytest>=8", "build>=1.0"]
+
+
 def test_comments_ignored():
     assert toml.parse("# full line\nkey = 'v' # inline\n") == {"key": "v"}
 

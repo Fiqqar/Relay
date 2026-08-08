@@ -11,10 +11,12 @@ file actually needs:
     key = 42
     key = true / false
     key = [1, 2, "three"]
+    key = { text = "MIT", weight = 2 }   # inline table
 
-plus full-line ``#`` comments, quoted keys, and dotted keys. ``[[array of
-tables]]`` and multi-line strings are intentionally unsupported — the config
-layer never produces them, so an explicit error beats a silent misparse.
+plus full-line ``#`` comments, quoted keys, dotted keys, and inline tables.
+``[[array of tables]]`` and multi-line strings are intentionally unsupported —
+the config layer never produces them, so an explicit error beats a silent
+misparse.
 """
 from __future__ import annotations
 
@@ -140,6 +142,8 @@ def _parse_value(raw: str):
         return False
     if value.startswith("["):
         return _parse_array(value)
+    if value.startswith("{"):
+        return _parse_table(value)
     if value.startswith(("'", '"')):
         return _parse_string(value)
     if re.fullmatch(r"[+-]?\d+", value):
@@ -147,6 +151,56 @@ def _parse_value(raw: str):
     if re.fullmatch(r"[+-]?\d+\.\d+([eE][+-]?\d+)?", value):
         return float(value)
     raise ValueError(f"unsupported value: {value!r}")
+
+
+def _parse_table(raw: str) -> dict:
+    """Parse an inline table like ``{ text = "MIT", weight = 2 }``."""
+    if len(raw) < 2 or not raw.endswith("}"):
+        raise ValueError(f"invalid inline table: {raw!r}")
+    body = raw[1:-1].strip()
+    if not body:
+        return {}
+    result: dict = {}
+    for part in _split_items(body):
+        if not part:
+            continue
+        key_raw, value_raw = _split_kv(part)
+        _set_node(result, tuple(_split_dotted(key_raw)), _parse_value(value_raw))
+    return result
+
+
+def _split_items(raw: str) -> list[str]:
+    """Split a TOML list (``[...]``/``{...}``) body on top-level commas."""
+    items: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    in_str = False
+    quote = ""
+    for ch in raw:
+        if ch in ("'", '"'):
+            if not in_str:
+                in_str, quote = True, ch
+            elif ch == quote and buf and buf[-1] != "\\":
+                in_str = False
+            buf.append(ch)
+        elif not in_str:
+            if ch in "[{":
+                depth += 1
+            elif ch in "]}":
+                depth -= 1
+                if depth < 0:
+                    raise ValueError(f"unbalanced delimiters: {raw!r}")
+            if ch == "," and depth == 0:
+                items.append("".join(buf).strip())
+                buf = []
+                continue
+            buf.append(ch)
+        else:
+            buf.append(ch)
+    if in_str or depth != 0:
+        raise ValueError(f"unbalanced delimiters: {raw!r}")
+    items.append("".join(buf).strip())
+    return items
 
 
 def _parse_string(raw: str) -> str:
@@ -185,40 +239,7 @@ def _parse_array(raw: str) -> list:
     inner = raw[1:-1].strip()
     if not inner:
         return []
-    items: list = []
-    buf: list[str] = []
-    depth = 0
-    in_str = False
-    quote = ""
-    for ch in inner:
-        if ch in ("'", '"'):
-            if not in_str:
-                in_str, quote = True, ch
-            elif ch == quote and buf and buf[-1] != "\\":
-                in_str = False
-            buf.append(ch)
-        elif not in_str:
-            if ch == "[":
-                depth += 1
-            elif ch == "]":
-                depth -= 1
-                if depth < 0:
-                    raise ValueError(f"unbalanced array: {raw!r}")
-            if ch == "," and depth == 0:
-                item = "".join(buf).strip()
-                if item:
-                    items.append(_parse_value(item))
-                buf = []
-                continue
-            buf.append(ch)
-        else:
-            buf.append(ch)
-    if in_str or depth != 0:
-        raise ValueError(f"unbalanced array: {raw!r}")
-    tail = "".join(buf).strip()
-    if tail:
-        items.append(_parse_value(tail))
-    return items
+    return [_parse_value(item) for item in _split_items(inner) if item]
 
 
 def _node_at(root: dict, path: tuple[str, ...], *, create: bool) -> dict:
