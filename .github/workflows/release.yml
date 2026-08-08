@@ -1,0 +1,41 @@
+name: Release
+
+# Cut a release by pushing a tag:  git tag v0.2.0 && git push origin v0.2.0
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: build & publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test suite must pass
+        run: |
+          pip install -e ".[dev]"
+          pytest -q
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Smoke-test the built wheel
+        run: |
+          pip install --no-deps --force-reinstall dist/relay_cli-*.whl
+          relay --version
+
+      - name: Create GitHub Release and upload artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

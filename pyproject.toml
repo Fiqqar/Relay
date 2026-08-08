@@ -15,8 +15,8 @@ license = { text = "MIT" }
 dependencies = []
 
 [project.optional-dependencies]
-# Dev-only extras used for testing. Not needed to run Relay itself.
-dev = ["pytest>=8"]
+# Dev-only extras used for testing and release packaging. Not needed to run Relay itself.
+dev = ["pytest>=8", "build>=1.0"]
 
 [project.scripts]
 relay = "relay.cli:main"
