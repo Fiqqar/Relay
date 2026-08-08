@@ -22,6 +22,7 @@ Relay reads your staged diff, hands it to an LLM (local **Ollama** or **Gemini A
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
+- [Example](#example)
 - [Product Requirements Document (PRD)](#product-requirements-document-prd)
 - [Roadmap](#roadmap)
 - [Documentation](#documentation)
@@ -32,7 +33,7 @@ Relay reads your staged diff, hands it to an LLM (local **Ollama** or **Gemini A
 
 Daily Git work is repetitive and context-switching: stage files, invent a commit message, push, open a browser, and create a Pull Request. Commit messages are often lazy, inconsistent, or convention-free — which pollutes history and hurts `git bisect`, changelog generation, and code review.
 
-Relay collapses this into a single decision-free command while keeping the developer in control at every meaningful checkpoint.
+Relay collapses this into a single workflow while keeping the developer in control at every meaningful checkpoint.
 
 ## Features
 
@@ -97,9 +98,13 @@ relay --solo                     # stage, commit, push to the current branch
 relay --team "payments"          # new branch feat/payments, commit, push
 
 # 3. Open a Pull Request natively
-relay pr                         # opens a PR from current branch to main
-relay pr --draft                 # ... as a draft PR
+relay pr                       # create PR, print its URL (browser not touched)
+relay pr --open                # ... and open it in the default browser
+relay pr -d --open             # draft PR, opened in the browser
 ```
+`relay pr` prints the PR URL but only launches your browser with `--open`
+(or `RELAY_PR_OPEN=1` in the config/env). `relay pr --yes` skips the confirm
+step **and** implies `--open`.
 
 ### `relay doctor`
 
@@ -126,7 +131,7 @@ $ relay doctor
 
 | Command / Flag | Description |
 | --- | --- |
-| `pr` | Open a GitHub Pull Request for the current branch (`--base`, `--title`, `--draft`). |
+| `pr` | Open a GitHub PR for the current branch. Prints the URL; opens the browser only with `--open`/`-o` or `RELAY_PR_OPEN=1`. `--base`, `--title`, `--draft`/`-d`, `--yes` (no prompt, implies `--open`). |
 | `undo` | Undo the last commit (`git reset --soft HEAD~1`); changes stay staged. |
 | `amend` | Rewrite the last commit's message with a freshly generated one (never pushes). |
 | `doctor` | Diagnose this installation (PATH, git, AI credentials). |
@@ -192,6 +197,29 @@ Keys mirror the non-secret env vars above. A missing/malformed file is ignored.
 
 ---
 
+## Example
+
+A real session — messy working tree, then a pushed commit and an open PR. No
+magic, no third-party dependencies, all in one terminal:
+
+```text
+$ relay --team payments
+[relay] AI message: feat(payments): add transaction retry handling
+[Accept] [Edit] [Retry] [Abort] (a/e/r/A): a
+[relay] done: pushed to 'feat/payments'
+
+$ relay pr --open
+[relay] opened PR #42: https://github.com/Fiqqar/Relay/pull/42
+# ...and the PR opens in your default browser
+```
+
+The AI message above is generated from the staged diff, validated as a
+Conventional Commit, and yours to review before anything is committed. If the
+AI had been offline, Relay would have asked you for the message and continued
+from there — the Git workflow never waits on the model.
+
+---
+
 ## Product Requirements Document (PRD)
 
 ### 1. Problem Statement
@@ -207,7 +235,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 
 - **G1.** Provide a single command that takes the working tree to a pushed commit in both solo and team workflows.
 - **G2.** Generate meaningful, Conventional Commits-compliant messages from the staged diff via LLMs.
-- **G3.** Guarantee the workflow always completes even when the AI is unavailable (offline, rate-limited, misconfigured) via a manual-input fallback.
+- **G3.** Never let AI availability block the Git workflow — if the AI is offline, rate-limited, or misconfigured, drop into an interactive manual-input prompt and keep going.
 - **G4.** Keep the developer in control: preview, confirm, edit, and abort at meaningful checkpoints.
 - **G5.** Ship as a fast, dependency-light, cross-platform global CLI.
 
@@ -272,7 +300,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | **M0 — MVP** | CLI, solo + team modes, manual commit input, preflight, push. | `relay` completes both modes with zero AI dependency. | ✅ done |
 | **M1 — Ollama** | Ollama provider, diff collection, message validation, confirm step. | AI messages with a local model; fallback proven via forced failure. | ✅ done |
 | **M2 — Gemini** | Gemini provider, env-var config. | Gemini selectable; keys never logged. | ✅ done |
-| **M3 — Polish** | `--dry-run`, `--yes`, diff truncation, hooks handling, `relay doctor`, GitHub PR automation (`relay pr`). | Full feature set; package published for 3 platforms. | in progress |
+| **M3 — Release & Distribution** | GitHub Release automation (`.github/workflows/release.yml` on `v*` tags), sdist + wheel builds, cross-platform verification (CI matrix: 3 OS × 3 Python versions). | Package published and attached to a GitHub Release for 3 platforms. | in progress |
 
 ## Roadmap
 
@@ -289,4 +317,4 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 
 ---
 
-_License: MIT (planned). Maintained for developers who value clean Git history._
+_License: MIT. Maintained for developers who value clean Git history._
