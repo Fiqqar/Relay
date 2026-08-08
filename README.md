@@ -302,13 +302,13 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | **M0 — MVP** | CLI, solo + team modes, manual commit input, preflight, push. | `relay` completes both modes with zero AI dependency. | ✅ done |
 | **M1 — Ollama** | Ollama provider, diff collection, message validation, confirm step. | AI messages with a local model; fallback proven via forced failure. | ✅ done |
 | **M2 — Gemini** | Gemini provider, env-var config. | Gemini selectable; keys never logged. | ✅ done |
-| **M3 — Release & Distribution** | GitHub Release automation (`.github/workflows/release.yml` on `v*` tags), sdist + wheel builds, cross-platform verification (CI matrix: 3 OS × 3 Python versions). | Package published and attached to a GitHub Release for 3 platforms. | in progress |
+| **M3 — Release & Distribution** | GitHub Release automation (`.github/workflows/release.yml` on `v*` tags), sdist + wheel builds, cross-platform verification (CI matrix: 3 OS × 3 Python versions). | Package published and attached to a GitHub Release for 3 platforms. | ✅ done |
 
 ## Roadmap
 
 - **v0.1** — MVP: solo + team modes, Gemini + Ollama providers, manual fallback. ✅ shipped
 - **v0.2** — diff truncation (FR-14), `relay doctor`, `relay pr` (GitHub PR automation), CI + pytest suite, TOML config file. ✅ shipped (current snapshot)
-- **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging.
+- **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging. ✅ shipped
 - **v1.0** — GA: telemetry opt-in, man pages / shell completions.
 - **Later** — GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, llama.cpp), team default-branch safety rules.
 
