@@ -42,7 +42,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
-- **Zero-config & safe** — configuration via environment variables only; `--dry-run`, `--yes`, and an explicit confirm step.
+- **Zero-config & safe** — works out of the box via environment variables, optionally overridden with a TOML config file; `--dry-run`, `--yes`, and an explicit confirm step.
 - **Respect your staging** — `--staged` commits only what you already staged instead of `git add .`.
 - **Non-destructive undo** — `relay undo` soft-resets the last commit (changes stay staged, nothing lost).
 - **Rewrite the last commit** — `relay amend` regenerates the commit message in place (never force-pushes).
@@ -54,7 +54,7 @@ Relay collapses this into a single decision-free command while keeping the devel
 Requires **Python 3.10+** and `git` on your `PATH`
 
 ```bash
-pip install git+[https://github.com/Fiqqar/Relay.git](https://github.com/Fiqqar/Relay.git)
+pip install "git+https://github.com/Fiqqar/Relay.git"
 ```
 
 **One-command install (recommended):** the bundled installer verifies the
@@ -79,7 +79,8 @@ Manual fallback (same thing, by hand):
 python -m pip install -e .     # editable install -> `relay` on your PATH
 ```
 
-Distribution via Homebrew / Scoop / GitHub Releases is planned.
+GitHub Releases publishing is wired up via `.github/workflows/release.yml`
+(push a `v*` tag). Homebrew / Scoop packaging is planned.
 
 ## Quick Start
 
@@ -232,7 +233,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | FR-2 | **Solo mode:** `git add .` → generate message → `git commit` → `git push origin <current-branch>`. | P0 |
 | FR-3 | **Team mode:** `git add .` → generate message → `git checkout -b <branch>` → `git commit` → `git push -u origin <branch>`. | P0 |
 | FR-4 | Read the staged diff (`git diff --cached`) and send it to the configured LLM provider. | P0 |
-| FR-5 | Support **Ollama** (local, default) and **Gemini API** providers behind a common interface. | P0 |
+| FR-5 | Support **Gemini API** (default) and local **Ollama** providers behind a common interface. | P0 |
 | FR-6 | Parse/validate the AI response into a **Conventional Commit** message (`type(scope): subject`). | P0 |
 | FR-7 | On AI failure (timeout, rate limit, offline, invalid output), **fall back to a manual message prompt** in the same terminal and continue the workflow. | P0 |
 | FR-8 | Preflight checks: is a Git repo present? are there staged/unstaged changes? is a remote configured? Abort early with clear messages otherwise. | P0 |
@@ -242,7 +243,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | FR-12 | Respect git pre-commit hooks; surface hook output and abort cleanly on failure. | P1 |
 | FR-13 | Handle push rejection (non-fast-forward) with actionable guidance (`pull --rebase`). | P1 |
 | FR-14 | Truncate very large diffs to the provider's token budget and report truncation. | P2 |
-| FR-15 | Provide `--verbose` command logging. (`relay doctor` deferred.) | P2 |
+| FR-15 | Provide `--verbose` command logging. (`relay doctor` shipped as a subcommand.) | P2 |
 | FR-16 | Provide `relay pr` to create GitHub Pull Requests via GitHub REST API without third-party dependencies. | P1 |
 
 ### 6. Non-Functional Requirements
@@ -251,7 +252,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | --- | --- |
 | NFR-1 | **Performance:** sub-500 ms CLI overhead excluding LLM latency; parallel-safe, no network calls during preflight. |
 | NFR-2 | **Portability:** pure-stdlib Python; runs on Windows, macOS, Linux with no runtime deps beyond `git` itself. |
-| NFR-3 | **Security:** API keys read from env var or config; secrets never logged; config file permissions `0600` on POSIX. |
+| NFR-3 | **Security:** secrets (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`) are only ever read from the environment, never from a file; secrets never logged; non-secret config gets `0600` permissions on POSIX. |
 | NFR-4 | **Reliability:** no partial states. If push fails after commit, the error reports state and the exact retry command. |
 | NFR-5 | **Observability:** structured logs, clear exit codes (0 success, 1 workflow error, 130 user abort). |
 | NFR-6 | **Testability:** AI providers behind an interface with a mock; Git executor unit-testable. |
@@ -275,10 +276,11 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 
 ## Roadmap
 
-- v0.1 — current Python implementation (solo + team, Gemini + Ollama, manual fallback).
-- v0.2 — diff truncation (FR-14), `relay doctor`, GitHub PR creation (`relay pr`), CI + pytest suite, release builds.
-- v1.0 — GA: stable config (TOML file), telemetry opt-in, man pages / shell completions.
-- Later — GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, llama.cpp), team default-branch safety rules.
+- **v0.1** — MVP: solo + team modes, Gemini + Ollama providers, manual fallback. ✅ shipped
+- **v0.2** — diff truncation (FR-14), `relay doctor`, `relay pr` (GitHub PR automation), CI + pytest suite, TOML config file. ✅ shipped (current snapshot)
+- **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging.
+- **v1.0** — GA: telemetry opt-in, man pages / shell completions.
+- **Later** — GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, llama.cpp), team default-branch safety rules.
 
 ## Documentation
 
