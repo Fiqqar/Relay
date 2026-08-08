@@ -5,7 +5,7 @@
 
 **Your Git workflow, on autopilot.**
 
-One command. From a messy working tree to a clean, AI-authored **Conventional Commit**, pushed, and instantly opened as a Pull Request - in Solo or Team mode.
+One workflow. From a messy working tree to a clean, AI-authored **Conventional Commit**, pushed and ready for a Pull Request - in Solo or Team mode.
 
 ```
 git add .  →  generate commit message  →  git commit  →  git push  →  open PR
@@ -103,8 +103,8 @@ relay pr --open                # ... and open it in the default browser
 relay pr -d --open             # draft PR, opened in the browser
 ```
 `relay pr` prints the PR URL but only launches your browser with `--open`
-(or `RELAY_PR_OPEN=1` in the config/env). `relay pr --yes` skips the confirm
-step **and** implies `--open`.
+(or `RELAY_PR_OPEN=1` in the config/env). `relay pr --yes` implies `--open`
+(no confirm prompt exists for `relay pr`).
 
 ### `relay doctor`
 
@@ -280,7 +280,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 | --- | --- |
 | NFR-1 | **Performance:** sub-500 ms CLI overhead excluding LLM latency; parallel-safe, no network calls during preflight. |
 | NFR-2 | **Portability:** pure-stdlib Python; runs on Windows, macOS, Linux with no runtime deps beyond `git` itself. |
-| NFR-3 | **Security:** secrets (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`) are only ever read from the environment, never from a file; secrets never logged; non-secret config gets `0600` permissions on POSIX. |
+| NFR-3 | **Security:** secrets (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`) are only ever read from the environment, never from a file; secrets never logged. |
 | NFR-4 | **Reliability:** no partial states. If push fails after commit, the error reports state and the exact retry command. |
 | NFR-5 | **Observability:** structured logs, clear exit codes (0 success, 1 workflow error, 130 user abort). |
 | NFR-6 | **Testability:** AI providers behind an interface with a mock; Git executor unit-testable. |
