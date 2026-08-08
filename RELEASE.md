@@ -63,6 +63,6 @@ bumping to the next patch (`v0.3.1`) and following the same steps.
 | Channel | Status |
 | --- | --- |
 | GitHub Releases (sdist + wheel) | primary |
-| Homebrew / Scoop | planned |
+| Homebrew / Scoop | packaged (formula/manifest in this repo) |
 
 _This file is part of the v0.3 "Release & Distribution" milestone._

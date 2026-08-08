@@ -1,0 +1,28 @@
+{
+  "version": "0.3.0",
+  "description": "Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback.",
+  "homepage": "https://github.com/Fiqqar/Relay",
+  "license": "MIT",
+  "url": "https://github.com/Fiqqar/Relay/releases/download/v0.3.0/relay_cli-0.3.0-py3-none-any.whl",
+  "hash": "sha256:3491074025fa936939af4a6b69bb106b3d44cb75ab7848875c8764a9389e5d35",
+  "depends": "python",
+  "checkver": {
+    "url": "https://api.github.com/repos/Fiqqar/Relay/releases/latest",
+    "regex": "tag_name\": *\"v([\\d.]+)\""
+  },
+  "autoupdate": {
+    "url": "https://github.com/Fiqqar/Relay/releases/download/v$version/relay_cli-$version-py3-none-any.whl"
+  },
+  "installer": {
+    "script": [
+      "python -c \"import zipfile; zipfile.ZipFile(r'$dir\\relay_cli-0.3.0-py3-none-any.whl').extractall(r'$dir\\lib')\"",
+      "Set-Content -Path \"$dir\\relay.ps1\" -Value '$env:PYTHONPATH = (Join-Path $PSScriptRoot \"lib\"); python -m relay @args' -Encoding UTF8"
+    ]
+  },
+  "bin": [
+    [
+      "relay.ps1",
+      "relay"
+    ]
+  ]
+}

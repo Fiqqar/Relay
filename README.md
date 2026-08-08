@@ -81,7 +81,9 @@ python -m pip install -e .     # editable install -> `relay` on your PATH
 ```
 
 GitHub Releases publishing is wired up via `.github/workflows/release.yml`
-(push a `v*` tag). Homebrew / Scoop packaging is planned.
+(push a `v*` tag). A Homebrew formula (`Formula/relay.rb`) and a Scoop
+manifest (`scripts/relay.scoop.json`) are shipped in this repo for native
+package managers.
 
 ## Quick Start
 
