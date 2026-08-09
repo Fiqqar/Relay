@@ -12,8 +12,8 @@ class Relay < Formula
 
   desc "Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback."
   homepage "https://github.com/Fiqqar/Relay"
-  url "https://github.com/Fiqqar/Relay/releases/download/v0.3.0/relay_cli-0.3.0.tar.gz"
-  sha256 "0b682619fac737634ddc494cf5d0ce0673468ce7a463efab27b3cf219a178acc"
+  url "https://github.com/Fiqqar/Relay/releases/download/v0.4.0/relay_cli-0.4.0.tar.gz"
+  sha256 "2ce6ac46853251b402827a707238765930422564b82dcb09874450cd958cc074"
   license "MIT"
   head "https://github.com/Fiqqar/Relay.git", branch: "main"
 
