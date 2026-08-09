@@ -122,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     pr = subparsers.add_parser(
         "pr",
-        help="open a GitHub pull request for the current branch",
+        help="open a pull request / merge request for the current branch",
         description="Opens a PR against --base (default: main). Title falls back to "
                     "the latest commit message; requires GITHUB_TOKEN.",
     )

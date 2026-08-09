@@ -1,8 +1,11 @@
-"""relay pr — open a GitHub pull request for the current branch.
+"""relay pr — open a pull request / merge request for the current branch.
+
+Detects the remote host from ``origin`` and routes to the matching forge client:
+GitHub (``github.com``) or GitLab (``gitlab.com`` / self-hosted instance).
 
 Follows the same shape as ``doctor.py``: a small ``run_pr()`` orchestrator that
 lives in its own module so the CLI just routes to it. It only reads from git
-and posts to GitHub — it never mutates the working tree.
+and posts to the forge — it never mutates the working tree.
 
 Title resolution order (first match wins):
     1. the explicit ``--title`` flag
@@ -16,24 +19,38 @@ import webbrowser
 
 from .commit import sanitize_ai_message
 from .errors import RelayError
-from .git_manager import GitManager, parse_remote_url
+from .git_manager import GitManager, parse_remote
 from .github import DuplicatePullRequestError, GitHubClient, GitHubError
+from .gitlab import DuplicateMergeRequestError, GitLabClient, GitLabError
 
 _PR_TITLE_MAX = 200
 
 
-def _pr_url(owner: str, repo: str, number) -> str:
-    return f"https://github.com/{owner}/{repo}/pull/{number}"
+def _host_web_base(host: str, owner: str, repo: str) -> str:
+    """Human-visible base URL a browser can open for this host's PR list."""
+    if host == "github.com":
+        return f"https://github.com/{owner}/{repo}/pulls"
+    return f"https://{host}/{owner}/{repo}/-/merge_requests"
 
 
-def _exit_existing_pr(
-    client: GitHubClient, owner: str, repo: str, existing, open_browser: bool
+def _pr_web_url(host: str, owner: str, repo: str, number) -> str:
+    if host == "github.com":
+        return f"https://github.com/{owner}/{repo}/pull/{number}"
+    return f"https://{host}/{owner}/{repo}/-/merge_requests/{number}"
+
+
+def _exit_existing_pr_host(
+    host: str, owner: str, repo: str, existing, open_browser: bool
 ) -> int:
-    """Report an existing PR (or the best URL we can build) and stop gracefully."""
+    """Report an existing PR/MR (or the best URL we can build) and stop gracefully."""
     if existing is not None:
-        url = existing.get("html_url") or _pr_url(owner, repo, existing.get("number"))
+        url = (
+            existing.get("html_url")
+            or existing.get("web_url")
+            or _pr_web_url(host, owner, repo, existing.get("number") or existing.get("iid"))
+        )
     else:
-        url = f"https://github.com/{owner}/{repo}/pulls"
+        url = _host_web_base(host, owner, repo)
     print(f"[relay] PR already exists: {url}")
     if open_browser:
         webbrowser.open(url)
@@ -76,6 +93,84 @@ def _build_body(git: GitManager, *, base: str, head: str) -> str:
     return "\n".join(lines)
 
 
+def _run_github(
+    *,
+    owner: str,
+    repo: str,
+    head: str,
+    base: str,
+    title: str,
+    body: str,
+    draft: bool,
+    open_browser: bool,
+    verbose: bool,
+) -> int:
+    client = GitHubClient(owner, repo, verbose=verbose)
+    existing = client.find_open_pr(head=head)
+    if existing is not None:
+        return _exit_existing_pr_host("github.com", owner, repo, existing, open_browser)
+    try:
+        created = client.open_pull(
+            title=title, head=head, base=base, body=body, draft=draft
+        )
+    except DuplicatePullRequestError:
+        # Race or a fork-owner head: re-query and exit gracefully instead of a 422.
+        existing = client.find_open_pr(head=head)
+        return _exit_existing_pr_host("github.com", owner, repo, existing, open_browser)
+    except GitHubError as exc:
+        if exc.status == 422:
+            print(f"[relay] Cannot open PR: {exc.reason}")
+            return 1
+        raise
+    number = created.get("number")
+    url = created.get("html_url") or _pr_web_url("github.com", owner, repo, number)
+    print(f"[relay] opened PR #{number}: {url}")
+    if open_browser:
+        webbrowser.open(url)
+    return 0
+
+
+def _run_gitlab(
+    *,
+    host: str,
+    owner: str,
+    repo: str,
+    head: str,
+    base: str,
+    title: str,
+    body: str,
+    draft: bool,
+    open_browser: bool,
+    verbose: bool,
+) -> int:
+    client = GitLabClient(host, f"{owner}/{repo}", verbose=verbose)
+    existing = client.find_open_mr(source_branch=head)
+    if existing is not None:
+        return _exit_existing_pr_host(host, owner, repo, existing, open_browser)
+    try:
+        created = client.open_merge_request(
+            title=title,
+            source_branch=head,
+            target_branch=base,
+            description=body,
+            draft=draft,
+        )
+    except DuplicateMergeRequestError:
+        existing = client.find_open_mr(source_branch=head)
+        return _exit_existing_pr_host(host, owner, repo, existing, open_browser)
+    except GitLabError as exc:
+        if exc.status in (400, 409):
+            print(f"[relay] Cannot open MR: {exc.reason}")
+            return 1
+        raise
+    number = created.get("iid")
+    url = created.get("web_url") or _pr_web_url(host, owner, repo, number)
+    print(f"[relay] opened MR #{number}: {url}")
+    if open_browser:
+        webbrowser.open(url)
+    return 0
+
+
 def run_pr(
     *,
     git: GitManager | None = None,
@@ -86,12 +181,12 @@ def run_pr(
     draft: bool = False,
     verbose: bool = False,
 ) -> int:
-    """Open a PR for the current branch. Returns the process exit code.
+    """Open a PR/MR for the current branch. Returns the process exit code.
 
     ``open_browser`` opens the PR URL (created or pre-existing) in the default
-    web browser via ``webbrowser``. ``draft`` opens the PR as a draft (visible
-    but not ready for review). The duplicate check happens up front, so a
-    branch that already has an open PR never triggers a fetch or an AI call.
+    web browser via ``webbrowser``. ``draft`` opens it as a draft (visible but
+    not ready for review). The duplicate check happens up front, so a branch
+    that already has an open PR never triggers a fetch or an AI call.
     """
     git = git or GitManager(verbose=verbose)
 
@@ -101,10 +196,10 @@ def run_pr(
     remote = git.remote_url()
     if not remote:
         raise RelayError(
-            "no 'origin' remote configured; cannot determine the GitHub repository"
+            "no 'origin' remote configured; cannot determine the hosting service"
         )
     try:
-        owner, repo = parse_remote_url(remote)
+        host, owner, repo = parse_remote(remote)
     except ValueError as exc:
         raise RelayError(str(exc)) from exc
 
@@ -112,55 +207,33 @@ def run_pr(
     if not head:
         raise RelayError("HEAD is detached; check out a branch before opening a PR")
 
-    # GitHub cannot open a PR for a branch it has never seen: fail fast with the
-    # exact push command instead of surfacing a confusing 422 from the API.
+    # A forge cannot open a PR/MR for a branch it has never seen: fail fast with
+    # the exact push command instead of surfacing a confusing 4xx from the API.
     if not git.remote_has_branch(head):
         raise RelayError(
             f"branch '{head}' has not been pushed to origin; "
             f"run `git push -u origin {head}` first"
         )
 
-    client = GitHubClient(owner, repo, verbose=verbose)
-
-    # Anti-duplicate: an open PR for this head branch is a no-op, not a 422.
-    existing = client.find_open_pr(head=head)
-    if existing is not None:
-        return _exit_existing_pr(client, owner, repo, existing, open_browser)
-
-    # Refresh the remote base so the body reflects commits GitHub actually knows
-    # about, not a stale local branch. A failed fetch is fine — log_between()
-    # then falls back to the local base ref.
+    # Refresh the remote base so the body reflects commits the host actually
+    # knows about, not a stale local branch. A failed fetch is fine —
+    # log_between() then falls back to the local base ref.
     git.fetch("origin", base, check=False)
 
     pr_title = _resolve_title(git, title=title, provider=provider)
     body = _build_body(git, base=base, head=head)
 
-    try:
-        created = client.open_pull(
-            title=pr_title, head=head, base=base, body=body, draft=draft
+    if host == "github.com":
+        return _run_github(
+            owner=owner, repo=repo, head=head, base=base,
+            title=pr_title, body=body, draft=draft,
+            open_browser=open_browser, verbose=verbose,
         )
-    except DuplicatePullRequestError:
-        # Safety net: the GET above missed it (race, or a fork-owner head), but
-        # GitHub rejected the POST as a duplicate. Re-query and exit gracefully
-        # instead of surfacing a raw 422 to the user.
-        return _exit_existing_pr(
-            client, owner, repo, client.find_open_pr(head=head), open_browser
-        )
-    except GitHubError as exc:
-        if exc.status == 422:
-            # No commits between base and head, or the PR is already merged or
-            # closed: GitHub refused to create it. Report the exact reason
-            # instead of letting a cryptic 422 crash the workflow.
-            print(f"[relay] Cannot open PR: {exc.reason}")
-            return 1
-        raise
-
-    number = created.get("number")
-    url = created.get("html_url") or _pr_url(owner, repo, number)
-    print(f"[relay] opened PR #{number}: {url}")
-    if open_browser:
-        webbrowser.open(url)
-    return 0
+    return _run_gitlab(
+        host=host, owner=owner, repo=repo, head=head, base=base,
+        title=pr_title, body=body, draft=draft,
+        open_browser=open_browser, verbose=verbose,
+    )
 
 
 __all__ = ["run_pr"]

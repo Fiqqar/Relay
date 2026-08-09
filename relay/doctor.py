@@ -26,6 +26,7 @@ from .config import (
 )
 from .git_manager import GitManager
 from .github import github_token
+from .gitlab import gitlab_token
 
 _MARKS = {"ok": "PASS", "warn": "WARN", "fail": "FAIL", "skip": "SKIP"}
 
@@ -91,7 +92,7 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         Check("git identity", "skip", ""),
         Check(f"provider: {chosen}", "skip", ""),
         Check("AI credentials", "skip", ""),
-        Check("GitHub token", "skip", ""),
+        Check("Forge token", "skip", ""),
     ]
 
     # relay on PATH
@@ -172,14 +173,19 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         checks[6].status = "warn"
         checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic)"
 
-    # GitHub token for `relay pr`. Missing is a warning, not a failure, since
+    # Forge token for `relay pr`. Missing is a warning, not a failure, since
     # `relay pr` is an optional part of the workflow.
     if github_token():
         checks[7].status = "ok"
         checks[7].detail = "GITHUB_TOKEN is set"
+    elif gitlab_token():
+        checks[7].status = "ok"
+        checks[7].detail = "GITLAB_TOKEN is set"
     else:
         checks[7].status = "warn"
-        checks[7].detail = "GITHUB_TOKEN is not set; `relay pr` cannot open pull requests"
+        checks[7].detail = (
+            "GITHUB_TOKEN / GITLAB_TOKEN is not set; `relay pr` cannot open PRs/MRs"
+        )
 
     # ---- report -----------------------------------------------------------
     print(f"[relay doctor] Relay {__version__} - {chosen} provider")

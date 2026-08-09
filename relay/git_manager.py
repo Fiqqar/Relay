@@ -15,17 +15,21 @@ import subprocess
 from .errors import GitError
 
 
-def parse_remote_url(url: str) -> tuple[str, str]:
-    """Parse an HTTPS or SSH GitHub remote URL into ``(owner, repo)``.
+def parse_remote(url: str) -> tuple[str, str, str]:
+    """Parse an HTTPS or SSH remote URL into ``(host, namespace, repo)``.
 
-    Handles the two formats ``git`` writes for ``remote.origin.url``, with or
-    without the trailing ``.git`` suffix::
+    Host-agnostic: works for ``github.com``, ``gitlab.com``, and self-hosted
+    instances (``gitlab.example.com``). Handles the formats ``git`` writes for
+    ``remote.origin.url``, with or without the trailing ``.git`` suffix::
 
         https://github.com/owner/repo.git
         git@github.com:owner/repo.git
+        git@gitlab.com:group/subgroup/repo.git
 
-    Raises ValueError when the URL is empty, not a GitHub remote, or has no
-    owner/repo path, so the caller can surface a clear, actionable error.
+    The ``namespace`` keeps every path segment before the final one joined with
+    ``/``, so GitLab nested groups round-trip correctly
+    (``group/subgroup/repo`` -> ``group/subgroup`` + ``repo``). Raises
+    ValueError when the URL is empty, has no host, or has no owner/repo path.
     """
     url = url.strip()
     if not url:
@@ -43,17 +47,34 @@ def parse_remote_url(url: str) -> tuple[str, str]:
 
     # Drop a trailing slash and any username prefix (git@github.com -> github.com).
     host = host.rstrip("/").rsplit("@", 1)[-1].lower()
-    if host != "github.com":
-        raise ValueError(f"not a GitHub remote (host: {host})")
+    if not host:
+        raise ValueError(f"cannot extract host from remote URL: {url}")
 
     parts = [part for part in path.strip("/").split("/") if part]
     if len(parts) < 2:
         raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
 
-    owner, repo = parts[0], parts[1]
+    repo = parts[-1]
     if repo.endswith(".git"):
         repo = repo[:-4]
-    if not owner or not repo:
+    if not parts[0] or not repo:
+        raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
+    namespace = "/".join(parts[:-1])
+    return host, namespace, repo
+
+
+def parse_remote_url(url: str) -> tuple[str, str]:
+    """Parse a GitHub remote URL into ``(owner, repo)`` (GitHub only).
+
+    Delegates to :func:`parse_remote` and rejects anything that is not
+    ``github.com``, so the caller can surface a clear, actionable error. GitHub
+    does not nest repositories, so ``owner`` is the first path segment and
+    ``repo`` the second.
+    """
+    host, owner, repo = parse_remote(url)
+    if host != "github.com":
+        raise ValueError(f"not a GitHub remote (host: {host})")
+    if "/" in owner:
         raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
     return owner, repo
 

@@ -87,7 +87,9 @@ Print the git commands being run.
 Run a read-only self-diagnostic (PATH, git, AI credentials).
 .TP
 .B pr
-Open a GitHub pull request for the current branch.
+Open a pull request / merge request for the current branch. Detects the host
+from the \fIorigin\fR remote: GitHub (uses \fIGITHUB_TOKEN\fR) or GitLab
+(gitlab.com or self-hosted, uses \fIGITLAB_TOKEN\fR).
 .TP
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
@@ -114,6 +116,13 @@ Print this manual page (roff) to stdout.
 .I GEMINI_API_KEY
 API key for the Gemini provider.
 .TP
+.I OPENAI_API_KEY
+API key for the OpenAI provider (also used for OpenAI-compatible
+servers such as llama.cpp via \fIOPENAI_BASE_URL\fR).
+.TP
+.I ANTHROPIC_API_KEY
+API key for the Anthropic provider.
+.TP
 .I OLLAMA_BASE_URL
 Base URL of a local Ollama server (default http://localhost:11434).
 .TP
@@ -124,7 +133,11 @@ Ollama model name (default qwen2.5-coder:7b).
 Default provider name (gemini|ollama|openai|anthropic).
 .TP
 .I GITHUB_TOKEN
-Personal access token used by \fBrelay pr\fR.
+Personal access token used by \fBrelay pr\fR on GitHub.
+.TP
+.I GITLAB_TOKEN
+Personal access token used by \fBrelay pr\fR on GitLab
+(gitlab.com or a self-hosted instance).
 .SH EXIT STATUS
 0 on success, 1 on a Relay or git error, 130 when the user aborts.
 .SH SEE ALSO

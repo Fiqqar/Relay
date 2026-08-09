@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from relay.errors import GitError
-from relay.git_manager import GitManager, parse_remote_url
+from relay.git_manager import GitManager, parse_remote, parse_remote_url
 
 
 @pytest.fixture
@@ -176,11 +176,16 @@ class TestParseRemoteUrl:
             ("git@github.com:owner/repo", ("owner", "repo")),
             ("ssh://git@github.com/owner/repo.git", ("owner", "repo")),
             ("  https://github.com/Acme/Widget.git  ", ("Acme", "Widget")),
-            ("https://github.com/Owner/Sub/Repo.git", ("Owner", "Sub")),
         ],
     )
     def test_supported_github_urls(self, url, expected):
         assert parse_remote_url(url) == expected
+
+    def test_github_url_with_slash_in_owner_is_rejected(self):
+        # GitHub does not nest repositories: a three-segment path is not a
+        # valid GitHub remote (only GitLab supports nested groups).
+        with pytest.raises(ValueError, match="owner/repo"):
+            parse_remote_url("https://github.com/Owner/Sub/Repo.git")
 
     @pytest.mark.parametrize(
         "url",
@@ -198,6 +203,25 @@ class TestParseRemoteUrl:
     def test_invalid_urls_raise_value_error(self, url):
         with pytest.raises(ValueError):
             parse_remote_url(url)
+
+    @pytest.mark.parametrize(
+        "url,host,owner_repo",
+        [
+            ("git@gitlab.com:owner/repo.git", "gitlab.com", ("owner", "repo")),
+            ("https://gitlab.com/group/sub/repo.git", "gitlab.com", ("group/sub", "repo")),
+            (
+                "git@gitlab.example.com:team/widget.git",
+                "gitlab.example.com",
+                ("team", "widget"),
+            ),
+            ("ssh://git@gitlab.com/owner/repo.git", "gitlab.com", ("owner", "repo")),
+            ("https://github.com/owner/repo.git", "github.com", ("owner", "repo")),
+        ],
+    )
+    def test_parse_remote_detects_host(self, url, host, owner_repo):
+        parsed_host, owner, repo = parse_remote(url)
+        assert parsed_host == host
+        assert (owner, repo) == owner_repo
 
 
 class TestRemoteHelpers:

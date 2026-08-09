@@ -5,6 +5,7 @@ import pytest
 
 from relay.errors import RelayError
 from relay.github import DuplicatePullRequestError, GitHubError
+from relay.gitlab import DuplicateMergeRequestError, GitLabError
 from relay.pr import run_pr
 
 
@@ -176,9 +177,9 @@ class TestRunPr:
         assert run_pr(git=FakeGit(has_branch=True)) == 0
         fake_client.return_value.open_pull.assert_called_once()
 
-    def test_non_github_remote_raises(self, fake_client):
+    def test_unrecognized_host_raises(self, fake_client):
         with pytest.raises(RelayError):
-            run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"))
+            run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"))
 
 
 class TestAntiDuplicate:
@@ -288,3 +289,82 @@ class TestOpenBrowser:
         with mock.patch("relay.pr.webbrowser.open") as browser:
             run_pr(git=FakeGit())
         browser.assert_not_called()
+
+
+class TestGitLab:
+    @pytest.fixture
+    def fake_gitlab(self):
+        with mock.patch("relay.pr.GitLabClient") as client_cls:
+            client_cls.return_value.find_open_mr.return_value = None
+            client_cls.return_value.open_merge_request.return_value = {
+                "iid": 42,
+                "web_url": "https://gitlab.com/acme/widget/-/merge_requests/42",
+            }
+            yield client_cls
+
+    def test_routes_https_gitlab_remote_to_gitlab(self, fake_gitlab, capsys):
+        git = FakeGit(remote="https://gitlab.com/acme/widget.git")
+        assert run_pr(git=git) == 0
+        fake_gitlab.assert_called_once_with("gitlab.com", "acme/widget", verbose=False)
+        out = capsys.readouterr().out
+        assert "MR #42" in out
+        assert "merge_requests/42" in out
+
+    def test_routes_ssh_gitlab_remote(self, fake_gitlab):
+        git = FakeGit(remote="git@gitlab.com:acme/widget.git")
+        run_pr(git=git)
+        fake_gitlab.assert_called_once_with("gitlab.com", "acme/widget", verbose=False)
+
+    def test_sends_mr_payload(self, fake_gitlab):
+        run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"))
+        fake_gitlab.return_value.open_merge_request.assert_called_once_with(
+            title="feat: add login", source_branch="feat/login",
+            target_branch="main", description=mock.ANY, draft=False
+        )
+
+    def test_mr_draft_forwarded(self, fake_gitlab):
+        run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"), draft=True)
+        args = fake_gitlab.return_value.open_merge_request.call_args.kwargs
+        assert args["draft"] is True
+
+    def test_custom_mr_base_forwarded(self, fake_gitlab):
+        run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"), base="develop")
+        args = fake_gitlab.return_value.open_merge_request.call_args.kwargs
+        assert args["target_branch"] == "develop"
+
+    def test_existing_mr_skips_creation(self, fake_gitlab, capsys):
+        fake_gitlab.return_value.find_open_mr.return_value = {
+            "iid": 7,
+            "web_url": "https://gitlab.com/acme/widget/-/merge_requests/7",
+        }
+        assert run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git")) == 0
+        fake_gitlab.return_value.open_merge_request.assert_not_called()
+        assert "PR already exists: https://gitlab.com/acme/widget/-/merge_requests/7" in capsys.readouterr().out
+
+    def test_mr_duplicate_post_safety_net(self, fake_gitlab, capsys):
+        find = fake_gitlab.return_value.find_open_mr
+        find.side_effect = [None, {"web_url": "https://gitlab.com/acme/widget/-/merge_requests/7"}]
+        fake_gitlab.return_value.open_merge_request.side_effect = DuplicateMergeRequestError(
+            "another merge request already exists", status=409, body="already exists"
+        )
+        assert run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git")) == 0
+        assert find.call_count == 2
+
+    def test_mr_400_returns_nonzero(self, fake_gitlab, capsys):
+        fake_gitlab.return_value.open_merge_request.side_effect = GitLabError(
+            "GitLab API error 400: bad request", status=400, payload={}, detail="bad request"
+        )
+        assert run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git")) == 1
+        assert "Cannot open MR: bad request" in capsys.readouterr().out
+
+    def test_mr_500_propagates(self, fake_gitlab):
+        fake_gitlab.return_value.open_merge_request.side_effect = GitLabError(
+            "GitLab API error 500: boom", status=500, payload={}, detail="boom"
+        )
+        with pytest.raises(GitLabError):
+            run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"))
+
+    def test_self_hosted_gitlab_remote(self, fake_gitlab):
+        git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
+        assert run_pr(git=git) == 0
+        fake_gitlab.assert_called_once_with("gitlab.example.com", "group/sub/widget", verbose=False)

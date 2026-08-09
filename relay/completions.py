@@ -123,7 +123,7 @@ def fish_script() -> str:
         "complete -c relay -s h -l help -d 'Show help'",
         "complete -c relay -n '__fish_use_subcommand' -a 'amend' -d 'rewrite the last commit message'",
         "complete -c relay -n '__fish_use_subcommand' -a 'doctor' -d 'diagnose this install'",
-        "complete -c relay -n '__fish_use_subcommand' -a 'pr' -d 'open a GitHub pull request'",
+        "complete -c relay -n '__fish_use_subcommand' -a 'pr' -d 'open a pull request / merge request'",
         "complete -c relay -n '__fish_use_subcommand' -a 'squash' -d 'squash the last N commits'",
         "complete -c relay -n '__fish_use_subcommand' -a 'completions' -d 'print a shell completion script'",
         "complete -c relay -n '__fish_use_subcommand' -a 'undo' -d 'undo the last commit'",
