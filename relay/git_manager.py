@@ -234,10 +234,11 @@ class GitManager:
             "merge-base", "--is-ancestor", ancestor, descendant, check=False
         ).returncode == 0
 
-    def reset_soft(self) -> None:
-        """Non-destructive undo: move HEAD back one commit, keep the changes staged.
+    def reset_soft(self, target: str = "HEAD~1") -> None:
+        """Non-destructive reset: move HEAD to ``target``, keep changes staged.
 
-        Nothing is discarded — the undone commit's diff stays in the index, so a
-        new commit (or an amend) can reuse it exactly.
+        Nothing is discarded — the reset range's diff stays in the index, so a
+        new commit (or an amend) can reuse it exactly. ``undo`` uses the default
+        ``HEAD~1``; ``squash`` passes ``HEAD~N`` to fold several commits.
         """
-        self._run("reset", "--soft", "HEAD~1")
+        self._run("reset", "--soft", target)

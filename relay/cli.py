@@ -23,6 +23,7 @@ from .errors import RelayError, UserAbort
 from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
+from .squash import run_squash
 from .telemetry import is_enabled, report, set_enabled
 from .undo import run_undo
 
@@ -44,9 +45,13 @@ def _run_telemetry(action: str) -> int:
 
 def _report_run(args, provider_name: str | None, ok: bool) -> None:
     """Fire a telemetry event for the just-finished workflow run (if opted in)."""
-    mode = "amend" if getattr(args, "command", None) == "amend" else (
-        "team" if getattr(args, "team", None) is not None else "solo"
-    )
+    command = getattr(args, "command", None)
+    if command in ("amend", "squash"):
+        mode = command
+    elif getattr(args, "team", None) is not None:
+        mode = "team"
+    else:
+        mode = "solo"
     report(mode=mode, provider=provider_name or "", ok=ok)
 
 
@@ -132,6 +137,28 @@ def build_parser() -> argparse.ArgumentParser:
                     help="act without prompting (implies --open)")
     pr.add_argument("--verbose", action="store_true",
                     help="print the git commands being run")
+
+    squash = subparsers.add_parser(
+        "squash",
+        help="fold the last N commits into a single one (local, never pushes)",
+        description="Soft-resets the last N commits and re-commits their combined "
+                    "diff as one Conventional Commit (AI message with a "
+                    "manual fallback). Working tree is untouched; never pushes.",
+    )
+    squash.add_argument("--count", type=int, default=2, metavar="N",
+                        help="how many commits to squash (default: 2)")
+    squash.add_argument("--message", metavar="MESSAGE",
+                        help="use this message instead of generating one")
+    squash.add_argument("--provider", choices=["gemini", "ollama"],
+                        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
+    squash.add_argument("--timeout", type=int, metavar="SECONDS",
+                        help="seconds to wait for the AI response (default: 30, max: 120)")
+    squash.add_argument("--yes", action="store_true",
+                        help="skip the confirmation prompt")
+    squash.add_argument("--dry-run", action="store_true",
+                        help="show the plan; change nothing")
+    squash.add_argument("--verbose", action="store_true",
+                        help="print the git commands being run")
 
     undo = subparsers.add_parser(
         "undo",
@@ -247,6 +274,20 @@ def main(argv: list[str] | None = None) -> int:
         # `relay undo` is a pure local, non-destructive git op (no AI involved).
         if getattr(args, "command", None) == "undo":
             return run_undo(verbose=args.verbose)
+
+        # `relay squash` folds the last N commits into one; never pushes.
+        if getattr(args, "command", None) == "squash":
+            provider = build_provider(args.provider, timeout=args.timeout)
+            code = run_squash(
+                provider=provider,
+                count=args.count,
+                message=args.message,
+                yes=args.yes,
+                dry_run=args.dry_run,
+                verbose=args.verbose,
+            )
+            _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
+            return code
 
         # `relay amend` reuses the solo workflow but rewrites the last commit
         # instead of creating a new one; it never pushes.

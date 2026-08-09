@@ -43,9 +43,16 @@ SUBCOMMAND_FLAGS = {
         ("--yes", None), ("--staged", None), ("--dry-run", None),
         ("--verbose", None),
     ],
-    "squash": [("--count", "<n>"), ("--yes", None), ("--dry-run", None),
-               ("--verbose", None)],
+    "amend": [
+        ("--provider", "gemini|ollama"), ("--timeout", "<seconds>"),
+        ("--yes", None), ("--staged", None), ("--dry-run", None),
+        ("--verbose", None),
+    ],
+    "squash": [("--count", "<n>"), ("--message", "<msg>"),
+               ("--provider", "gemini|ollama"), ("--timeout", "<seconds>"),
+               ("--yes", None), ("--dry-run", None), ("--verbose", None)],
     "completions": [("<shell>", None)],
+    "telemetry": [("<action>", "status|on|off")],
 }
 
 SHELLS = ("bash", "zsh", "fish", "powershell")

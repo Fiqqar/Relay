@@ -91,6 +91,12 @@ Open a GitHub pull request for the current branch.
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
 .TP
+.B squash
+Fold the last N commits into one (soft reset + single commit; never pushes).
+.TP
+.B telemetry
+View or change opt-in usage telemetry (off by default).
+.TP
 .B amend
 Rewrite the last commit's message with a freshly generated one (never pushes).
 .TP
