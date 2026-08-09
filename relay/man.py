@@ -1,0 +1,123 @@
+"""relay(1) manual page source, rendered with ``relay man``.
+
+The man page lives as a plain string so it can travel inside the wheel (no
+extra data-file wiring) and is printed verbatim by the ``relay man`` subcommand,
+which any user can pipe into their man directory:
+
+    relay man | gzip -9 > /usr/local/share/man/man1/relay.1.gz
+
+Matching the architecture in docs/ARCHITECTURE.md, this module holds only the
+documentation payload; the CLI routes to it by name, just like doctor.py and
+undo.py.
+"""
+from __future__ import annotations
+
+from . import __version__
+
+MAN_PAGE_TEMPLATE = f""".TH RELAY 1 "{__version__}" "relay {__version__}"
+.SH NAME
+relay \\- your Git workflow, on autopilot: AI Conventional Commits
+.SH SYNOPSIS
+.B relay
+[\fIOPTIONS\fR]
+.br
+.B relay
+[\-\-solo | \-\-team [\fIFEATURE\fR]]
+.br
+.B relay
+.B doctor
+.br
+.B relay
+.B pr
+.BR [\-\-base \fIBRANCH\fR]
+.BR [\-\-title \fITITLE\fR]
+.BR [\-\-open\fR|\-\-draft\fR|\-\-yes\fR]
+.br
+.B relay
+.B undo
+
+.B relay
+.B amend
+
+.SH DESCRIPTION
+.B Relay
+reads your staged diff, hands it to an LLM (local
+.B Ollama
+or
+.B Gemini
+API), and returns a standards-compliant Conventional Commit message. If the AI
+is down, rate-limited, or offline, Relay falls back to a manual message prompt
+in the same terminal and continues the workflow from there.
+.SH OPTIONS
+.TP
+.B \-\-solo
+Stage all, generate a message, commit, and push to the current branch.
+.TP
+.B \-\-team \fIFEATURE\fR
+Create and check out a new branch \fI<type>/<feature>\fR, commit, and push.
+.TP
+.B \-\-provider \fIname\fR
+AI provider (\fIgemini\fR or \fIollama\fR). Default: \fIgemini\fR or
+\fIRELAY_AI_PROVIDER\fR.
+.TP
+.B \-\-timeout \fIseconds\fR
+Seconds to wait for the AI response (default 30, max 120).
+.TP
+.B \-\-yes
+Skip the confirmation prompt.
+.TP
+.B \-\-dry-run
+Show the plan; change nothing.
+.TP
+.B \-\-no-push
+Commit, but do not push.
+.TP
+.B \-\-staged
+Only commit what is already staged (skip \fBgit add\fR).
+.TP
+.B \-\-no-verify
+Skip git pre-commit and commit-msg hooks.
+.TP
+.B \-\-verbose
+Print the git commands being run.
+.SH COMMANDS
+.TP
+.B doctor
+Run a read-only self-diagnostic (PATH, git, AI credentials).
+.TP
+.B pr
+Open a GitHub pull request for the current branch.
+.TP
+.B undo
+Undo the last commit with a soft reset (changes stay staged).
+.TP
+.B amend
+Rewrite the last commit's message with a freshly generated one (never pushes).
+.TP
+.B completions
+Print a shell completion script for bash, zsh, fish, or powershell.
+.TP
+.B man
+Print this manual page (roff) to stdout.
+.SH ENVIRONMENT
+.TP
+.I GEMINI_API_KEY
+API key for the Gemini provider.
+.TP
+.I OLLAMA_BASE_URL
+Base URL of a local Ollama server (default http://localhost:11434).
+.TP
+.I OLLAMA_MODEL
+Ollama model name (default qwen2.5-coder:7b).
+.TP
+.I RELAY_AI_PROVIDER
+Default provider name (gemini|ollama).
+.TP
+.I GITHUB_TOKEN
+Personal access token used by \fBrelay pr\fR.
+.SH EXIT STATUS
+0 on success, 1 on a Relay or git error, 130 when the user aborts.
+.SH SEE ALSO
+.BR git (1),
+.BR python (1)
+"""

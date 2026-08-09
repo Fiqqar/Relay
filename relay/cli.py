@@ -11,16 +11,31 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from . import __version__
 from .ai import build_provider
+from .completions import generate as generate_completions
 from .config import pr_open_browser
 from .doctor import run_doctor
 from .errors import RelayError, UserAbort
+from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
 from .undo import run_undo
+
+
+def _detect_shell() -> str:
+    """Pick a default shell for `relay completions` (POSIX $SHELL, Windows cmd)."""
+    shell = os.environ.get("SHELL", "")
+    if shell:
+        name = shell.rsplit("/", 1)[-1]
+        if name in ("bash", "zsh", "fish"):
+            return name
+    if os.name == "nt" and os.environ.get("PROMPT"):
+        return "powershell"
+    return "bash"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -103,6 +118,30 @@ def build_parser() -> argparse.ArgumentParser:
     undo.add_argument("--verbose", action="store_true",
                       help="print the git commands being run")
 
+    completions = subparsers.add_parser(
+        "completions",
+        help="print a shell completion script (bash/zsh/fish/powershell)",
+        description="Generates a completion script for the requested shell. "
+                    "Pipe the output into your shell's completion directory, "
+                    "e.g. `relay completions bash > ~/.bash_completion.d/relay`.",
+    )
+    completions.add_argument(
+        "shell",
+        nargs="?",
+        choices=["bash", "zsh", "fish", "powershell"],
+        default=None,
+        help="target shell (default: auto-detect from $SHELL/$ComSpec, else bash)",
+    )
+
+    man = subparsers.add_parser(
+        "man",
+        help="print the relay(1) manual page (roff) to stdout",
+        description="Prints the man page source for `relay`. Pipe it through "
+                    "`gzip` into a man directory (e.g. "
+                    "`relay man | gzip -9 > /usr/local/share/man/man1/relay.1.gz`) "
+                    "to get `man relay`.",
+    )
+
     amend = subparsers.add_parser(
         "amend",
         help="rewrite the last commit's message with a freshly generated one",
@@ -134,6 +173,21 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 - doctor must never traceback
             print(f"[relay doctor] error: {exc}")
             return 1
+
+    # `relay completions` prints a generated shell script to stdout and exits.
+    if getattr(args, "command", None) == "completions":
+        shell = args.shell or _detect_shell()
+        try:
+            print(generate_completions(shell), end="")
+            return 0
+        except ValueError as exc:
+            print(f"[relay] {exc}")
+            return 1
+
+    # `relay man` prints the man page source (roff) to stdout and exits.
+    if getattr(args, "command", None) == "man":
+        print(MAN_PAGE_TEMPLATE.rstrip(), end="")
+        return 0
 
     # `relay pr` posts to GitHub; errors fall through to the shared handlers
     # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
