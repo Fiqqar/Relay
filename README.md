@@ -83,10 +83,21 @@ python -m pip install -e .     # editable install -> `relay` on your PATH
 GitHub Releases publishing is wired up via `.github/workflows/release.yml`
 (push a `v*` tag). A Homebrew formula (`Formula/relay.rb`) and a Scoop
 manifest (`bucket/relay.json`) are shipped in this repo for native package
-managers. On Windows, install with:
+managers.
+
+On **macOS/Linux** (Homebrew ≥6 requires formulae to come from a *tap*, not a
+URL):
 
 ```bash
-scoop install https://raw.githubusercontent.com/Fiqqar/Relay/main/bucket/relay.json
+brew tap Fiqqar/relay https://github.com/Fiqqar/Relay
+brew install Fiqqar/relay/relay
+```
+
+On **Windows** (Scoop):
+
+```bash
+scoop bucket add relay https://github.com/Fiqqar/Relay
+scoop install relay/relay
 ```
 
 ## Quick Start

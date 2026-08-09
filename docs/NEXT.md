@@ -29,17 +29,23 @@ forge token (GITHUB / GITLAB).
 
 ## Yang BELUM beres / bau-bau (prioritas)
 
-1. **Homebrew & Scoop belum diuji ulang untuk v0.4.0.** Formula & manifest
-   sudah menunjuk asset baru tapi belum dites instalasinya. Kalau ada akses
-   Linux/WSL:
-   ```bash
-   brew install https://raw.githubusercontent.com/Fiqqar/Relay/main/Formula/relay.rb
-   relay --version
-   relay doctor
-   ```
-   Dan Scoop (Windows): `scoop update relay` di mesin yang sudah punya bucket,
-   atau `scoop bucket add relay https://github.com/Fiqqar/Relay` + `scoop
-   install relay/relay` di mesin fresh. Kalau error, fix lalu commit terpisah.
+1. **Homebrew untuk v0.4.0 — sudah diuji di Kali Linux, 2 temuan sudah difix:**
+
+   Kelakuan yang terverifikasi (WSL2 Kali, Homebrew 6.0.15):
+   - `brew tap Fiqqar/relay https://github.com/Fiqqar/Relay` → tap formula Relay
+     (1 formula, 0.4.0); `brew install Fiqqar/relay/relay` → sukses, `relay --version`
+     → 0.4.0, `relay doctor` jalan, `brew test` (assert `relay 0.4.0`) → pass.
+   - **Homebrew ≥ 6 menolak `brew install <raw-url>`** (berlaku umum, bukan
+     khusus Relay: diuji juga dgn formula homebrew-core). Cara tap-by-URL
+     itu yang diganti di README + komentar `Formula/relay.rb`.
+   - **`relay man` di v0.4.0 memancarkan karakter U+000C** (form feed) karena
+     `\fI`/`\fR`/`\fB` di f-string `relay/man.py` ter-escape sebagai Python.
+     Sudah difix: man.py sekarang raw f-string (`fr"""`). **Regresi nyata pada
+     v0.4.0** — pertimbangkan patch release (v0.4.1) dengan tes tambahan untuk
+     pengecekan form feed di output man.
+   - Scoop (Windows) belum diuji ulang untuk v0.4.0: `scoop update relay`, atau
+     `scoop bucket add relay https://github.com/Fiqqar/Relay` + `scoop
+     install relay/relay`.
 
 2. **Scoop bucket `extras` belum di-submit** — opsional, publikasi lebih luas:
    submit PR manifest `relay.json` ke `ScoopInstaller/Extras` supaya

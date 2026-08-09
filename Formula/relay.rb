@@ -1,10 +1,11 @@
 # Homebrew formula for Relay.
 #
-# Install with:
-#   brew install https://raw.githubusercontent.com/Fiqqar/Relay/main/Formula/relay.rb
+# Install with (Homebrew >= 6 requires formulae to come from a tap, not a URL):
+#   brew tap Fiqqar/relay https://github.com/Fiqqar/Relay
+#   brew install Fiqqar/relay/relay
 #
-# (A `brew tap` would require the repo to be named `homebrew-Relay`; see the
-# README for instructions on keeping a tap up to date.)
+# (A conventional `brew tap Fiqqar/relay` alone would require the repo to be
+# named `homebrew-relay`; the explicit URL above sidesteps that.)
 #
 # Released by `sdist` from the GitHub Release, built into a virtualenv.
 class Relay < Formula

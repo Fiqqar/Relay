@@ -66,6 +66,14 @@ class TestCliRouting:
         assert ".TH RELAY" in out
         assert "SYNOPSIS" in out
 
+    def test_man_output_has_no_form_feed_characters(self, capsys):
+        # Regression: relay/man.py used an f-string whose \\fI/\\fR/\\fB escapes
+        # were parsed as Python form-feed ("\f") characters, corrupting every
+        # man page with U+000C control bytes. The template is a raw string, so
+        # the output here must contain zero form feeds.
+        assert main(["man"]) == 0
+        assert "\x0c" not in capsys.readouterr().out
+
 
 class TestCliMan:
     def test_main_routes_man(self, capsys):

@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from . import __version__
 
-MAN_PAGE_TEMPLATE = f""".TH RELAY 1 "{__version__}" "relay {__version__}"
+MAN_PAGE_TEMPLATE = fr""".TH RELAY 1 "{__version__}" "relay {__version__}"
 .SH NAME
-relay \\- your Git workflow, on autopilot: AI Conventional Commits
+relay \- your Git workflow, on autopilot: AI Conventional Commits
 .SH SYNOPSIS
 .B relay
 [\fIOPTIONS\fR]
