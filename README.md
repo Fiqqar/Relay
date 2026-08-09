@@ -100,6 +100,27 @@ scoop bucket add relay https://github.com/Fiqqar/Relay
 scoop install relay/relay
 ```
 
+## Security
+
+- **Secrets are environment-only.** `GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`,
+  and `GITLAB_TOKEN` are read from the environment and never written to disk or
+  logged. Relay never sends your diff, commit messages, or file names anywhere
+  except the AI provider you explicitly configure.
+- **No shell injection surface.** Every `git` invocation passes arguments as a
+  list (`shell=True` is never used), so filenames with spaces or special
+  characters cannot be injected into a shell.
+- **Telemetry is opt-in and off by default.** Nothing leaves your machine until
+  you run `relay telemetry on` *and* set `RELAY_TELEMETRY_URL`. The payload
+  contains only mode/provider/outcome and the Relay version — no code.
+- **Verify checksums for production installs.** Releases are served over HTTPS
+  from GitHub, but `pip install` (as opposed to Scoop/Homebrew) does not
+  pin an expected hash. For maximum supply-chain confidence, verify the
+  artifact before installing — both published `sha256` hashes are listed on
+  the [GitHub Release](https://github.com/Fiqqar/Relay/releases), and Scoop
+  pins the wheel hash in `bucket/relay.json`.
+- **Your keys are your own.** Relay talks only to the provider/forge you point
+  it at. If you use `--verbose`, assume git commands (never keys) are echoed.
+
 ## Quick Start
 
 ```bash
