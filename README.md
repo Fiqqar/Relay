@@ -325,13 +325,15 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - **v0.2** — diff truncation (FR-14), `relay doctor`, `relay pr` (GitHub PR automation), CI + pytest suite, TOML config file. ✅ shipped (current snapshot)
 - **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging. ✅ shipped
 - **v0.4** — DX layer: telemetry opt-in, man pages (`man relay`), shell completions (bash/zsh/fish/PowerShell), `relay undo`, `relay squash`, `relay stage` (incl. `git add -p`), OpenAI / Anthropic / llama.cpp providers, GitLab MR creation. ✅ shipped
-- **v1.0** — GA: telemetry opt-in, man pages / shell completions. (superseded by v0.4)
+- **v1.0** — GA: stability freeze, coverage gate, docs + packaging finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
+- **v0.5 – v0.8** — team default-branch safety, distribution polish, more providers/forges, GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
 - **Later** — team default-branch safety rules.
 
 ## Documentation
 
 - [System Architecture](docs/ARCHITECTURE.md)
 - [Logical Flow & State Machine](docs/FLOW.md)
+- [Roadmap → v1.0.0](docs/ROADMAP.md)
 
 ---
 
