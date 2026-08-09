@@ -35,6 +35,10 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
+DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
 
 # Performance knobs: keep the diff payload small and give the LLM a realistic
@@ -50,6 +54,10 @@ _CFG_KEYS = {
     "GEMINI_MODEL": "gemini_model",
     "OLLAMA_BASE_URL": "ollama_base_url",
     "OLLAMA_MODEL": "ollama_model",
+    "OPENAI_MODEL": "openai_model",
+    "OPENAI_BASE_URL": "openai_base_url",
+    "ANTHROPIC_MODEL": "anthropic_model",
+    "ANTHROPIC_BASE_URL": "anthropic_base_url",
     "RELAY_BRANCH_TEMPLATE": "branch_template",
     "RELAY_AI_TIMEOUT": "ai_timeout",
     "RELAY_MAX_DIFF_LINES": "max_diff_lines",
@@ -59,7 +67,13 @@ _CFG_KEYS = {
 # Secret env vars that must never be resolved from the config file.
 # ``provider`` is not secret but follows the same env-first rule so the file can
 # stay free of credentials; these are excluded from _CFG_KEYS' file fallback.
-_ENV_ONLY = {"GEMINI_API_KEY", "GITHUB_TOKEN", "GH_TOKEN"}
+_ENV_ONLY = {
+    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+}
 
 
 def config_file_path() -> Path | None:
@@ -133,6 +147,35 @@ def ollama_base_url() -> str:
 
 def ollama_model() -> str:
     return str(_resolve("OLLAMA_MODEL", "ollama_model", DEFAULT_OLLAMA_MODEL))
+
+
+def openai_api_key() -> str | None:
+    return os.environ.get("OPENAI_API_KEY")
+
+
+def openai_model() -> str:
+    return str(_resolve("OPENAI_MODEL", "openai_model", DEFAULT_OPENAI_MODEL))
+
+
+def openai_base_url() -> str:
+    """Base URL for OpenAI-compatible endpoints (also covers llama.cpp).
+
+    Point ``OPENAI_BASE_URL`` at a local server to talk to llama.cpp or
+    vLLM, which expose the same ``/chat/completions`` API.
+    """
+    return str(_resolve("OPENAI_BASE_URL", "openai_base_url", DEFAULT_OPENAI_BASE_URL))
+
+
+def anthropic_api_key() -> str | None:
+    return os.environ.get("ANTHROPIC_API_KEY")
+
+
+def anthropic_model() -> str:
+    return str(_resolve("ANTHROPIC_MODEL", "anthropic_model", DEFAULT_ANTHROPIC_MODEL))
+
+
+def anthropic_base_url() -> str:
+    return str(_resolve("ANTHROPIC_BASE_URL", "anthropic_base_url", DEFAULT_ANTHROPIC_BASE_URL))
 
 
 def branch_template() -> str:

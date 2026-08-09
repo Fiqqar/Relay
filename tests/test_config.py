@@ -22,6 +22,10 @@ def clear_relay_env(monkeypatch):
         "GEMINI_MODEL",
         "OLLAMA_MODEL",
         "OLLAMA_BASE_URL",
+        "OPENAI_MODEL",
+        "OPENAI_BASE_URL",
+        "ANTHROPIC_MODEL",
+        "ANTHROPIC_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -95,6 +99,44 @@ def test_max_diff_lines_default_and_override():
     assert config.max_diff_lines() == 120
     config.os.environ["RELAY_MAX_DIFF_LINES"] = "150"
     assert config.max_diff_lines() == 150
+
+
+def test_file_timeout_is_still_clamped(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        ai_timeout = 99999
+    """)
+    assert config.ai_timeout() == 120
+
+
+def test_openai_settings_defaults_then_env(monkeypatch):
+    assert config.openai_model() == config.DEFAULT_OPENAI_MODEL
+    assert config.openai_base_url() == config.DEFAULT_OPENAI_BASE_URL
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4o")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:8080/v1")
+    assert config.openai_model() == "gpt-4o"
+    assert config.openai_base_url() == "http://localhost:8080/v1"
+
+
+def test_anthropic_settings_defaults_then_env(monkeypatch):
+    assert config.anthropic_model() == config.DEFAULT_ANTHROPIC_MODEL
+    assert config.anthropic_base_url() == config.DEFAULT_ANTHROPIC_BASE_URL
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-opus-4")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://gateway.local/v1")
+    assert config.anthropic_model() == "claude-opus-4"
+    assert config.anthropic_base_url() == "https://gateway.local/v1"
+
+
+def test_api_keys_are_env_only(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        openai_api_key = "leaked"
+        anthropic_api_key = "leaked"
+    """)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert config.openai_api_key() is None
+    assert config.anthropic_api_key() is None
 
 
 def test_invalid_max_diff_lines_falls_back_to_default():

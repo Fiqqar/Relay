@@ -15,7 +15,7 @@ import os
 import sys
 
 from . import __version__
-from .ai import build_provider
+from .ai import PROVIDER_NAMES, build_provider
 from .completions import generate as generate_completions
 from .config import pr_open_browser
 from .doctor import run_doctor
@@ -90,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="create & checkout <type>/<feature>, commit, and push it (feature optional)",
     )
 
-    parser.add_argument("--provider", choices=["gemini", "ollama"],
+    parser.add_argument("--provider", choices=PROVIDER_NAMES,
                         help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
     parser.add_argument("--timeout", type=int, metavar="SECONDS",
                         help="seconds to wait for the AI response (default: 30, max: 120)")
@@ -115,7 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="diagnose this Relay installation (PATH, git, AI credentials)",
         description="Read-only self-diagnostic. Exits 0 when healthy, 1 when a fix is needed.",
     )
-    doctor.add_argument("--provider", choices=["gemini", "ollama"],
+    doctor.add_argument("--provider", choices=PROVIDER_NAMES,
                         help="AI provider to check (default: gemini, or RELAY_AI_PROVIDER)")
     doctor.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
@@ -150,7 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="how many commits to squash (default: 2)")
     squash.add_argument("--message", metavar="MESSAGE",
                         help="use this message instead of generating one")
-    squash.add_argument("--provider", choices=["gemini", "ollama"],
+    squash.add_argument("--provider", choices=PROVIDER_NAMES,
                         help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
     squash.add_argument("--timeout", type=int, metavar="SECONDS",
                         help="seconds to wait for the AI response (default: 30, max: 120)")
@@ -228,7 +228,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Amends the last commit (never pushes; syncing a pushed "
                     "commit needs `git push --force-with-lease`).",
     )
-    amend.add_argument("--provider", choices=["gemini", "ollama"],
+    amend.add_argument("--provider", choices=PROVIDER_NAMES,
                        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
     amend.add_argument("--timeout", type=int, metavar="SECONDS",
                        help="seconds to wait for the AI response (default: 30, max: 120)")

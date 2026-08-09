@@ -32,24 +32,20 @@ GLOBAL_FLAGS = [
 # (subcommand, flag) pairs; a plain flag with no value is ``None``.
 # type/choice/group naming mirrors what the argparse parser accepts.
 SUBCOMMAND_FLAGS = {
-    "doctor": [("--provider", "gemini|ollama"), ("--verbose", None)],
+    "doctor": [("--provider", "anthropic|gemini|ollama|openai"), ("--verbose", None)],
     "pr": [
         ("--base", "main"), ("--title", "<title>"), ("--open", None),
         ("--draft", None), ("--yes", None), ("--verbose", None),
     ],
     "undo": [("--verbose", None)],
     "amend": [
-        ("--provider", "gemini|ollama"), ("--timeout", "<seconds>"),
-        ("--yes", None), ("--staged", None), ("--dry-run", None),
-        ("--verbose", None),
-    ],
-    "amend": [
-        ("--provider", "gemini|ollama"), ("--timeout", "<seconds>"),
+        ("--provider", "anthropic|gemini|ollama|openai"), ("--timeout", "<seconds>"),
         ("--yes", None), ("--staged", None), ("--dry-run", None),
         ("--verbose", None),
     ],
     "squash": [("--count", "<n>"), ("--message", "<msg>"),
-               ("--provider", "gemini|ollama"), ("--timeout", "<seconds>"),
+               ("--provider", "anthropic|gemini|ollama|openai"),
+               ("--timeout", "<seconds>"),
                ("--yes", None), ("--dry-run", None), ("--verbose", None)],
     "stage": [("-p", None), ("--patch", None), ("--verbose", None)],
     "completions": [("<shell>", None)],
@@ -106,7 +102,7 @@ def zsh_script() -> str:
 _arguments \\
   '--solo[stage, commit and push to the current branch]' \\
   '--team=[create & checkout a feature branch]:feature' \\
-  '--provider[AI provider]:provider:(gemini ollama)' \\
+  '--provider[AI provider]:provider:(anthropic gemini ollama openai)' \\
   '--timeout[seconds to wait for the AI response]:seconds' \\
   '--yes[skip the confirmation prompt]' \\
   '--dry-run[show the plan; change nothing]' \\
@@ -133,7 +129,7 @@ def fish_script() -> str:
         "complete -c relay -n '__fish_use_subcommand' -a 'undo' -d 'undo the last commit'",
         "complete -c relay -n '__fish_use_subcommand' -l solo -d 'commit on the current branch'",
         "complete -c relay -n '__fish_use_subcommand' -l team -d 'create & checkout a feature branch'",
-        "complete -c relay -n '__fish_use_subcommand' -l provider -x -a 'gemini ollama' -d 'AI provider'",
+        "complete -c relay -n '__fish_use_subcommand' -l provider -x -a 'anthropic gemini ollama openai' -d 'AI provider'",
         "complete -c relay -n '__fish_use_subcommand' -l timeout -x -d 'seconds to wait for the AI'",
         "complete -c relay -n '__fish_use_subcommand' -l yes -d 'skip the confirmation prompt'",
         "complete -c relay -n '__fish_use_subcommand' -l dry-run -d 'show the plan; change nothing'",

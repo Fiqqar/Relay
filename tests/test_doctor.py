@@ -115,6 +115,30 @@ def test_ollama_provider_skips_gemini_key(healthy_env, capsys):
     assert "GEMINI_API_KEY" not in out
 
 
+def test_openai_provider_checks_openai_key(healthy_env, capsys):
+    with mock.patch("relay.doctor.provider_from_env", return_value="openai"), mock.patch(
+        "relay.doctor.openai_api_key", return_value="sk-test"
+    ):
+        assert run_doctor() == 0
+    assert "OPENAI_API_KEY is set" in capsys.readouterr().out
+
+
+def test_openai_provider_missing_key_fails(healthy_env, capsys):
+    with mock.patch("relay.doctor.provider_from_env", return_value="openai"), mock.patch(
+        "relay.doctor.openai_api_key", return_value=None
+    ):
+        assert run_doctor() == 1
+    assert "OPENAI_API_KEY is not set" in capsys.readouterr().out
+
+
+def test_anthropic_provider_checks_anthropic_key(healthy_env, capsys):
+    with mock.patch("relay.doctor.provider_from_env", return_value="anthropic"), mock.patch(
+        "relay.doctor.anthropic_api_key", return_value="sk-ant-test"
+    ):
+        assert run_doctor() == 0
+    assert "ANTHROPIC_API_KEY is set" in capsys.readouterr().out
+
+
 def test_unknown_provider_warns(healthy_env, capsys):
     with mock.patch("relay.doctor.provider_from_env", return_value="wat"):
         assert run_doctor() == 0  # warn only, not a hard failure

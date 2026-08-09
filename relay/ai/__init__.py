@@ -4,14 +4,20 @@ provider class. Add a new provider here and it becomes selectable everywhere.
 from __future__ import annotations
 
 from ..errors import ConfigError
+from .anthropic import AnthropicProvider
 from .base import AIManager
 from .gemini import GeminiProvider
 from .ollama import OllamaProvider
+from .openai import OpenAIProvider
 
 _PROVIDERS = {
     "gemini": GeminiProvider,
     "ollama": OllamaProvider,
+    "openai": OpenAIProvider,
+    "anthropic": AnthropicProvider,
 }
+
+PROVIDER_NAMES = tuple(sorted(_PROVIDERS))
 
 
 def build_provider(name: str | None = None, timeout: int | None = None) -> AIManager:
@@ -32,4 +38,12 @@ def build_provider(name: str | None = None, timeout: int | None = None) -> AIMan
     return _PROVIDERS[chosen](timeout=timeout)
 
 
-__all__ = ["AIManager", "build_provider"]
+__all__ = [
+    "AIManager",
+    "PROVIDER_NAMES",
+    "AnthropicProvider",
+    "GeminiProvider",
+    "OllamaProvider",
+    "OpenAIProvider",
+    "build_provider",
+]

@@ -18,8 +18,10 @@ from dataclasses import dataclass
 from . import __version__
 from .config import (
     DEFAULT_OLLAMA_BASE_URL,
+    anthropic_api_key,
     gemini_api_key,
     ollama_base_url,
+    openai_api_key,
     provider_from_env,
 )
 from .git_manager import GitManager
@@ -140,18 +142,35 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         else:
             checks[6].status = "fail"
             checks[6].detail = "GEMINI_API_KEY is not set; see `relay --help`"
-    else:
-        checks[5].detail = "Ollama"
+    elif chosen == "openai":
+        checks[5].detail = "OpenAI-compatible API"
+        key = openai_api_key()
+        if key:
+            checks[6].status = "ok"
+            checks[6].detail = "OPENAI_API_KEY is set"
+        else:
+            checks[6].status = "fail"
+            checks[6].detail = "OPENAI_API_KEY is not set; see `relay --help`"
+    elif chosen == "anthropic":
+        checks[5].detail = "Anthropic API"
+        key = anthropic_api_key()
+        if key:
+            checks[6].status = "ok"
+            checks[6].detail = "ANTHROPIC_API_KEY is set"
+        else:
+            checks[6].status = "fail"
+            checks[6].detail = "ANTHROPIC_API_KEY is not set; see `relay --help`"
+    elif chosen == "ollama":
         base = ollama_base_url()
+        checks[5].detail = "Ollama"
         if base != DEFAULT_OLLAMA_BASE_URL:
             checks[5].detail = f"Ollama ({base})"
-        if chosen != "ollama":
-            checks[6].status = "warn"
-            checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama)"
-        else:
-            reachable, detail = _ollama_reachable(base)
-            checks[6].status = "ok" if reachable else "warn"
-            checks[6].detail = detail
+        reachable, detail = _ollama_reachable(base)
+        checks[6].status = "ok" if reachable else "warn"
+        checks[6].detail = detail
+    else:
+        checks[6].status = "warn"
+        checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic)"
 
     # GitHub token for `relay pr`. Missing is a warning, not a failure, since
     # `relay pr` is an optional part of the workflow.

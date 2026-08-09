@@ -15,7 +15,13 @@ from unittest import mock
 
 import pytest
 
-from relay.ai import AIManager, GeminiProvider, OllamaProvider
+from relay.ai import (
+    AIManager,
+    AnthropicProvider,
+    GeminiProvider,
+    OllamaProvider,
+    OpenAIProvider,
+)
 from relay.ai.base import truncate_diff
 from relay.errors import AIError, ConfigError
 
@@ -29,6 +35,8 @@ def fake_http(payload):
 
 GEMINI_SUCCESS = {"candidates": [{"content": {"parts": [{"text": "feat(api): add login"}]}}]}
 OLLAMA_SUCCESS = {"response": "fix: update docs"}
+OPENAI_SUCCESS = {"choices": [{"message": {"content": "feat(api): add login"}}]}
+ANTHROPIC_SUCCESS = {"content": [{"type": "text", "text": "fix: tighten validation"}]}
 
 
 class TestGemini:
@@ -147,6 +155,70 @@ class TestOllama:
         assert exc_info.value.kind == "bad_response"
 
 
+class TestOpenAI:
+    def make_provider(self):
+        return OpenAIProvider(api_key="test-key", model="gpt-4o-mini", base_url="https://api.openai.com/v1", timeout=5)
+
+    def test_success_returns_content_and_sends_correct_request(self, sample_diff, sample_stat):
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(OPENAI_SUCCESS)
+            result = self.make_provider().generate_commit_message(sample_diff, sample_stat, "main")
+
+        assert result == "feat(api): add login"
+        request = mock_urlopen.call_args.args[0]
+        assert request.full_url == "https://api.openai.com/v1/chat/completions"
+        headers = {key.lower(): value for key, value in request.headers.items()}
+        assert headers["authorization"] == "Bearer test-key"
+        assert headers["content-type"] == "application/json"
+
+    def test_custom_base_url_targets_llama_compatible_endpoint(self):
+        provider = OpenAIProvider(api_key="k", model="llama3", base_url="http://localhost:8080/v1", timeout=5)
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(OPENAI_SUCCESS)
+            provider.generate_commit_message("d", "s", "b")
+        assert mock_urlopen.call_args.args[0].full_url == "http://localhost:8080/v1/chat/completions"
+
+    def test_http_429_maps_to_rate_limited_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://example.com", 429, "Too Many Requests", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "rate_limited"
+
+    def test_error_field_maps_to_bad_response_aierror(self):
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+
+
+class TestAnthropic:
+    def make_provider(self):
+        return AnthropicProvider(api_key="test-key", model="claude-3-5-haiku-latest", base_url="https://api.anthropic.com/v1", timeout=5)
+
+    def test_success_returns_text_and_sends_correct_request(self, sample_diff, sample_stat):
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(ANTHROPIC_SUCCESS)
+            result = self.make_provider().generate_commit_message(sample_diff, sample_stat, "main")
+
+        assert result == "fix: tighten validation"
+        request = mock_urlopen.call_args.args[0]
+        assert request.full_url == "https://api.anthropic.com/v1/messages"
+        headers = {key.lower(): value for key, value in request.headers.items()}
+        assert headers["x-api-key"] == "test-key"
+        assert headers["anthropic-version"] == "2023-06-01"
+
+    def test_http_500_maps_to_unavailable_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://api.anthropic.com", 500, "Internal Server Error", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+
+
 class TestBuildPrompt:
     def test_includes_context_and_commit_rules(self):
         prompt = AIManager.build_prompt("DIFF", "STAT", "main")
@@ -199,6 +271,26 @@ class TestTimeoutCaps:
 
     def test_ollama_reasonable_override_is_preserved(self):
         assert OllamaProvider(model="m", timeout=45).timeout == 45
+
+    def test_openai_timeout_clamped_to_120_seconds_max(self):
+        p = OpenAIProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        assert p.timeout == 120
+
+    def test_anthropic_timeout_clamped_to_120_seconds_max(self):
+        p = AnthropicProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        assert p.timeout == 120
+
+
+class TestMissingApiKey:
+    def test_openai_requires_key(self):
+        with mock.patch("relay.ai.openai.openai_api_key", return_value=None):
+            with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
+                OpenAIProvider(base_url="http://x/v1")
+
+    def test_anthropic_requires_key(self):
+        with mock.patch("relay.ai.anthropic.anthropic_api_key", return_value=None):
+            with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY"):
+                AnthropicProvider(base_url="http://x/v1")
 
 
 class TestGenerateWrapper:
