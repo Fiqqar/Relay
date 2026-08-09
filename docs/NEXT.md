@@ -5,17 +5,21 @@ Baca dulu di awal sesi, terus jalanin sesuai urutan.
 
 ## Status sekarang
 
-**v0.4.1 SHIPPED dan live.**
+**v0.4.1 SHIPPED dan live — Scoop & Homebrew sudah terverifikasi.**
 
-- GitHub Release `v0.4.1` terbit (patch release setelah Kali Linux testing),
+- GitHub Release `v0.4.1` terbit (patch release setelah Kali Linux),
   kedua asset diverifikasi:
   - `relay_cli-0.4.1-py3-none-any.whl` (61 KB, sha256 `76dd919d1ef4481...`)
   - `relay_cli-0.4.1.tar.gz` (80 KB, sha256 `381d484c973cc8e5...`)
-- `main` = `efd1278`, ter-push ke `origin`. Tag `v0.4.1` ter-push, release.yml
+- `main` = `b06b8cb`, ter-push ke `origin`. Tag `v0.4.1` ter-push, release.yml
   sukses.
 - `Formula/relay.rb` + `bucket/relay.json` sudah di-update ke asset v0.4.1
-  (URL + sha256 baru).
-- **479 test pass** (`python -m pytest -q`) — termasuk regresi test baru untuk
+  (URL + sha256 baru) dan **terverifikasi instalasinya**:
+  - Scoop (Windows): `scoop update relay` 0.3.0→0.4.1, hash cocok,
+    `relay doctor` → 7 pass, `relay man` → 0 form feed.
+  - Homebrew (Kali/WSL2, Homebrew 6.0.15): tap `Fiqqar/relay`, `brew upgrade`
+    0.4.0→0.4.1, `brew test` pass.
+- **479 test pass** (`python -m pytest -q`) — termasuk regresi test untuk
   form-feed di output `relay man`.
 
 ### Isi v0.4.1 (patch)
@@ -44,16 +48,12 @@ forge token (GITHUB / GITLAB).
 
 ## Yang BELUM beres / bau-bau (prioritas)
 
-1. **Scoop (Windows) belum diuji ulang untuk v0.4.1:** `scoop update relay`,
-   atau `scoop bucket add relay https://github.com/Fiqqar/Relay` + `scoop
-   install relay/relay`. Manifest sudah up-to-date ke v0.4.1.
-
-2. **Scoop bucket `extras` belum di-submit** — opsional, publikasi lebih luas:
+1. **Scoop bucket `extras` belum di-submit** — opsional, publikasi lebih luas:
    submit PR manifest `relay.json` ke `ScoopInstaller/Extras` supaya
    `scoop install extras/relay` jalan tanpa definisi bucket. Homebrew tap butuh
    repo terpisah bernama `homebrew-Relay`.
 
-3. **`GEMINI_API_KEY` / token dipakai dari env mesin ini** — di mesin lain
+2. **`GEMINI_API_KEY` / token dipakai dari env mesin ini** — di mesin lain
    `relay doctor` bakal WARN. Bukan bug.
 
 ## Command cek-cek buat pembuka sesi
@@ -68,8 +68,8 @@ relay --help                       # cek subcommand: doctor pr undo squash stage
 
 ## Saran lanjutan sesi berikutnya (urutkan sendiri)
 
-Prioritas 1 (kuat): **uji ulang instalasi Scoop (Windows)** untuk v0.4.1
-(poin 1). Fix kalau ada error, commit terpisah.
+Prioritas 1 (kuat): **Scoop (Windows) & Homebrew (Kali) untuk v0.4.1 sudah
+PASS** — tidak ada fix yang tersisa. Lanjut ke fitur berikutnya.
 
 Prioritas 2 (opsional, roadmap "Later"):
 - Team default-branch safety rules
