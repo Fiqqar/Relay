@@ -94,6 +94,9 @@ Undo the last commit with a soft reset (changes stay staged).
 .B squash
 Fold the last N commits into one (soft reset + single commit; never pushes).
 .TP
+.B stage
+Interactively stage a subset of changed files, or hunks via \fBgit add -p\fR.
+.TP
 .B telemetry
 View or change opt-in usage telemetry (off by default).
 .TP

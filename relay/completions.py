@@ -20,8 +20,8 @@ from __future__ import annotations
 # sync with the argparse definitions in relay/cli.py; order does not matter for
 # any shell, but grouping keeps the generators readable.
 SUBCOMMANDS = [
-    "amend", "completions", "doctor", "man", "pr", "squash", "telemetry",
-    "undo",
+    "amend", "completions", "doctor", "man", "pr", "squash", "stage",
+    "telemetry", "undo",
 ]
 
 GLOBAL_FLAGS = [
@@ -51,6 +51,7 @@ SUBCOMMAND_FLAGS = {
     "squash": [("--count", "<n>"), ("--message", "<msg>"),
                ("--provider", "gemini|ollama"), ("--timeout", "<seconds>"),
                ("--yes", None), ("--dry-run", None), ("--verbose", None)],
+    "stage": [("-p", None), ("--patch", None), ("--verbose", None)],
     "completions": [("<shell>", None)],
     "telemetry": [("<action>", "status|on|off")],
 }

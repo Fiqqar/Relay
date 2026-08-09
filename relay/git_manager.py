@@ -159,6 +159,49 @@ class GitManager:
     def stage_all(self) -> None:
         self._run("add", ".")
 
+    def stage_files(self, *paths: str) -> None:
+        """Stage exactly the given paths (`git add -- <paths>`)."""
+        if not paths:
+            return
+        self._run("add", "--", *paths)
+
+    def unstage(self, *paths: str) -> None:
+        """Remove the given paths from the index; working tree unchanged."""
+        if not paths:
+            return
+        self._run("reset", "--", *paths)
+
+    def unstaged_changes(self) -> list[str]:
+        """Names of files that could still be staged (unstaged or untracked).
+
+        ``git status --porcelain`` (v1) prefixes each path with two columns:
+            XY path
+        ``X`` is the index column, ``Y`` the worktree column. A file with a
+        worktree change (Y != ' ') or an untracked file ('??') is one ``git
+        add`` away from being staged, so those are the candidates an
+        interactive pick should offer.
+        """
+        out = self._run("status", "--porcelain").stdout
+        files = []
+        for line in out.splitlines():
+            prefix, name = line[:2], line[3:]
+            if prefix == "??":
+                files.append(name)
+                continue
+            if prefix[1] != " ":
+                files.append(name)
+        return files
+
+    def add_interactive(self) -> None:
+        """Run git's own ``git add -p`` (patch mode) reading from the terminal.
+
+        Relay delegates to the real interactive interface so the developer sees
+        the exact hunks and diff context git produces. The subprocess inherits
+        stdin/stdout, so arrow keys and y/n/etc. behave exactly as in a normal
+        terminal.
+        """
+        subprocess.run(["git", "add", "-p"], cwd=self.cwd)
+
     def staged_diff(self) -> str:
         """Optimized staged diff for the AI: changed lines only (``--unified=0``).
 

@@ -24,6 +24,7 @@ from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
 from .squash import run_squash
+from .stage import run_stage
 from .telemetry import is_enabled, report, set_enabled
 from .undo import run_undo
 
@@ -168,6 +169,19 @@ def build_parser() -> argparse.ArgumentParser:
     undo.add_argument("--verbose", action="store_true",
                       help="print the git commands being run")
 
+    stage = subparsers.add_parser(
+        "stage",
+        help="interactively stage a subset of changed files (or hunks)",
+        description="Lists unstaged/untracked files and stages the ones you "
+                    "select (`git add --`). `-p` launches git's real `git add "
+                    "-p` hunk picker, so you can stage individual hunks of a "
+                    "file before a normal `relay` run commits them.",
+    )
+    stage.add_argument("-p", "--patch", action="store_true",
+                       help="run git's interactive patch (hunk) picker")
+    stage.add_argument("--verbose", action="store_true",
+                       help="print the git commands being run")
+
     completions = subparsers.add_parser(
         "completions",
         help="print a shell completion script (bash/zsh/fish/powershell)",
@@ -274,6 +288,10 @@ def main(argv: list[str] | None = None) -> int:
         # `relay undo` is a pure local, non-destructive git op (no AI involved).
         if getattr(args, "command", None) == "undo":
             return run_undo(verbose=args.verbose)
+
+        # `relay stage` sculpts the index (whole files or `git add -p` hunks).
+        if getattr(args, "command", None) == "stage":
+            return run_stage(patch=args.patch, verbose=args.verbose)
 
         # `relay squash` folds the last N commits into one; never pushes.
         if getattr(args, "command", None) == "squash":
