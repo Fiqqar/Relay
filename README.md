@@ -313,8 +313,9 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - **v0.1** — MVP: solo + team modes, Gemini + Ollama providers, manual fallback. ✅ shipped
 - **v0.2** — diff truncation (FR-14), `relay doctor`, `relay pr` (GitHub PR automation), CI + pytest suite, TOML config file. ✅ shipped (current snapshot)
 - **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging. ✅ shipped
-- **v1.0** — GA: telemetry opt-in, man pages / shell completions.
-- **Later** — GitLab PR creation, multi-commit squashing, `git add -p`-style partial staging, more providers (OpenAI, Anthropic, llama.cpp), team default-branch safety rules.
+- **v0.4** — DX layer: telemetry opt-in, man pages (`man relay`), shell completions (bash/zsh/fish/PowerShell), `relay undo`, `relay squash`, `relay stage` (incl. `git add -p`), OpenAI / Anthropic / llama.cpp providers, GitLab MR creation. ✅ shipped
+- **v1.0** — GA: telemetry opt-in, man pages / shell completions. (superseded by v0.4)
+- **Later** — team default-branch safety rules.
 
 ## Documentation
 
