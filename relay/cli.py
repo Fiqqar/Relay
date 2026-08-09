@@ -23,11 +23,34 @@ from .errors import RelayError, UserAbort
 from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
+from .telemetry import is_enabled, report, set_enabled
 from .undo import run_undo
 
 
+def _run_telemetry(action: str) -> int:
+    """Manage the opt-in telemetry marker: status (default), on, or off."""
+    if action in ("on", "off"):
+        path = set_enabled(action == "on")
+        state = "enabled" if action == "on" else "disabled"
+        print(f"[relay] telemetry {state} (marker: {path})")
+        return 0
+    if is_enabled():
+        print("[relay] telemetry: enabled (anonymous usage reporting, opt-in)")
+    else:
+        print("[relay] telemetry: disabled by default")
+    print("[relay] enable with `relay telemetry on`; no URL, no data is sent")
+    return 0
+
+
+def _report_run(args, provider_name: str | None, ok: bool) -> None:
+    """Fire a telemetry event for the just-finished workflow run (if opted in)."""
+    mode = "amend" if getattr(args, "command", None) == "amend" else (
+        "team" if getattr(args, "team", None) is not None else "solo"
+    )
+    report(mode=mode, provider=provider_name or "", ok=ok)
+
+
 def _detect_shell() -> str:
-    """Pick a default shell for `relay completions` (POSIX $SHELL, Windows cmd)."""
     shell = os.environ.get("SHELL", "")
     if shell:
         name = shell.rsplit("/", 1)[-1]
@@ -142,6 +165,22 @@ def build_parser() -> argparse.ArgumentParser:
                     "to get `man relay`.",
     )
 
+    telemetry = subparsers.add_parser(
+        "telemetry",
+        help="view or change opt-in usage telemetry",
+        description="Relay is telemetry-free by default. `relay telemetry on` "
+                    "opts in to anonymous usage reporting (mode, provider, "
+                    "outcome — never diffs or messages). Off by default; "
+                    "reporting additionally needs RELAY_TELEMETRY_URL.",
+    )
+    telemetry.add_argument(
+        "action",
+        nargs="?",
+        choices=["status", "on", "off"],
+        default="status",
+        help="status (default), on, or off",
+    )
+
     amend = subparsers.add_parser(
         "amend",
         help="rewrite the last commit's message with a freshly generated one",
@@ -189,6 +228,10 @@ def main(argv: list[str] | None = None) -> int:
         print(MAN_PAGE_TEMPLATE.rstrip(), end="")
         return 0
 
+    # `relay telemetry` reads or flips the opt-in marker and exits.
+    if getattr(args, "command", None) == "telemetry":
+        return _run_telemetry(args.action)
+
     # `relay pr` posts to GitHub; errors fall through to the shared handlers
     # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
     try:
@@ -220,7 +263,9 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=args.dry_run,
                 verbose=args.verbose,
             )
-            return orchestrator.run()
+            code = orchestrator.run()
+            _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
+            return code
 
         # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
         # `--solo` / nothing leaves it None.
@@ -239,7 +284,9 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             verbose=args.verbose,
         )
-        return orchestrator.run()
+        code = orchestrator.run()
+        _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
+        return code
     except UserAbort as exc:
         # 130 is the conventional "interrupted by user" exit code (matches Ctrl-C).
         print(f"[relay] {exc}")

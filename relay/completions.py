@@ -19,7 +19,10 @@ from __future__ import annotations
 # The single source of truth for what the completion scripts advertise. Kept in
 # sync with the argparse definitions in relay/cli.py; order does not matter for
 # any shell, but grouping keeps the generators readable.
-SUBCOMMANDS = ["amend", "doctor", "pr", "squash", "completions", "man"]
+SUBCOMMANDS = [
+    "amend", "completions", "doctor", "man", "pr", "squash", "telemetry",
+    "undo",
+]
 
 GLOBAL_FLAGS = [
     "--version", "--solo", "--team", "--provider", "--timeout",
