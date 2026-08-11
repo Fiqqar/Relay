@@ -19,10 +19,11 @@ from .commit import (
     sanitize_ai_message,
     validate_conventional,
 )
-from .config import DEFAULT_BRANCH_TEMPLATE
-from .errors import AIError, GitError, UserAbort
+from .config import DEFAULT_BRANCH_TEMPLATE, protected_branches as get_protected_branches
+from .errors import AIError, GitError, ProtectedBranchError, UserAbort
 from .git_manager import GitManager
 from .prompt import CONFIRM_PROMPT, interpret_choice
+from .protected import assert_branch_allowed, is_protected
 
 
 class Orchestrator:
@@ -39,6 +40,8 @@ class Orchestrator:
         no_verify: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
+        allow_protected: bool = False,
+        protected_branches: list[str] | None = None,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
     ):
         self.mode = mode
@@ -50,6 +53,8 @@ class Orchestrator:
         self.staged_only = staged_only
         self.no_verify = no_verify
         self.dry_run = dry_run
+        self.allow_protected = allow_protected
+        self.protected_branches = protected_branches or get_protected_branches()
         self.branch_template = branch_template
 
     # ---- Public entry point -------------------------------------------------
@@ -88,12 +93,27 @@ class Orchestrator:
         team_branch = None
         if self.mode == "team":
             team_branch = self._resolve_team_branch_name(message)
+            blocked = is_protected(team_branch, self.protected_branches)
 
+        force = self.allow_protected or self.yes
         if self.dry_run:
             target = team_branch if self.mode == "team" else branch
             print(f"[relay] dry-run (mode={self.mode}): commit & push to '{target}'")
             print(f"[relay]     message: {message}")
+            if self.mode == "team" and blocked and not force:
+                print(
+                    f"[relay]     note: '{team_branch}' is a protected branch; "
+                    "this run would be refused without --allow-protected/--yes"
+                )
             return 0
+
+        # Default-branch safety: refuse to touch a protected branch in team
+        # mode unless the developer explicitly opted out (--allow-protected/--yes).
+        # Solo mode keeps its convention of committing to the current branch.
+        if self.mode == "team":
+            assert_branch_allowed(
+                team_branch, self.protected_branches, force=force
+            )
 
         # BRANCH (team mode only): create & check out the feature branch.
         if self.mode == "team":

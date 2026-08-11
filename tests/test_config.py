@@ -17,6 +17,7 @@ def clear_relay_env(monkeypatch):
         "RELAY_BRANCH_TEMPLATE",
         "RELAY_PR_OPEN",
         "RELAY_CONFIG",
+        "RELAY_PROTECTED_BRANCHES",
         "XDG_CONFIG_HOME",
         "APPDATA",
         "GEMINI_MODEL",
@@ -142,6 +143,48 @@ def test_api_keys_are_env_only(monkeypatch, tmp_path):
 def test_invalid_max_diff_lines_falls_back_to_default():
     config.os.environ["RELAY_MAX_DIFF_LINES"] = "huge"
     assert config.max_diff_lines() == 120
+
+
+# ---- Protected-branch rules (default-branch safety) --------------------------
+
+
+def test_protected_branches_defaults_to_main_and_master():
+    assert config.protected_branches() == ["main", "master"]
+
+
+def test_protected_branches_read_from_env(monkeypatch):
+    monkeypatch.setenv("RELAY_PROTECTED_BRANCHES", "main, develop")
+    assert config.protected_branches() == ["main", "develop"]
+
+
+def test_protected_branches_env_beats_file(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [team.protected]
+        branches = ["release"]
+    """)
+    monkeypatch.setenv("RELAY_PROTECTED_BRANCHES", "main")
+    assert config.protected_branches() == ["main"]
+
+
+def test_protected_branches_read_from_toml(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [team.protected]
+        branches = ["main", "develop"]
+    """)
+    assert config.protected_branches() == ["main", "develop"]
+
+
+def test_protected_branches_empty_env_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("RELAY_PROTECTED_BRANCHES", "   ")
+    assert config.protected_branches() == ["main", "master"]
+
+
+def test_protected_branches_absent_file_falls_back_to_default(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        provider = "ollama"
+    """)
+    assert config.protected_branches() == ["main", "master"]
 
 
 # ---- F6: TOML config file (flags > env > file > defaults) --------------------

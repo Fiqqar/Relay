@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.4.1` are shipped and closed; `0.5.0`+ are planned.
+through `0.5.0` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.4.1` are shipped and closed; `0.5.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.4.1`)
+## Shipped history (`0.1.0` → `0.5.0`)
 
 ### v0.1.0 — MVP
 
@@ -76,21 +76,23 @@ through `0.4.1` are shipped and closed; `0.5.0`+ are planned.
 
 **Acceptance:** 0 form-feed bytes in `relay man`; both package managers install. ✅
 
----
-
-## Planned (`0.5.0` → `1.0.0`)
-
 ### v0.5.0 — Team default-branch safety
 
-- [ ] `relay team` mode refuses to commit to a configured protected branch
+- [x] `relay team` mode refuses to commit to a configured protected branch
       by default (origin of the `team` naming; keeps solo-convention commits)
-- [ ] Default-branch rules in TOML config (e.g. `[team.protected] branches = ["main"]`)
-- [ ] Opt-out escape hatch (`--yes` / explicit flag) for force paths
-- [ ] `relay doctor` reports protected-branch config + warns on risky state
-- [ ] Unit tests for each safety rule (mirror `tests/test_doctor.py` patterns)
+- [x] Default-branch rules in TOML config (`[team.protected] branches = ["main"]`,
+      or the `RELAY_PROTECTED_BRANCHES` env var)
+- [x] Opt-out escape hatch (`--allow-protected` flag / `--yes`) for force paths
+- [x] `relay doctor` reports protected-branch config + warns on risky state
+- [x] Unit tests for each safety rule (`tests/test_protected.py`,
+      mirroring `tests/test_doctor.py` patterns)
 
 **Exit:** pushing to a protected branch is impossible by default on the
-configured rules; tests cover every rule.
+configured rules; tests cover every rule. ✅
+
+---
+
+## Planned (`0.6.0` → `1.0.0`)
 
 ### v0.6.0 — Distribution polish
 

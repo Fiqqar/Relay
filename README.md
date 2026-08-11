@@ -40,6 +40,7 @@ Relay collapses this into a single workflow while keeping the developer in contr
 - **Solo mode** — stage all, generate message, commit, push to the current branch.
 - **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `feat/<feature>`), push that branch.
 - **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`, incl. draft PRs via `--draft`).
+- **Team default-branch safety** — team mode refuses to commit to a configured protected branch (default `main`/`master`), with an explicit `--allow-protected`/`--yes` escape hatch; solo mode keeps its commit-anywhere convention.
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
@@ -181,6 +182,7 @@ $ relay doctor
 | `--no-push` | Commit but do not push. |
 | `--staged` | Commit only what is already staged (skip `git add .`). |
 | `--dry-run` | Show the plan and the generated message, change nothing. |
+| `--allow-protected` | Allow team mode to target a protected branch (default-branch safety override). |
 | `--verbose` | Print the git commands being run. |
 | `--version` | Print the version. |
 
@@ -203,6 +205,7 @@ Environment variables (always win over the config file):
 | `RELAY_AI_TIMEOUT` | Seconds to wait for the AI response (clamped to 120 max) | `30` |
 | `RELAY_MAX_DIFF_LINES` | Line cap on the staged diff sent to the LLM | `120` |
 | `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `<type>/<feature>` |
+| `RELAY_PROTECTED_BRANCHES` | Comma-separated protected branches (team-mode safety; overrides the config file) | `main,master` |
 | `RELAY_PR_OPEN` | Auto-open `relay pr` URLs in the browser (`1/true/yes/on`) | off |
 | `RELAY_CONFIG` | Override the TOML config file path | see below |
 
@@ -229,6 +232,9 @@ pr_open = true
 gemini_model = "gemini-2.5-flash"
 ollama_model = "qwen2.5-coder:7b"
 ollama_base_url = "http://localhost:11434"
+
+[team.protected]
+branches = ["main", "develop"]
 ```
 
 Keys mirror the non-secret env vars above. A missing/malformed file is ignored.
@@ -346,8 +352,9 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - **v0.2** — diff truncation (FR-14), `relay doctor`, `relay pr` (GitHub PR automation), CI + pytest suite, TOML config file. ✅ shipped (current snapshot)
 - **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging. ✅ shipped
 - **v0.4** — DX layer: telemetry opt-in, man pages (`man relay`), shell completions (bash/zsh/fish/PowerShell), `relay undo`, `relay squash`, `relay stage` (incl. `git add -p`), OpenAI / Anthropic / llama.cpp providers, GitLab MR creation. ✅ shipped
+- **v0.5** — team default-branch safety: protected-branch rules (`[team.protected]`, `RELAY_PROTECTED_BRANCHES`), team-mode refusal with `--allow-protected`/`--yes` escape hatch, doctor reporting. ✅ shipped
 - **v1.0** — GA: stability freeze, coverage gate, docs + packaging finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
-- **v0.5 – v0.8** — team default-branch safety, distribution polish, more providers/forges, GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
+- **v0.6 – v0.8** — distribution polish, more providers/forges, GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
 - **Later** — team default-branch safety rules.
 
 ## Documentation

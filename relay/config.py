@@ -15,6 +15,7 @@ repo or be shared without leaking credentials.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 try:  # Python 3.11+
@@ -40,6 +41,11 @@ DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
 DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
+
+# Branches the default-branch safety rule refuses to touch, when neither the
+# env var nor the config file overrides them. `main`/`master` cover the two
+# canonical GitHub/older default-branch names.
+DEFAULT_PROTECTED_BRANCHES = ["main", "master"]
 
 # Performance knobs: keep the diff payload small and give the LLM a realistic
 # window to respond. 30s is enough for normal network conditions (and large
@@ -96,20 +102,38 @@ def config_file_path() -> Path | None:
     return Path.home() / ".config" / "relay" / "config.toml"
 
 
-def _load_config() -> dict:
-    """Parse the ``[relay]`` table from the config file (or {} when absent)."""
+def _load_raw() -> dict:
+    """Parse the whole TOML config file (or {} when absent/unparseable).
+
+    ``_load_config`` and ``_load_team_protected`` slice the document they
+    need, so the ``[relay]`` and ``[team.protected]`` tables can coexist in
+    one file without the parser opening it twice.
+    """
     path = config_file_path()
     if path is None or not path.is_file():
         return {}
     try:
         with open(path, "rb") as fh:
-            data = _load_toml(fh)
+            return _load_toml(fh)
     except (OSError, _TOML_DECODE_ERROR):
         return {}
-    section = data.get("relay")
+
+
+def _load_config() -> dict:
+    """Parse the ``[relay]`` table from the config file (or {} when absent)."""
+    section = _load_raw().get("relay")
     if not isinstance(section, dict):
         return {}
     return section
+
+
+def _load_team_protected() -> dict:
+    """Parse the ``[team.protected]`` table from the config file (or {})."""
+    team = _load_raw().get("team")
+    if not isinstance(team, dict):
+        return {}
+    protected = team.get("protected")
+    return protected if isinstance(protected, dict) else {}
 
 
 def _resolve(env_key: str, cfg_key: str, default):
@@ -219,3 +243,29 @@ def pr_open_browser() -> bool:
     """
     resolved = str(_resolve("RELAY_PR_OPEN", "pr_open", "")).strip().lower()
     return resolved in ("1", "true", "yes", "on")
+
+
+def _split_branch_list(raw: str) -> list[str]:
+    """Split a comma/space-separated env list of branch names."""
+    return [item.strip() for item in re.split(r"[, ]+", raw) if item.strip()]
+
+
+def protected_branches() -> list[str]:
+    """Branch names the default-branch safety rule refuses to touch.
+
+    Resolution order (mirrors the rest of the config):
+    ``RELAY_PROTECTED_BRANCHES`` env var (comma/space separated)
+    > ``[team.protected] branches`` in config.toml
+    > the built-in default (``main``, ``master``).
+
+    A team-mode run (or a solo push) targeting one of these is refused at
+    the ``CONFIRM`` boundary and at push time unless ``--yes`` / ``--force``
+    opts out explicitly.
+    """
+    env_raw = os.environ.get("RELAY_PROTECTED_BRANCHES")
+    if env_raw is not None and env_raw.strip():
+        return _split_branch_list(env_raw)
+    file_branches = _load_team_protected().get("branches")
+    if isinstance(file_branches, list) and file_branches:
+        return [str(b) for b in file_branches]
+    return list(DEFAULT_PROTECTED_BRANCHES)

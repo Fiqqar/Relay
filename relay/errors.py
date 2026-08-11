@@ -36,3 +36,8 @@ class AIError(RelayError):
 
 class UserAbort(RelayError):
     """The user chose to abort (Ctrl-C or the abort prompt). Maps to exit 130."""
+
+
+class ProtectedBranchError(RelayError):
+    """The workflow was refused because it targets a protected branch
+    (default-branch safety). Maps to exit 1 like any other workflow error."""

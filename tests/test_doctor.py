@@ -46,7 +46,9 @@ def healthy_env():
         "relay.doctor.provider_from_env", return_value="gemini"
     ), mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), mock.patch(
         "relay.doctor.github_token", return_value="test-token"
-    ), mock.patch("relay.doctor.gitlab_token", return_value=None):
+    ), mock.patch("relay.doctor.gitlab_token", return_value=None), mock.patch(
+        "relay.doctor.protected_branches", return_value=["main", "master"]
+    ):
         yield
 
 
@@ -177,6 +179,32 @@ def test_explicit_provider_wins_over_env(healthy_env):
         "relay.doctor._ollama_reachable", return_value=(True, "reachable")
     ):
         assert run_doctor(provider="ollama") == 0
+
+
+# ---- Protected-branch reporting ---------------------------------------------
+
+
+def test_doctor_reports_protected_branches(healthy_env, capsys):
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(branch="feature/x")):
+        assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "Protected branches" in out
+    assert "main, master" in out
+
+
+def test_doctor_warns_when_on_a_protected_branch(healthy_env, capsys):
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(branch="main")):
+        assert run_doctor() == 0  # a warn, not a failure
+    out = capsys.readouterr().out
+    assert "currently on protected branch 'main'" in out
+    assert "WARN" in out
+
+
+def test_doctor_no_warning_when_off_protected_branch(healthy_env, capsys):
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(branch="feat/x")):
+        run_doctor()
+    out = capsys.readouterr().out
+    assert "currently on protected branch" not in out
 
 
 # ---- CLI routing -----------------------------------------------------------

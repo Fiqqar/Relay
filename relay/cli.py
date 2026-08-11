@@ -104,6 +104,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="only commit what is already staged (skip `git add .`)")
     parser.add_argument("--no-verify", action="store_true",
                         help="skip git pre-commit and commit-msg hooks")
+    parser.add_argument("--allow-protected", action="store_true",
+                        help="allow team mode to target a protected branch (default-branch safety override)")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -342,6 +344,7 @@ def main(argv: list[str] | None = None) -> int:
             no_verify=args.no_verify,
             dry_run=args.dry_run,
             verbose=args.verbose,
+            allow_protected=args.allow_protected,
         )
         code = orchestrator.run()
         _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
