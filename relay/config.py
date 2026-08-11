@@ -227,10 +227,20 @@ def ai_timeout(override: int | None = None) -> int:
 
 
 def max_diff_lines() -> int:
-    """Line cap applied to the staged diff before it is sent to the LLM."""
+    """Line cap applied to the staged diff before it is sent to the LLM.
+
+    Resolution order mirrors ``ai_timeout``: env > file > default, with the
+    same tolerant parsing — a non-numeric value (``RELAY_MAX_DIFF_LINES=abc``)
+    or a wrong-typed config entry (``max_diff_lines = [1, 2]`` or ``= true``)
+    falls back to the default instead of crashing or silently capping the diff
+    at an absurd one line.
+    """
+    resolved = _resolve("RELAY_MAX_DIFF_LINES", "max_diff_lines", DEFAULT_MAX_DIFF_LINES)
+    if isinstance(resolved, bool):
+        return DEFAULT_MAX_DIFF_LINES
     try:
-        return int(_resolve("RELAY_MAX_DIFF_LINES", "max_diff_lines", DEFAULT_MAX_DIFF_LINES))
-    except ValueError:
+        return int(resolved)
+    except (ValueError, TypeError):
         return DEFAULT_MAX_DIFF_LINES
 
 

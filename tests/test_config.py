@@ -145,6 +145,23 @@ def test_invalid_max_diff_lines_falls_back_to_default():
     assert config.max_diff_lines() == 120
 
 
+def test_max_diff_lines_wrong_typed_config_value_falls_back(monkeypatch, tmp_path):
+    """Regression: a non-int TOML entry (bool / list) used to raise TypeError
+    (uncaught, since only ValueError was caught) and crashed instead of falling
+    back to the default — mirroring ai_timeout()'s tolerant parse."""
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        max_diff_lines = [1, 2]
+    """)
+    assert config.max_diff_lines() == 120
+
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        max_diff_lines = true
+    """)
+    assert config.max_diff_lines() == 120
+
+
 # ---- Protected-branch rules (default-branch safety) --------------------------
 
 
