@@ -68,6 +68,22 @@ def parse(text: str) -> dict:
     return root
 
 
+def _even_backslashes_before(text: str, i: int) -> bool:
+    """True when the run of backslashes ending just before index ``i`` is even.
+
+    A quote closes its string only when preceded by an even number of
+    backslashes: ``\"`` escapes the quote, ``\\\"`` (odd run) does not. All
+    string-aware scanners use this so comments, key/value splits and item
+    splits agree with ``_parse_string``'s escape handling.
+    """
+    count = 0
+    j = i - 1
+    while j >= 0 and text[j] == "\\":
+        count += 1
+        j -= 1
+    return count % 2 == 0
+
+
 def _strip_comment(line: str) -> str:
     """Remove a trailing ``#`` comment, respecting quoted strings."""
     in_str = False
@@ -76,7 +92,7 @@ def _strip_comment(line: str) -> str:
         if ch in ("'", '"'):
             if not in_str:
                 in_str, quote = True, ch
-            elif ch == quote and (i == 0 or line[i - 1] != "\\"):
+            elif ch == quote and _even_backslashes_before(line, i):
                 in_str = False
         elif ch == "#" and not in_str:
             return line[:i]
@@ -127,7 +143,7 @@ def _split_kv(line: str) -> tuple[str, str]:
         if ch in ("'", '"'):
             if not in_str:
                 in_str, quote = True, ch
-            elif ch == quote:
+            elif ch == quote and _even_backslashes_before(line, i):
                 in_str = False
         elif ch == "=" and not in_str:
             return line[:i].strip(), line[i + 1 :].strip()
@@ -180,7 +196,7 @@ def _split_items(raw: str) -> list[str]:
         if ch in ("'", '"'):
             if not in_str:
                 in_str, quote = True, ch
-            elif ch == quote and buf and buf[-1] != "\\":
+            elif ch == quote and _even_backslashes_before(buf, len(buf)):
                 in_str = False
             buf.append(ch)
         elif not in_str:

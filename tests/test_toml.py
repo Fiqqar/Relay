@@ -94,6 +94,31 @@ def test_comment_inside_string_is_kept():
     assert toml.parse("note = 'a # b'") == {"note": "a # b"}
 
 
+def test_hash_inside_double_quoted_string_is_kept():
+    assert toml.parse('note = "a # b"') == {"note": "a # b"}
+
+
+def test_comment_after_string_ending_in_backslash():
+    """Regression: a value ending in a literal backslash followed by a closing
+    quote swallowed the trailing `# comment` because the scanner treated the
+    `\\` as escaping the quote. An even run of backslashes must close."""
+    assert toml.parse(r'key = "path\\" # comment') == {"key": "path\\"}
+
+
+def test_escaped_quote_inside_value():
+    """Regression: an escaped `\"` was treated as closing the string, so a `=`
+    inside the value was mis-split at top level."""
+    assert toml.parse(r'key = "say \"hi\" = now"') == {"key": 'say "hi" = now'}
+
+
+def test_escaped_quote_inside_array_item():
+    assert toml.parse(r'tags = ["a\"b", "c"]') == {"tags": ['a"b', "c"]}
+
+
+def test_escaped_quote_inside_inline_table():
+    assert toml.parse(r'x = { t = "a\"b" }') == {"x": {"t": 'a"b'}}
+
+
 def test_table_syntax():
     text = "[ai]\nprovider = 'ollama'\n[team]\nbranch = 'status/x'\n"
     assert toml.parse(text) == {
