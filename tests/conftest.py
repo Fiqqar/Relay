@@ -35,7 +35,7 @@ def sample_diff() -> str:
         "index 1111111..2222222 100644\n"
         "--- a/app.py\n"
         "+++ b/app.py\n"
-        "@@ -1,3 +1,4 @@\n"
+        "@@ -1,1 +1,5 @@\n"
         " import os\n"
         "+from datetime import datetime\n"
         "+\n"

@@ -17,6 +17,7 @@ class TestParser:
 
     def test_explicit_solo(self):
         args = build_parser().parse_args(["--solo"])
+        assert args.solo is True
         assert args.team is None
 
     def test_team_with_feature(self):

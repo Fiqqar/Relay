@@ -12,7 +12,7 @@ class FakeGit:
     def __init__(self, files=("app.py", "notes.md", "scratch.txt")):
         self.files = list(files)
         self.staged = []
-        self.interactive_calls = 0
+        self.add_interactive_calls = 0
         self._is_repo = True
 
     def is_repo(self):
