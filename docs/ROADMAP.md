@@ -92,14 +92,25 @@ through `0.5.1` are shipped and closed; `0.6.0`+ are planned.
 **Exit:** pushing to a protected branch is impossible by default on the
 configured rules; tests cover every rule. ✅
 
-### v0.5.1 — Packaging sync (post-release regression)
+### v0.5.1 — Patch (safety + packaging fixes)
 
+- [x] **`--yes` decoupled from protected-branch safety** — `--yes` now only
+      skips the confirmation prompt; it never bypasses the default-branch
+      guard. Opting out requires the explicit `--allow-protected` flag, so a
+      scripted/CI run can no longer silently land on `main`/`master`.
+- [x] **`max_diff_lines` tolerant parsing** — a wrong-typed config entry
+      (`max_diff_lines = [1, 2]` or `= true`) now falls back to the default
+      instead of raising an uncaught `TypeError` (or silently capping the diff
+      at one line for booleans), matching `ai_timeout()`.
+- [x] **Feature-name prompt isolated** — the only `input()` in team branch
+      resolution lives in `_prompt_feature_name()`, a single seam for a future
+      `--no-input`/CI mode.
 - [x] Homebrew formula + Scoop manifest re-pointed at `v0.5.0` assets
       (both had been left on `v0.4.1` when 0.5.0 shipped, so `brew install`
-      and `scoop install` were still pulling the previous patch)
-- [x] `RELEASE.md` checklist now calls out re-pointing the formula + manifest
-      so a release can never silently ship stale package channels
-- [x] Formula + Scoop hash/URL verified against the published `v0.5.0` release
+      and `scoop install` were still pulling the previous patch), then re-pointed
+      at `v0.5.1` assets after this release
+- [x] `RELEASE.md` step 1b now requires re-pointing the formula + manifest, so
+      a release can never silently ship stale package channels
 
 **Exit:** `brew install Fiqqar/relay/relay` and `scoop install relay` install
 the shipped version; the runbook step prevents recurrence. ✅
