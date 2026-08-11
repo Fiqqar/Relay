@@ -22,6 +22,7 @@ from .config import (
     gemini_api_key,
     ollama_base_url,
     openai_api_key,
+    protected_branches,
     provider_from_env,
 )
 from .git_manager import GitManager
@@ -93,6 +94,7 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         Check(f"provider: {chosen}", "skip", ""),
         Check("AI credentials", "skip", ""),
         Check("Forge token", "skip", ""),
+        Check("Protected branches", "skip", ""),
     ]
 
     # relay on PATH
@@ -186,6 +188,20 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         checks[7].detail = (
             "GITHUB_TOKEN / GITLAB_TOKEN is not set; `relay pr` cannot open PRs/MRs"
         )
+
+    # Protected branches: report the configured default-branch safety rules and
+    # warn when the current branch is itself protected (a risky state — team
+    # mode would refuse, and solo mode would commit straight onto it).
+    protected = protected_branches()
+    current = git.current_branch() if git.is_repo() else ""
+    checks[8].detail = ", ".join(protected) or "none"
+    if current and current in protected:
+        checks[8].status = "warn"
+        checks[8].detail = (
+            f"{', '.join(protected)} — currently on protected branch '{current}'"
+        )
+    else:
+        checks[8].status = "ok"
 
     # ---- report -----------------------------------------------------------
     print(f"[relay doctor] Relay {__version__} - {chosen} provider")
