@@ -9,6 +9,8 @@ CI-verified, so the only manual work is choosing a version number.
 - [ ] The version-consistency test (`tests/test_version.py`) passes — it
       asserts `pyproject.toml` and `relay.__version__` match, so a bump can
       never ship half-applied.
+- [ ] `Formula/relay.rb` and `bucket/relay.json` point at the new version's
+      assets (URL + `sha256`) — see step 1b below.
 
 ## Steps
 
@@ -18,6 +20,19 @@ Update **both** of these to the same value (e.g. `0.3.0`):
 
 - `pyproject.toml` → `[project] version`
 - `relay/__init__.py` → `__version__`
+
+### 1b. Re-point the package channels (same version)
+
+After the version bump, update **both** package manifests so installs track
+the release:
+
+- `Formula/relay.rb` → `url` (sdist `...v<ver>/relay_cli-<ver>.tar.gz`) + `sha256`
+- `bucket/relay.json` → `version`, `url` (wheel), `hash`, and the wheel
+  filename inside the `installer` script
+
+Fetch the hashes from the **next** release's assets (built by CI once the tag
+is pushed) or from a local `python -m build`. A release whose manifests still
+point at an older patch silently ships the previous version.
 
 ### 2. Verify + commit
 
