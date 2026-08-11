@@ -19,6 +19,10 @@ class FakeGit:
         self._depth = depth
         self.reset_target = None
         self.commit_messages = []
+        self.diff_range_calls = []
+        self.stat_range_calls = []
+        self.staged_diff_called = False
+        self.staged_stat_called = False
 
     def has_commits(self):
         return self._count > 0
@@ -34,11 +38,21 @@ class FakeGit:
     def log_between(self, base, head):
         return "fix: a\nfeat: b"
 
-    def staged_diff(self):
+    def diff_range(self, base, head):
+        self.diff_range_calls.append((base, head))
         return "diff --git a/app.py b/app.py\n+def f(): pass"
 
-    def staged_stat(self):
+    def stat_range(self, base, head):
+        self.stat_range_calls.append((base, head))
         return " app.py | 1 +\n"
+
+    def staged_diff(self):
+        self.staged_diff_called = True
+        return "diff --git a/staged.py b/staged.py\n+import os"
+
+    def staged_stat(self):
+        self.staged_stat_called = True
+        return " staged.py | 1 +\n"
 
     def latest_commit_message(self):
         return self._message
@@ -93,6 +107,18 @@ def test_squash_custom_message_wins(git):
 def test_squash_uses_ai_when_provided(git):
     assert run_squash(git=git, count=3, provider=FakeProvider(), yes=True) == 0
     assert git.commit_messages == ["feat(billing): combine invoicing changes"]
+
+
+def test_squash_feeds_ai_the_commit_range_diff_not_the_index(git):
+    """Regression: squash used staged_diff()/staged_stat() to generate the AI
+    message, but the index holds unrelated working-tree changes (reset --soft
+    runs after the message is resolved). The AI must see the combined diff of
+    the squashed commits — base..tip — so the message matches the actual fold."""
+    assert run_squash(git=git, count=3, provider=FakeProvider(), yes=True) == 0
+    assert git.diff_range_calls == [("base3", "tip123")]
+    assert git.stat_range_calls == [("base3", "tip123")]
+    assert git.staged_diff_called is False
+    assert git.staged_stat_called is False
 
 
 def test_squash_falls_back_to_commit_message(git):

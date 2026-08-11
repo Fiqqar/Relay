@@ -92,6 +92,22 @@ class TestMutations:
         assert mock_run.call_args.args[0] == ["git", "diff", "--cached", "--stat"]
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_diff_range_and_stat_range(self, mock_run, git, make_proc):
+        """Range diff must compare base..tip (not the index) — the diff a
+        squash of commits actually needs."""
+        mock_run.return_value = make_proc(stdout="range diff")
+        assert git.diff_range("base123", "tip456") == "range diff"
+        assert mock_run.call_args.args[0] == [
+            "git", "diff", "base123..tip456", "--unified=0",
+        ]
+
+        mock_run.return_value = make_proc(stdout="range stat")
+        assert git.stat_range("base123", "tip456") == "range stat"
+        assert mock_run.call_args.args[0] == [
+            "git", "diff", "base123..tip456", "--stat",
+        ]
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_commit_pipes_message_via_stdin(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.commit("feat: subject\n\nbody line")

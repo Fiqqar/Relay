@@ -11,8 +11,8 @@ syncing a pushed branch needs ``git push --force-with-lease``.
 
 Message resolution order (mirrors pr.py):
     1. explicit ``--message``
-    2. an AI-generated subject for the combined staged diff (with the manual
-       fallback, exactly like the solo workflow)
+    2. an AI-generated subject for the combined diff of the squashed commits
+       (``git diff base..tip``, with the manual fallback exactly like solo)
     3. the message of the earliest commit in the squashed range
 """
 from __future__ import annotations
@@ -84,8 +84,11 @@ def run_squash(
     if message and message.strip():
         final_message = message.strip()
     elif provider is not None:
-        diff = git.staged_diff()
-        stat = git.staged_stat()
+        # The combined diff of the squashed commits — NOT the index. The index
+        # still holds whatever the working tree happened to have staged, which
+        # is unrelated (or empty) here because reset --soft runs later.
+        diff = git.diff_range(base, tip)
+        stat = git.stat_range(base, tip)
         final_message = _message_from_ai(provider, diff, stat, branch)
     else:
         earliest = git.latest_commit_message()
