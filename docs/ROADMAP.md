@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.1` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.2` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.1` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.1`)
+## Shipped history (`0.1.0` → `0.5.2`)
 
 ### v0.1.0 — MVP
 
@@ -114,6 +114,22 @@ configured rules; tests cover every rule. ✅
 
 **Exit:** `brew install Fiqqar/relay/relay` and `scoop install relay` install
 the shipped version; the runbook step prevents recurrence. ✅
+
+### v0.5.2 — Patch (squash diff fix)
+
+- [x] **`relay squash` fed the AI the wrong diff** — it used `staged_diff()` /
+      `staged_stat()` (the current index) to generate the AI message, but
+      `reset --soft` runs after message resolution, so the index held unrelated
+      (or empty) working-tree changes. The AI message could describe the wrong
+      thing while `log_between(base, tip)` above it already knew the correct
+      range. Now `GitManager.diff_range(base, tip)` / `stat_range(base, tip)`
+      (`git diff base..tip`) feed the combined diff of the squashed commits.
+- [x] Regression tests: `FakeGit` now records `diff_range`/`stat_range` calls
+      and asserts squash never touches the staging area (previously the
+      hardcoded `staged_diff()` return silently hid this bug).
+
+**Exit:** `relay squash --provider <ai>` sends the base..tip diff; unit tests
+would fail if it ever regressed to reading the index. ✅
 
 ---
 
