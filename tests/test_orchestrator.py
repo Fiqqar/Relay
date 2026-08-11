@@ -275,6 +275,17 @@ def test_team_feature_derived_from_current_branch(mock_input, git):
     git.push.assert_called_once_with("feat/payments", set_upstream=True)
 
 
+@mock.patch("builtins.input", side_effect=["feat: prompted", "", "payments"])
+def test_team_feature_prompted_when_nothing_to_derive_from(mock_input, git):
+    """Without --team and without a current branch, the feature name comes from
+    the isolated _prompt_feature_name seam (a single input() call)."""
+    git.current_branch.return_value = ""
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="team", no_push=True).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("feat/payments")
+
+
 @mock.patch("builtins.input", side_effect=["a"])
 def test_team_branch_uses_commit_type_from_ai_message(mock_input, git):
     ai = StubAI(responses=["fix(api): correct validation"])

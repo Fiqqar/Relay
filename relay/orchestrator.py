@@ -253,7 +253,7 @@ class Orchestrator:
         return message
 
     def _resolve_team_branch_name(self, message: str) -> str:
-        """Feature-name precedence: --team <name> > prompt > current branch.
+        """Feature-name precedence: --team <name> > current branch > prompt.
 
         The branch prefix is the Conventional Commit type extracted from the
         (already confirmed) message — ``feat(auth): ...`` -> ``feat/...`` —
@@ -264,6 +264,15 @@ class Orchestrator:
             current = self.git.current_branch()
             feature = current.split("/")[-1] if current else None
             if not feature:
-                feature = input("Feature name (for branch): ").strip()
+                feature = self._prompt_feature_name()
         commit_type = extract_commit_type(message) or "feat"
         return build_branch_name(self.branch_template, feature, commit_type=commit_type)
+
+    def _prompt_feature_name(self) -> str:
+        """Ask for a feature name when neither --team nor the branch provides one.
+
+        Kept as a one-line seam so a non-interactive / CI mode can replace just
+        this prompt (and its sole ``input()`` call) without touching the branch
+        resolution logic.
+        """
+        return input("Feature name (for branch): ").strip()
