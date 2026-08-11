@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from relay.cli import build_parser, main
-from relay.completions import SHELLS, generate
+from relay.completions import SHELLS, SUBCOMMANDS, generate
 
 
 class TestParser:
@@ -39,6 +39,15 @@ class TestGenerate:
     def test_shells_mention_subcommands(self, shell):
         out = generate(shell)
         assert "doctor" in out
+
+    @pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "powershell"])
+    def test_every_subcommand_appears_in_every_shell(self, shell):
+        """Regression: fish completion was hand-written and dropped stage, man
+        and telemetry while bash/zsh/powershell derived the list dynamically.
+        Every shell must advertise every subcommand from the source of truth."""
+        out = generate(shell)
+        for subcommand in SUBCOMMANDS:
+            assert subcommand in out, f"{shell} completion is missing '{subcommand}'"
 
     def test_bash_has_complete_directive(self):
         assert "complete -F" in generate("bash")
