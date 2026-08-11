@@ -30,29 +30,6 @@ GLOBAL_FLAGS = [
     "--allow-protected", "--verbose",
 ]
 
-# (subcommand, flag) pairs; a plain flag with no value is ``None``.
-# type/choice/group naming mirrors what the argparse parser accepts.
-SUBCOMMAND_FLAGS = {
-    "doctor": [("--provider", "anthropic|gemini|ollama|openai"), ("--verbose", None)],
-    "pr": [
-        ("--base", "main"), ("--title", "<title>"), ("--open", None),
-        ("--draft", None), ("--yes", None), ("--verbose", None),
-    ],
-    "undo": [("--verbose", None)],
-    "amend": [
-        ("--provider", "anthropic|gemini|ollama|openai"), ("--timeout", "<seconds>"),
-        ("--yes", None), ("--staged", None), ("--dry-run", None),
-        ("--verbose", None),
-    ],
-    "squash": [("--count", "<n>"), ("--message", "<msg>"),
-               ("--provider", "anthropic|gemini|ollama|openai"),
-               ("--timeout", "<seconds>"),
-               ("--yes", None), ("--dry-run", None), ("--verbose", None)],
-    "stage": [("-p", None), ("--patch", None), ("--verbose", None)],
-    "completions": [("<shell>", None)],
-    "telemetry": [("<action>", "status|on|off")],
-}
-
 # One-line descriptions used by the fish generator. Fish takes a -a <name>
 # token plus a -d <description>; keeping the map here (keyed by SUBCOMMANDS)
 # preserves the helpful one-liners while the loop guarantees every subcommand
@@ -195,7 +172,6 @@ def generate(shell: str) -> str:
 __all__ = [
     "SUBCOMMANDS",
     "GLOBAL_FLAGS",
-    "SUBCOMMAND_FLAGS",
     "SHELLS",
     "generate",
 ]
