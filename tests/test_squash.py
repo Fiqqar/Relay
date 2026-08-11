@@ -126,6 +126,36 @@ def test_squash_falls_back_to_commit_message(git):
     assert git.commit_messages == ["feat(billing): add invoicing"]
 
 
+def test_squash_ai_failure_falls_back_to_top_commit_message(git):
+    """Regression: _message_from_ai used to raise UserAbort after printing
+    "keeping the original commit message", aborting the squash instead of
+    actually falling back. An unavailable AI must not block the fold."""
+    class BrokenProvider:
+        def generate(self, diff, stat, branch):
+            raise RuntimeError("offline")
+
+    assert run_squash(git=git, count=3, provider=BrokenProvider(), yes=True) == 0
+    assert git.commit_messages == ["feat(billing): add invoicing"]
+
+
+def test_squash_ai_garbage_falls_back_to_top_commit_message(git, capsys):
+    class GarbageProvider:
+        def generate(self, diff, stat, branch):
+            return "not a conventional commit"
+
+    assert run_squash(git=git, count=3, provider=GarbageProvider(), yes=True) == 0
+    assert git.commit_messages == ["feat(billing): add invoicing"]
+    assert "keeping the top commit's message" in capsys.readouterr().out
+
+
+def test_squash_not_enough_history_raises(git):
+    git._depth = 2
+    with pytest.raises(GitError, match="not enough history"):
+        run_squash(git=git, count=5, yes=True)
+    assert git.reset_target is None
+    assert git.commit_messages == []
+
+
 def test_squash_dry_run_changes_nothing(git, capsys):
     assert run_squash(git=git, count=3, dry_run=True, yes=True) == 0
     assert git.reset_target is None

@@ -12,8 +12,9 @@ syncing a pushed branch needs ``git push --force-with-lease``.
 Message resolution order (mirrors pr.py):
     1. explicit ``--message``
     2. an AI-generated subject for the combined diff of the squashed commits
-       (``git diff base..tip``, with the manual fallback exactly like solo)
-    3. the message of the earliest commit in the squashed range
+       (``git diff base..tip``, falling back to the top commit's message when
+       the AI is unavailable or returns something unusable)
+    3. the message of the top commit (HEAD) in the squashed range
 """
 from __future__ import annotations
 
@@ -37,18 +38,24 @@ def _confirm(message: str, yes: bool) -> str:
     raise UserAbort("workflow aborted by user")
 
 
-def _message_from_ai(provider, diff: str, stat: str, branch: str) -> str:
-    """One-shot AI message with the standard manual-input fallback."""
+def _message_from_ai(provider, diff: str, stat: str, branch: str, fallback: str) -> str:
+    """One-shot AI message with a clean fallback to ``fallback`` on any failure.
+
+    Unlike solo/team, squash has no interactive fallback prompt — it is a
+    non-destructive, scriptable local operation — so a failed or invalid AI
+    response keeps the top commit's message instead of blocking on input() or
+    aborting the workflow.
+    """
     try:
         raw = provider.generate(diff, stat, branch)
         message = sanitize_ai_message(raw)
         valid, _ = validate_conventional(message)
         if valid:
             return message
-        print("[relay] AI response rejected; falling back to the existing message.")
+        print("[relay] AI response rejected; keeping the top commit's message.")
     except Exception:  # noqa: BLE001 - any provider failure falls back cleanly
-        print("[relay] AI unavailable; keeping the original commit message.")
-    raise UserAbort("could not derive a squashed message")
+        print("[relay] AI unavailable; keeping the top commit's message.")
+    return fallback
 
 
 def run_squash(
@@ -81,6 +88,10 @@ def run_squash(
     branch = git.current_branch()
 
     # Resolve the message BEFORE any mutation (--dry-run must change nothing).
+    # The fallback is the top commit's subject — shared by the AI-failure and
+    # no-provider paths so both degrade to the same sensible default.
+    top = git.latest_commit_message()
+    fallback = top.splitlines()[0] if top else f"squash {count} commits"
     if message and message.strip():
         final_message = message.strip()
     elif provider is not None:
@@ -89,10 +100,9 @@ def run_squash(
         # is unrelated (or empty) here because reset --soft runs later.
         diff = git.diff_range(base, tip)
         stat = git.stat_range(base, tip)
-        final_message = _message_from_ai(provider, diff, stat, branch)
+        final_message = _message_from_ai(provider, diff, stat, branch, fallback)
     else:
-        earliest = git.latest_commit_message()
-        final_message = earliest.splitlines()[0] if earliest else f"squash {count} commits"
+        final_message = fallback
 
     final_message = _confirm(final_message, yes)
 
