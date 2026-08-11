@@ -19,7 +19,7 @@ from .ai import PROVIDER_NAMES, build_provider
 from .completions import generate as generate_completions
 from .config import pr_open_browser
 from .doctor import run_doctor
-from .errors import RelayError, UserAbort
+from .errors import ConfigError, RelayError, UserAbort
 from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
@@ -296,8 +296,16 @@ def main(argv: list[str] | None = None) -> int:
             return run_stage(patch=args.patch, verbose=args.verbose)
 
         # `relay squash` folds the last N commits into one; never pushes.
+        # The provider is built lazily: with --message the AI is never
+        # consulted, and a missing API key must not block the fallback to the
+        # top commit's message (squash.py's own degradation path).
         if getattr(args, "command", None) == "squash":
-            provider = build_provider(args.provider, timeout=args.timeout)
+            provider = None
+            if not args.message:
+                try:
+                    provider = build_provider(args.provider, timeout=args.timeout)
+                except ConfigError:
+                    provider = None
             code = run_squash(
                 provider=provider,
                 count=args.count,

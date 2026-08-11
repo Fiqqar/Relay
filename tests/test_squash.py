@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from relay.cli import build_parser, main
-from relay.errors import GitError, UserAbort
+from relay.errors import ConfigError, GitError, UserAbort
 from relay.squash import run_squash
 
 
@@ -206,3 +206,25 @@ def test_main_squash_error_maps_to_exit_1():
         "relay.cli.run_squash", side_effect=GitError("boom")
     ):
         assert main(["squash"]) == 1
+
+
+def test_main_squash_with_message_skips_the_provider():
+    """Regression: squash built the provider unconditionally, so
+    `relay squash --message ...` failed with a ConfigError when no API key
+    was set, even though the AI is never used in that path."""
+    with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+        "relay.cli.run_squash", return_value=0
+    ) as run:
+        assert main(["squash", "--message", "chore: bump lockfile"]) == 0
+    build_provider.assert_not_called()
+    assert run.call_args.kwargs["provider"] is None
+
+
+def test_main_squash_missing_key_falls_back_to_provider_none():
+    """A missing GEMINI_API_KEY must not abort a plain squash; squash.py
+    falls back to the top commit's message when provider is None."""
+    with mock.patch(
+        "relay.cli.build_provider", side_effect=ConfigError("no key")
+    ), mock.patch("relay.cli.run_squash", return_value=0) as run:
+        assert main(["squash"]) == 0
+    assert run.call_args.kwargs["provider"] is None
