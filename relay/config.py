@@ -259,8 +259,9 @@ def protected_branches() -> list[str]:
     > the built-in default (``main``, ``master``).
 
     A team-mode run (or a solo push) targeting one of these is refused at
-    the ``CONFIRM`` boundary and at push time unless ``--yes`` / ``--force``
-    opts out explicitly.
+    the ``CONFIRM`` boundary and at push time unless ``--allow-protected``
+    opts out explicitly. ``--yes`` skips the confirmation prompt only; it
+    never overrides this rule.
     """
     env_raw = os.environ.get("RELAY_PROTECTED_BRANCHES")
     if env_raw is not None and env_raw.strip():

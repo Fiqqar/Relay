@@ -89,14 +89,19 @@ def test_team_mode_allow_protected_override(git, capsys):
     git.commit.assert_called_once()
 
 
-def test_team_mode_yes_flag_is_also_an_override(git):
+def test_team_mode_yes_flag_does_not_bypass_protection(git):
+    """--yes skips the confirmation prompt only; it must never bypass the
+    default-branch safety guard. A scripted/CI run using --yes on a protected
+    branch has to opt out with the explicit --allow-protected flag."""
     git.current_branch.return_value = "feature/main"
     ai = StubAI()
-    code = make_orchestrator(
-        git, provider=ai, feature="main", branch_template="<feature>", yes=True
-    ).run()
-    assert code == 0
-    git.commit.assert_called_once()
+    with mock.patch("builtins.input", return_value="a"):
+        with pytest.raises(ProtectedBranchError):
+            make_orchestrator(
+                git, provider=ai, feature="main", branch_template="<feature>", yes=True
+            ).run()
+    git.commit.assert_not_called()
+    git.create_branch.assert_not_called()
 
 
 def test_team_mode_dry_run_warns_instead_of_blocking(git, capsys):

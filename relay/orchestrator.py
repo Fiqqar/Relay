@@ -95,7 +95,7 @@ class Orchestrator:
             team_branch = self._resolve_team_branch_name(message)
             blocked = is_protected(team_branch, self.protected_branches)
 
-        force = self.allow_protected or self.yes
+        force = self.allow_protected
         if self.dry_run:
             target = team_branch if self.mode == "team" else branch
             print(f"[relay] dry-run (mode={self.mode}): commit & push to '{target}'")
@@ -103,13 +103,15 @@ class Orchestrator:
             if self.mode == "team" and blocked and not force:
                 print(
                     f"[relay]     note: '{team_branch}' is a protected branch; "
-                    "this run would be refused without --allow-protected/--yes"
+                    "this run would be refused without --allow-protected"
                 )
             return 0
 
         # Default-branch safety: refuse to touch a protected branch in team
-        # mode unless the developer explicitly opted out (--allow-protected/--yes).
+        # mode unless the developer explicitly opted out (--allow-protected).
         # Solo mode keeps its convention of committing to the current branch.
+        # `--yes` only skips the confirmation prompt; it never opts out of this
+        # guard, so a scripted/CI run cannot silently land on main/master.
         if self.mode == "team":
             assert_branch_allowed(
                 team_branch, self.protected_branches, force=force

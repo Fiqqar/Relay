@@ -40,7 +40,7 @@ Relay collapses this into a single workflow while keeping the developer in contr
 - **Solo mode** — stage all, generate message, commit, push to the current branch.
 - **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `feat/<feature>`), push that branch.
 - **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`, incl. draft PRs via `--draft`).
-- **Team default-branch safety** — team mode refuses to commit to a configured protected branch (default `main`/`master`), with an explicit `--allow-protected`/`--yes` escape hatch; solo mode keeps its commit-anywhere convention.
+- **Team default-branch safety** — team mode refuses to commit to a configured protected branch (default `main`/`master`), with an explicit `--allow-protected` escape hatch; solo mode keeps its commit-anywhere convention.
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
 - **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
