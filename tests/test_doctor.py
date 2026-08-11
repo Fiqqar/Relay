@@ -169,7 +169,11 @@ def test_gitlab_token_set_passes(healthy_env, capsys):
 
 
 def test_provider_override_flag(healthy_env):
-    with mock.patch("relay.doctor.provider_from_env", return_value="gemini") as from_env:
+    with mock.patch("relay.doctor.provider_from_env", return_value="gemini") as from_env, mock.patch(
+        "relay.doctor.ollama_base_url", return_value="http://localhost:11434"
+    ), mock.patch(
+        "relay.doctor._ollama_reachable", return_value=(True, "reachable")
+    ):
         run_doctor(provider="ollama")
         from_env.assert_not_called()  # the explicit flag wins
 

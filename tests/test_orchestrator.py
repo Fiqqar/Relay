@@ -122,6 +122,22 @@ def test_rate_limited_recovers_on_second_attempt(mock_input, mock_sleep, git):
 
 
 @mock.patch("relay.orchestrator.time.sleep")
+@mock.patch("builtins.input", return_value="")
+def test_api_error_is_retried_twice_before_fallback(mock_input, mock_sleep, git):
+    """api_error (e.g. a 4xx HTTP status) is in the transient retry set, so it
+    gets the same 2x backoff as rate_limited before the manual fallback."""
+    ai = FlakyAI([
+        AIError("gemini", "api_error", "HTTP 401"),
+        AIError("gemini", "api_error", "HTTP 401"),
+        AIError("gemini", "api_error", "HTTP 401"),
+    ])
+    with pytest.raises(UserAbort):  # empty manual input aborts
+        make_orchestrator(git, provider=ai).run()
+    assert len(ai.generate_calls) == 3  # 2 retries, then manual fallback
+    assert mock_sleep.call_args_list == [mock.call(2), mock.call(4)]
+
+
+@mock.patch("relay.orchestrator.time.sleep")
 def test_non_transient_error_is_not_retried(mock_sleep, git):
     ai = FlakyAI([AIError("ollama", "unavailable", "down")])
     with mock.patch("builtins.input",

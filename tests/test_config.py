@@ -66,28 +66,28 @@ def test_default_timeout_is_30_seconds():
     assert config.ai_timeout() == 30
 
 
-def test_timeout_is_capped_at_120_seconds():
-    config.os.environ["RELAY_AI_TIMEOUT"] = "999"
+def test_timeout_is_capped_at_120_seconds(monkeypatch):
+    monkeypatch.setenv("RELAY_AI_TIMEOUT", "999")
     assert config.ai_timeout() == 120
 
 
-def test_reasonable_override_passes_through():
-    config.os.environ["RELAY_AI_TIMEOUT"] = "45"
+def test_reasonable_override_passes_through(monkeypatch):
+    monkeypatch.setenv("RELAY_AI_TIMEOUT", "45")
     assert config.ai_timeout() == 45
 
 
-def test_timeout_has_a_positive_floor():
-    config.os.environ["RELAY_AI_TIMEOUT"] = "0"
+def test_timeout_has_a_positive_floor(monkeypatch):
+    monkeypatch.setenv("RELAY_AI_TIMEOUT", "0")
     assert config.ai_timeout() == 1
 
 
-def test_invalid_timeout_falls_back_to_default():
-    config.os.environ["RELAY_AI_TIMEOUT"] = "banana"
+def test_invalid_timeout_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("RELAY_AI_TIMEOUT", "banana")
     assert config.ai_timeout() == 30
 
 
-def test_explicit_override_beats_env():
-    config.os.environ["RELAY_AI_TIMEOUT"] = "5"
+def test_explicit_override_beats_env(monkeypatch):
+    monkeypatch.setenv("RELAY_AI_TIMEOUT", "5")
     assert config.ai_timeout(override=60) == 60
 
 
@@ -96,9 +96,9 @@ def test_override_is_still_clamped():
     assert config.ai_timeout(override=0) == 1
 
 
-def test_max_diff_lines_default_and_override():
+def test_max_diff_lines_default_and_override(monkeypatch):
     assert config.max_diff_lines() == 120
-    config.os.environ["RELAY_MAX_DIFF_LINES"] = "150"
+    monkeypatch.setenv("RELAY_MAX_DIFF_LINES", "150")
     assert config.max_diff_lines() == 150
 
 
@@ -140,8 +140,8 @@ def test_api_keys_are_env_only(monkeypatch, tmp_path):
     assert config.anthropic_api_key() is None
 
 
-def test_invalid_max_diff_lines_falls_back_to_default():
-    config.os.environ["RELAY_MAX_DIFF_LINES"] = "huge"
+def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("RELAY_MAX_DIFF_LINES", "huge")
     assert config.max_diff_lines() == 120
 
 
@@ -202,6 +202,33 @@ def test_protected_branches_absent_file_falls_back_to_default(monkeypatch, tmp_p
         provider = "ollama"
     """)
     assert config.protected_branches() == ["main", "master"]
+
+
+def test_protected_branches_empty_file_list_falls_back_to_default(monkeypatch, tmp_path):
+    """A config file that explicitly lists zero branches means 'no override',
+    so the built-in default (main, master) still applies."""
+    _write_toml(monkeypatch, tmp_path, """
+        [team.protected]
+        branches = []
+    """)
+    assert config.protected_branches() == ["main", "master"]
+
+
+def test_forge_tokens_are_env_only(monkeypatch, tmp_path):
+    """NFR: forge tokens are never read from the config file; a config file
+    that declares them must have no effect on the env-only getters."""
+    from relay.github import github_token
+    from relay.gitlab import gitlab_token
+
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        github_token = "leaked"
+        gitlab_token = "leaked"
+    """)
+    for key in ("GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN"):
+        monkeypatch.delenv(key, raising=False)
+    assert github_token() is None
+    assert gitlab_token() is None
 
 
 # ---- F6: TOML config file (flags > env > file > defaults) --------------------

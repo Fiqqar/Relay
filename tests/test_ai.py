@@ -80,6 +80,15 @@ class TestGemini:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
 
+    def test_http_4xx_maps_to_api_error_aierror(self):
+        http_error = urllib.error.HTTPError(
+            "https://example.com", 401, "Unauthorized", {}, None
+        )
+        with mock.patch("urllib.request.urlopen", side_effect=http_error):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "api_error"
+
     def test_connection_refused_maps_to_unavailable_aierror(self):
         network_error = urllib.error.URLError(ConnectionError("connection refused"))
         with mock.patch("urllib.request.urlopen", side_effect=network_error):
@@ -186,6 +195,14 @@ class TestOpenAI:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "rate_limited"
 
+    def test_http_4xx_maps_to_api_error_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://example.com", 401, "Unauthorized", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "api_error"
+
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
@@ -218,6 +235,14 @@ class TestAnthropic:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
 
+    def test_http_4xx_maps_to_api_error_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://api.anthropic.com", 403, "Forbidden", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "api_error"
+
 
 class TestBuildPrompt:
     def test_includes_context_and_commit_rules(self):
@@ -245,13 +270,13 @@ class TestDiffTruncation:
 
     def test_build_prompt_keeps_stat_and_caps_diff(self):
         big = "\n".join(f"+line {i}" for i in range(500))
-        prompt = AIManager.build_prompt(big, "STAT-SUMMARY", "main")
+        prompt = AIManager.build_prompt(big, "STAT-SUMMARY", "main", max_lines=120)
         assert "STAT-SUMMARY" in prompt  # --stat summary is always intact
         assert "+line 499" not in prompt
         assert "truncated" in prompt
 
     def test_build_prompt_small_diff_has_no_truncation_notice(self):
-        prompt = AIManager.build_prompt("+small\n", "S", "main")
+        prompt = AIManager.build_prompt("+small\n", "S", "main", max_lines=120)
         assert "truncated" not in prompt
 
 

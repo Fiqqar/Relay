@@ -83,9 +83,10 @@ class TestReport:
         assert payload["event"] == "relay_run"
 
     def test_never_raises_on_bad_url(self, monkeypatch):
-        monkeypatch.setenv("RELAY_TELEMETRY", "1")
+        """_send_payload must swallow a malformed collection URL, not raise.
+        Tested directly so no real background thread is spawned."""
         monkeypatch.setenv("RELAY_TELEMETRY_URL", "://bad url")
-        telemetry.report(mode="solo", provider="gemini", ok=True)  # no exception
+        telemetry._send_payload({"event": "relay_run", "ok": True})  # no exception
 
 
 def test_parser_telemetry_defaults_status():
