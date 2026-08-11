@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.2` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.3` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.2` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.2`)
+## Shipped history (`0.1.0` → `0.5.3`)
 
 ### v0.1.0 — MVP
 
@@ -130,6 +130,23 @@ the shipped version; the runbook step prevents recurrence. ✅
 
 **Exit:** `relay squash --provider <ai>` sends the base..tip diff; unit tests
 would fail if it ever regressed to reading the index. ✅
+
+### v0.5.3 — Patch (fish completion fix)
+
+- [x] **fish completion dropped 3 subcommands** — `fish_script()` was
+      hand-written line-by-line and advertised only 6 of the 9 subcommands,
+      silently missing `stage`, `man`, and `telemetry` (added in v0.4). The
+      module docstring claims completions "always match the installed binary's
+      actual subcommands" — that was only true for bash/zsh/powershell.
+- [x] Fish now generates its subcommand lines in a loop from the `SUBCOMMANDS`
+      source of truth (with a per-subcommand description map), like the other
+      three generators.
+- [x] Test tightened: every shell must advertise **every** item in
+      `SUBCOMMANDS` (was: only checking `"doctor" in out`), so a future
+      subcommand can never be forgotten again.
+
+**Exit:** `relay completions fish` advertises all 9 subcommands; the suite
+fails if any shell drops one. ✅
 
 ---
 
