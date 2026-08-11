@@ -47,6 +47,10 @@ class TestParser:
         assert build_parser().parse_args(["--no-verify"]).no_verify is True
         assert build_parser().parse_args([]).no_verify is False
 
+    def test_allow_protected_flag_parses(self):
+        assert build_parser().parse_args(["--allow-protected"]).allow_protected is True
+        assert build_parser().parse_args([]).allow_protected is False
+
 
 class TestUndoSubcommand:
     def test_undo_parses(self):
@@ -256,6 +260,7 @@ def test_main_solo_wires_orchestrator(wired):
         no_verify=False,
         dry_run=False,
         verbose=False,
+        allow_protected=False,
     )
     orchestrator_cls.return_value.run.assert_called_once_with()
 
@@ -287,6 +292,14 @@ def test_main_forwards_no_verify_flag(wired):
     assert orchestrator_cls.call_args.kwargs["no_verify"] is True
     main(["--solo"])
     assert orchestrator_cls.call_args.kwargs["no_verify"] is False
+
+
+def test_main_forwards_allow_protected_flag(wired):
+    _, orchestrator_cls = wired
+    main(["--solo", "--allow-protected"])
+    assert orchestrator_cls.call_args.kwargs["allow_protected"] is True
+    main(["--solo"])
+    assert orchestrator_cls.call_args.kwargs["allow_protected"] is False
 
 
 def test_main_team_without_feature_passes_none(wired):
