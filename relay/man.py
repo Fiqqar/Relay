@@ -79,6 +79,9 @@ Only commit what is already staged (skip \fBgit add\fR).
 .B \-\-no-verify
 Skip git pre-commit and commit-msg hooks.
 .TP
+.B \-\-allow-protected
+Allow team mode to target a protected branch (default-branch safety override).
+.TP
 .B \-\-verbose
 Print the git commands being run.
 .SH COMMANDS

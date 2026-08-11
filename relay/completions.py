@@ -26,7 +26,8 @@ SUBCOMMANDS = [
 
 GLOBAL_FLAGS = [
     "--version", "--solo", "--team", "--provider", "--timeout",
-    "--yes", "--dry-run", "--no-push", "--staged", "--no-verify", "--verbose",
+    "--yes", "--dry-run", "--no-push", "--staged", "--no-verify",
+    "--allow-protected", "--verbose",
 ]
 
 # (subcommand, flag) pairs; a plain flag with no value is ``None``.
@@ -109,6 +110,7 @@ _arguments \\
   '--no-push[commit but do not push]' \\
   '--staged[only commit what is already staged]' \\
   '--no-verify[skip git pre-commit and commit-msg hooks]' \\
+  '--allow-protected[allow team mode to target a protected branch]' \\
   '--verbose[print the git commands being run]' \\
   '--version[print the relay version]' \\
   '1:subcommand:({subs})' \\
@@ -136,6 +138,7 @@ def fish_script() -> str:
         "complete -c relay -n '__fish_use_subcommand' -l no-push -d 'commit but do not push'",
         "complete -c relay -n '__fish_use_subcommand' -l staged -d 'only commit what is staged'",
         "complete -c relay -n '__fish_use_subcommand' -l no-verify -d 'skip git hooks'",
+        "complete -c relay -n '__fish_use_subcommand' -l allow-protected -d 'allow team mode to target a protected branch'",
         "complete -c relay -n '__fish_use_subcommand' -l verbose -d 'print the git commands'",
     ]
     return "\n".join(lines) + "\n"
