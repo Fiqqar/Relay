@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "relay-cli"
-version = "0.5.3"
+version = "0.5.4"
 description = "Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback."
 readme = "README.md"
 requires-python = ">=3.10"

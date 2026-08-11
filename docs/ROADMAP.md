@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.3` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.4` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.3` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.3`)
+## Shipped history (`0.1.0` → `0.5.4`)
 
 ### v0.1.0 — MVP
 
@@ -147,6 +147,39 @@ would fail if it ever regressed to reading the index. ✅
 
 **Exit:** `relay completions fish` advertises all 9 subcommands; the suite
 fails if any shell drops one. ✅
+
+### v0.5.4 — Patch (full-codebase audit fixes)
+
+- [x] **`relay squash` aborted when the AI failed** — `_message_from_ai`
+      printed "keeping the original commit message" but then raised
+      `UserAbort`, killing the whole fold whenever the provider was offline,
+      rate-limited, or returned an unusable response. It now falls back to the
+      top commit's subject so a non-destructive local operation degrades like
+      the rest of the tool.
+- [x] **`relay squash --message` failed without an API key** — the CLI built
+      the provider unconditionally, so `--message` (which never consults the
+      AI) died with a `ConfigError` on machines without `GEMINI_API_KEY`, and
+      a plain squash couldn't fall back either. The provider is now built
+      lazily and a missing key means "no provider" → fallback path runs.
+- [x] **TOML parser mis-handled escaped quotes** — `_strip_comment`,
+      `_split_kv` and `_split_items` each mis-parsed strings whose closing
+      quote was preceded by backslashes (a value ending in `\\` swallowed the
+      trailing `# comment`; an escaped `\"` leaked a top-level `=` through the
+      key/value split). All three now close a string only when an even run of
+      backslashes precedes the quote.
+- [x] **Dead `SUBCOMMAND_FLAGS` map removed** from `completions.py` — it was
+      documented as the source of truth for per-subcommand flags but no
+      generator ever read it.
+- [x] **Test suite made hermetic** — `build_prompt` tests no longer read
+      `RELAY_MAX_DIFF_LINES` from the environment, the doctor Ollama probe and
+      telemetry bad-URL thread are no longer real I/O, config env mutations
+      use `monkeypatch`, and the previously dead `api_error` HTTP/retry
+      branches are now covered. Fixture/assertion hygiene: `sample_diff` hunk
+      counts corrected, `FakeGit` attribute name aligned, `--solo` asserted
+      positively.
+
+**Exit:** AI-failure paths never abort a squash; parser edge cases tested;
+suite green (525 tests) with no environment-dependent tests. ✅
 
 ---
 
