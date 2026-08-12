@@ -57,7 +57,7 @@ Status legend:
 | M-11 | config | invalid `RELAY_AI_TIMEOUT`/`RELAY_MAX_DIFF_LINES` were silently ignored | FIXED | this commit |
 | M-12 | pr | `pr.py` already checks `git.remote_has_branch(head)` before posting | ALREADY-FIXED | |
 | M-13 | commit | scope regex is already `[^)]+` (accepts dots/slashes) | ALREADY-FIXED | |
-| M-14 | protected | protected-branch comparison was case-sensitive (`Main` != `main`) | FIXED | |
+| M-14 | protected | protected-branch comparison was case-sensitive (`Main` != `main`) | FIXED | this commit |
 | M-15 | orchestrator | already returns "nothing to commit" when the staged diff is empty | ALREADY-FIXED | |
 | M-16 | toml | `toml.py` already parses inline tables `{...}` | ALREADY-FIXED | |
 | M-17 | pr | already does `find_open_pr` + `DuplicatePullRequestError` handling | ALREADY-FIXED | |

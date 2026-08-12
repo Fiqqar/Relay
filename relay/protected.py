@@ -23,8 +23,13 @@ from .errors import ProtectedBranchError
 
 
 def is_protected(branch: str, protected_branches: list[str]) -> bool:
-    """True when ``branch`` is in the configured protected set."""
-    return branch in protected_branches
+    """True when ``branch`` matches a configured protected branch name.
+
+    The match is case-insensitive so ``MAIN`` cannot bypass a rule written for
+    ``main`` (M-14).
+    """
+    lowered = branch.lower()
+    return any(item.lower() == lowered for item in protected_branches)
 
 
 def assert_branch_allowed(

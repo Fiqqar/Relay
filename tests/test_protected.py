@@ -43,6 +43,12 @@ def test_is_protected_matches_configured_branch():
     assert is_protected("feat/payments", ["main", "master"]) is False
 
 
+def test_is_protected_matches_case_insensitively():
+    """M-14: a differently-cased branch name must not bypass the guard."""
+    assert is_protected("MAIN", ["main", "master"]) is True
+    assert is_protected("main", ["Main"]) is True
+
+
 def test_is_protected_empty_list_allows_everything():
     assert is_protected("main", []) is False
 
