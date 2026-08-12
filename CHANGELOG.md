@@ -11,12 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-08-12
+
 ### Added
 - `LICENSE` file (MIT) matching the license declared in `pyproject.toml`.
-- `CHANGELOG.md` itself, `CONTRIBUTING.md`, `SECURITY.md`, and `CODE_OF_CONDUCT.md`.
+- `CONTRIBUTING.md`, `SECURITY.md`, and `CODE_OF_CONDUCT.md`.
 - CI coverage gate (`pytest --cov` with a branch-coverage threshold).
 - Static analysis (`ruff`) and type checking (`mypy`) jobs in CI.
 - E2E scripts (`e2e_test.sh` / `e2e_test.ps1`) wired into CI.
+
+### Fixed
+- Type-safety and lint issues flagged by `mypy` and `ruff`, including a
+  possible `None` `api_key` dereference in the Gemini/Anthropic providers, a
+  mistyped GitLab MR payload (`dict[str, str]` vs. `dict[str, str | bool]`),
+  and a duplicated `test_config` test.
+- E2E scripts piped only a subject line, but the manual-input fallback reads a
+  subject followed by a blank line — `input()` hit EOF and crashed; the scripts
+  now terminate stdin with a blank line.
 
 ## [0.5.4] - 2026-08-11
 
@@ -137,7 +148,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/Fiqqar/Relay/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/Fiqqar/Relay/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/Fiqqar/Relay/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/Fiqqar/Relay/compare/v0.5.1...v0.5.2
