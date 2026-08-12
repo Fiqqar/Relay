@@ -244,6 +244,60 @@ class TestAnthropic:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "api_error"
 
+    def test_http_429_maps_to_rate_limited_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://api.anthropic.com", 429, "Too Many Requests", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "rate_limited"
+
+    def test_direct_timeout_maps_to_unavailable_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+        assert "timeout after" in str(exc_info.value)
+
+    def test_wrapped_timeout_maps_to_unavailable_aierror(self):
+        wrapped = urllib.error.URLError(TimeoutError("timed out"))
+        with mock.patch("urllib.request.urlopen", side_effect=wrapped):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+
+    def test_connection_error_maps_to_unavailable_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=ConnectionError("refused")):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+        assert "connection error" in str(exc_info.value)
+
+    def test_plain_url_error_maps_to_network_error(self):
+        network_error = urllib.error.URLError(ConnectionError("connection refused"))
+        with mock.patch("urllib.request.urlopen", side_effect=network_error):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+        assert "network error" in str(exc_info.value)
+
+    def test_error_field_maps_to_bad_response_aierror(self):
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": "overloaded"})
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+        assert "overloaded" in str(exc_info.value)
+
+    def test_malformed_payload_maps_to_bad_response_aierror(self):
+        payload = {"unexpected": "shape"}
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(payload)
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+        assert "unexpected payload" in str(exc_info.value)
+
 
 class TestResponseLimit:
     """A provider that returns a body larger than MAX_RESPONSE_BYTES must be
