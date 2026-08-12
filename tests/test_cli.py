@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from relay.cli import build_parser, main
+from relay.cli import _detect_shell, build_parser, main
 from relay.errors import ConfigError, GitError, UserAbort
 
 
@@ -344,3 +344,73 @@ def test_unexpected_exception_maps_to_exit_1(wired):
     _, orchestrator_cls = wired
     orchestrator_cls.return_value.run.side_effect = RuntimeError("bug")
     assert main(["--solo"]) == 1
+
+
+class TestTelemetryStatus:
+    def test_status_reports_enabled(self, capsys):
+        with mock.patch("relay.cli.is_enabled", return_value=True):
+            assert main(["telemetry"]) == 0
+        assert "telemetry: enabled" in capsys.readouterr().out
+
+    def test_status_reports_disabled(self, capsys):
+        with mock.patch("relay.cli.is_enabled", return_value=False):
+            assert main(["telemetry"]) == 0
+        assert "telemetry: disabled" in capsys.readouterr().out
+
+
+class TestDetectShell:
+    def test_bash_from_env(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/bin/bash")
+        assert _detect_shell() == "bash"
+
+    def test_zsh_from_env(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/usr/bin/zsh")
+        assert _detect_shell() == "zsh"
+
+    def test_fish_from_env(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/usr/bin/fish")
+        assert _detect_shell() == "fish"
+
+    def test_windows_prompt_on_windows(self, monkeypatch):
+        monkeypatch.delenv("SHELL", raising=False)
+        monkeypatch.setenv("PROMPT", "$P$G")
+        expected = "powershell" if os.name == "nt" else "bash"
+        assert _detect_shell() == expected
+
+    def test_unknown_shell_name_walks_through(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/bin/tcsh")
+        monkeypatch.setenv("PROMPT", "$P$G")
+        expected = "powershell" if os.name == "nt" else "bash"
+        assert _detect_shell() == expected
+
+    def test_defaults_to_bash(self, monkeypatch):
+        monkeypatch.delenv("SHELL", raising=False)
+        monkeypatch.delenv("PROMPT", raising=False)
+        assert _detect_shell() == "bash"
+
+
+def test_main_completions_value_error_is_caught(capsys):
+    with mock.patch("relay.cli.generate_completions", side_effect=ValueError("bad shell")):
+        assert main(["completions"]) == 1
+    assert "bad shell" in capsys.readouterr().out
+
+
+def test_git_error_verbose_prints_stderr(wired, capsys):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = GitError("boom", stderr="fatal: Nope")
+    assert main(["--solo", "--verbose"]) == 1
+    assert "fatal: Nope" in capsys.readouterr().out
+
+
+def test_git_error_non_verbose_hides_stderr(wired, capsys):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = GitError("boom", stderr="fatal: Nope")
+    assert main(["--solo"]) == 1
+    assert "fatal: Nope" not in capsys.readouterr().out
+
+
+def test_keyboard_interrupt_maps_to_exit_130(wired, capsys):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = KeyboardInterrupt()
+    assert main(["--solo"]) == 130
+    assert "aborted" in capsys.readouterr().out
