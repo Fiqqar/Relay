@@ -164,6 +164,21 @@ class Orchestrator:
             print(f"[relay] committed (--no-push): {message}")
             return 0
 
+        # Solo push needs a branch name; on a detached HEAD
+        # `git branch --show-current` returns "", so pushing would target an
+        # empty ref. The commit is already safe — tell the developer how to
+        # turn the detached commit into a pushed branch.
+        if self.mode == "solo" and not branch:
+            print(
+                "[relay] warning: HEAD is detached; committed, but there is no "
+                "branch to push."
+            )
+            print(
+                "[relay] create and push a branch with: "
+                "`git switch -c <branch>` then `git push -u origin <branch>`"
+            )
+            return 1
+
         # PUSH — if this fails the commit is already safe; report the exact
         # command to finish the job instead of pretending nothing happened.
         try:

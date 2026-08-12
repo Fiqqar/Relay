@@ -367,6 +367,32 @@ def test_push_failure_returns_1_and_keeps_commit(mock_input, git):
     git.commit.assert_called_once()  # commit happened; only the push failed
 
 
+# ---- H-13: a detached HEAD (empty branch) must not be pushed ------------------
+
+
+@mock.patch("builtins.input", side_effect=["fix: detached head", ""])
+def test_solo_push_on_detached_head_is_refused_with_message(mock_input, git, capsys):
+    git.current_branch.return_value = ""
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, no_push=False).run()
+    assert code == 1
+    git.commit.assert_called_once()  # the commit itself still happened
+    git.push.assert_not_called()  # but never push an empty branch ref
+    out = capsys.readouterr().out
+    assert "detached" in out
+    assert "git switch -c" in out
+
+
+@mock.patch("builtins.input", side_effect=["fix: detached no push", ""])
+def test_solo_detached_head_with_no_push_still_commits(mock_input, git):
+    git.current_branch.return_value = ""
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, no_push=True).run()
+    assert code == 0
+    git.commit.assert_called_once()
+    git.push.assert_not_called()
+
+
 # ---- C-05: team commit failure rolls back the orphan branch --------------------
 
 
