@@ -316,9 +316,16 @@ def test_main_propagates_orchestrator_exit_code(wired):
     assert main(["--solo"]) == 7
 
 
-def test_missing_gemini_key_maps_to_exit_1():
-    with mock.patch("relay.cli.build_provider", side_effect=ConfigError("no key")):
-        assert main(["--solo"]) == 1
+def test_missing_gemini_key_falls_back_to_manual_provider():
+    """A missing GEMINI_API_KEY must not abort the solo run: the provider is
+    built lazily and degraded to None so the Orchestrator's manual-input
+    fallback takes over (H-14)."""
+    with mock.patch(
+        "relay.cli.build_provider", side_effect=ConfigError("no key")
+    ), mock.patch("relay.cli.Orchestrator") as orchestrator_cls:
+        orchestrator_cls.return_value.run.return_value = 0
+        assert main(["--solo"]) == 0
+    assert orchestrator_cls.call_args.kwargs["provider"] is None
 
 
 def test_user_abort_maps_to_exit_130(wired):

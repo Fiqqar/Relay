@@ -15,7 +15,7 @@ import os
 import sys
 
 from . import __version__
-from .ai import PROVIDER_NAMES, build_provider
+from .ai import PROVIDER_NAMES, AIManager, build_provider
 from .completions import generate as generate_completions
 from .config import pr_open_browser
 from .doctor import run_doctor
@@ -341,11 +341,20 @@ def main(argv: list[str] | None = None) -> int:
         mode = "team" if args.team is not None else "solo"
         feature = args.team or None
 
-        ai = build_provider(args.provider, timeout=args.timeout)
+        # A missing API key must NOT abort the workflow: the Orchestrator has a
+        # manual-input fallback designed exactly for this. Build lazily and
+        # degrade to provider=None so the run continues interactively instead
+        # of dying with a ConfigError before anything happens.
+        ai_provider: AIManager | None = None
+        try:
+            ai_provider = build_provider(args.provider, timeout=args.timeout)
+        except ConfigError as exc:
+            print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+            ai_provider = None
         orchestrator = Orchestrator(
             mode=mode,
             feature=feature,
-            provider=ai,
+            provider=ai_provider,
             yes=args.yes,
             no_push=args.no_push,
             staged_only=args.staged,
@@ -355,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
             allow_protected=args.allow_protected,
         )
         code = orchestrator.run()
-        _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
+        _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
         return code
     except UserAbort as exc:
         # 130 is the conventional "interrupted by user" exit code (matches Ctrl-C).

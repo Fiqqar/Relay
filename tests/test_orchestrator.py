@@ -63,6 +63,30 @@ def test_ai_failure_falls_back_to_manual_input_and_commits(mock_input, git):
     assert ai.generate_calls, "the AI must have been tried before falling back"
 
 
+# ---- H-14: provider=None degrades straight to manual input --------------------
+
+
+@mock.patch("builtins.input", side_effect=["fix: no ai needed", ""])
+def test_no_provider_goes_straight_to_manual_input(mock_input, git):
+    """With provider=None (missing API key), the run must not crash and must
+    not require a mock generate — it goes straight to the manual-input path."""
+    code = make_orchestrator(git, provider=None).run()
+    assert code == 0
+    git.commit.assert_called_once_with("fix: no ai needed", no_verify=False)
+
+
+@mock.patch("builtins.input", side_effect=["fix: team no ai", ""])
+def test_no_provider_team_mode_uses_manual_message_for_branch(mock_input, git):
+    """Team mode with no provider: the branch type still comes from the manual
+    message, so the branch name is resolved and created normally."""
+    code = make_orchestrator(
+        git, provider=None, mode="team", feature="payments", no_push=True
+    ).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("fix/payments")
+    git.commit.assert_called_once_with("fix: team no ai", no_verify=False)
+
+
 @mock.patch("builtins.input", side_effect=["fix: manual fallback message", ""])
 def test_connection_refused_also_falls_back(mock_input, git):
     ai = StubAI(error=AIError("ollama", "unavailable", "connection refused"))

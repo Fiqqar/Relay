@@ -222,6 +222,11 @@ class Orchestrator:
         5xx server errors) are retried twice with ~2s/4s backoff before the
         manual-input fallback kicks in.
         """
+        if self.ai is None:
+            # No provider available (missing API key, etc.): skip straight to
+            # manual input — the fallback is a first-class mode, not an error.
+            print("[relay] no AI provider configured; entering manual input.")
+            return self._manual_input()
         attempts = 0
         transient_tries = 0
         while True:
