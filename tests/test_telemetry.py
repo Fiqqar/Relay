@@ -88,6 +88,36 @@ class TestReport:
         monkeypatch.setenv("RELAY_TELEMETRY_URL", "://bad url")
         telemetry._send_payload({"event": "relay_run", "ok": True})  # no exception
 
+    # ---- HTTPS-only collection URL (C-02) -----------------------------------
+
+    def test_non_https_url_does_not_start_thread(self, monkeypatch, capsys):
+        monkeypatch.setenv("RELAY_TELEMETRY", "1")
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "http://evil.example.com/collect")
+        with mock.patch.object(telemetry.threading, "Thread") as thread:
+            telemetry.report(mode="solo", provider="gemini", ok=True)
+        thread.assert_not_called()
+        assert "warning" in capsys.readouterr().err
+
+    def test_bare_host_url_is_rejected(self, monkeypatch, capsys):
+        monkeypatch.setenv("RELAY_TELEMETRY", "1")
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "example.com/collect")
+        with mock.patch.object(telemetry.threading, "Thread") as thread:
+            telemetry.report(mode="solo", provider="gemini", ok=True)
+        thread.assert_not_called()
+
+    def test_https_url_still_sends(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY", "1")
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
+        with mock.patch.object(telemetry.threading, "Thread") as thread:
+            telemetry.report(mode="solo", provider="gemini", ok=True)
+        thread.assert_called_once()
+
+    def test_send_payload_skips_non_https_without_network(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "http://evil.example.com/collect")
+        with mock.patch("urllib.request.urlopen") as urlopen:
+            telemetry._send_payload({"event": "relay_run", "ok": True})
+        urlopen.assert_not_called()
+
 
 def test_parser_telemetry_defaults_status():
     args = build_parser().parse_args(["telemetry"])

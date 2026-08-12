@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -63,10 +65,22 @@ def _collect_url() -> str:
     return os.environ.get("RELAY_TELEMETRY_URL", "").strip()
 
 
+def _is_https(url: str) -> bool:
+    """True only for a well-formed ``https://`` URL with a host.
+
+    Any other scheme (``http://``, a bare host, a relative path) is rejected
+    before anything is sent: telemetry carries only non-secret run metadata,
+    but it must never travel over cleartext HTTP or hit a local/private
+    endpoint that a misconfigured operator URL could point at.
+    """
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme == "https" and bool(parts.netloc)
+
+
 def _send_payload(payload: dict) -> None:
     """Post the JSON payload once, best-effort; swallow every failure."""
     url = _collect_url()
-    if not url:
+    if not url or not _is_https(url):
         return
     try:
         request = urllib.request.Request(
@@ -85,7 +99,15 @@ def report(*, mode: str, provider: str, ok: bool) -> None:
     """Record a single workflow run. Safe to call anywhere; never raises."""
     if not is_enabled():
         return
-    if not _collect_url():
+    url = _collect_url()
+    if not url:
+        return
+    if not _is_https(url):
+        print(
+            "[relay] warning: ignoring RELAY_TELEMETRY_URL "
+            "(only https:// endpoints are allowed)",
+            file=sys.stderr,
+        )
         return
     payload = {
         "event": "relay_run",
