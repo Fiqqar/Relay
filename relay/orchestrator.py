@@ -82,7 +82,16 @@ class Orchestrator:
         # GENERATE (with built-in fallback to manual input). The message is
         # produced BEFORE the team branch name is resolved, because the branch
         # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
-        message = self._obtain_message(diff, stat, branch)
+        # A binary-only staged diff skips the AI entirely: it has no readable
+        # content to summarize, so guessing would produce a misleading message.
+        if self.git.staged_diff_binary_only():
+            print(
+                "[relay] staged changes are binary-only; an AI cannot derive a "
+                "commit message from them."
+            )
+            message = self._manual_input()
+        else:
+            message = self._obtain_message(diff, stat, branch)
 
         # AMEND (mode only): rewrite the last commit instead of adding a new
         # one. Never pushes — amending a pushed commit is a history rewrite.

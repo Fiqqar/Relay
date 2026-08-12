@@ -39,6 +39,7 @@ def git():
     g.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
     g.staged_stat.return_value = " app.py | 1 +\n"
     g.current_branch.return_value = "main"
+    g.staged_diff_binary_only.return_value = False
     return g
 
 
@@ -500,3 +501,18 @@ def test_amend_mode_empty_staged_diff_returns_0(git):
     assert code == 0
     assert ai.generate_calls == []
     git.commit.assert_not_called()
+
+
+# ---- H-12: binary-only staged diff falls back to manual input -----------------
+
+
+@mock.patch("builtins.input", side_effect=["fix: binary asset update", ""])
+def test_binary_only_staged_diff_skips_ai_and_uses_manual_message(mock_input, git):
+    """An AI cannot summarize a diff it cannot read (binary files); the run
+    must go straight to manual input and never call the provider."""
+    ai = StubAI(responses=["feat: must never be used"])
+    git.staged_diff_binary_only.return_value = True
+    code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    assert ai.generate_calls == []
+    git.commit.assert_called_once_with("fix: binary asset update", no_verify=False)

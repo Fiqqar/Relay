@@ -25,6 +25,7 @@ def git():
     g.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
     g.staged_stat.return_value = " app.py | 1 +\n"
     g.current_branch.return_value = "main"
+    g.staged_diff_binary_only.return_value = False
     return g
 
 

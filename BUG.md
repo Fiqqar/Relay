@@ -39,7 +39,7 @@ Status legend:
 | H-09 | git | whole `git diff` held in memory; streaming would complicate the code | DEPRIORITIZE | |
 | H-10 | | already handled in current code | ALREADY-FIXED | |
 | H-11 | squash | squash-all fed `root..tip` to the AI, omitting the root commit's own changes | FIXED | this commit |
-| H-12 | commit | binary-only staged diffs were sent to the AI for a message | FIXED | |
+| H-12 | commit | binary-only staged diffs were sent to the AI for a message | FIXED | this commit |
 | H-13 | git | `current_branch()` returns `""` on detached HEAD; solo push could push an empty branch | FIXED | |
 | H-14 | cli | a missing API key aborted solo/team instead of falling back to manual input | FIXED | |
 | H-15 | | already handled in current code | ALREADY-FIXED | |

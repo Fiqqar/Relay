@@ -122,6 +122,24 @@ class TestMutations:
         assert mock_run.call_args.args[0] == ["git", "diff", "--cached", "--stat"]
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_staged_diff_binary_only_true_when_all_binary(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(
+            stdout="-\t-\tassets/logo.png\n-\t-\tsounds/beep.wav\n"
+        )
+        assert git.staged_diff_binary_only() is True
+        assert mock_run.call_args.args[0] == ["git", "diff", "--cached", "--numstat"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_staged_diff_binary_only_false_when_text_present(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="10\t2\tapp.py\n-\t-\tassets/logo.png\n")
+        assert git.staged_diff_binary_only() is False
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_staged_diff_binary_only_false_when_empty(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="")
+        assert git.staged_diff_binary_only() is False
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_diff_range_and_stat_range(self, mock_run, git, make_proc):
         """Range diff must compare base..tip (not the index) — the diff a
         squash of commits actually needs."""

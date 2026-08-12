@@ -272,6 +272,20 @@ class GitManager:
         """Short diffstat of staged changes (context for the AI prompt)."""
         return self._run("diff", "--cached", "--stat").stdout
 
+    def staged_diff_binary_only(self) -> bool:
+        """True when the staged diff consists only of binary entries.
+
+        ``git diff --cached --numstat`` prints ``<added>\\t<deleted>\\t<path>``
+        and uses ``-`` for both counters on binary files. If every changed path
+        is binary, the AI would be guessing at a commit message from a diff it
+        cannot read, so callers fall back to manual input instead.
+        """
+        out = self._run("diff", "--cached", "--numstat").stdout
+        lines = [line for line in out.splitlines() if line.strip()]
+        if not lines:
+            return False
+        return all(line.startswith("-\t-\t") for line in lines)
+
     # ---- Commit / branch / push ---------------------------------------------
 
     def commit(
