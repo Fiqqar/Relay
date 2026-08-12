@@ -244,6 +244,48 @@ class TestAnthropic:
         assert exc_info.value.kind == "api_error"
 
 
+class TestResponseLimit:
+    """A provider that returns a body larger than MAX_RESPONSE_BYTES must be
+    rejected as bad_response (H-02) — never parsed, never returned."""
+
+    @pytest.mark.parametrize(
+        "make_provider",
+        [
+            lambda: GeminiProvider(api_key="k", model="m", timeout=5),
+            lambda: OllamaProvider(model="m", timeout=5),
+            lambda: OpenAIProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
+            lambda: AnthropicProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
+        ],
+    )
+    def test_oversized_response_is_rejected(self, make_provider):
+        from relay.ai.base import MAX_RESPONSE_BYTES
+
+        response = mock.Mock()
+        response.read.return_value = b"x" * (MAX_RESPONSE_BYTES + 1)
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = response
+            with pytest.raises(AIError) as exc_info:
+                make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+
+    def test_read_limited_accepts_exactly_at_limit(self):
+        from relay.ai.base import MAX_RESPONSE_BYTES, read_limited_response
+
+        response = mock.Mock()
+        response.read.return_value = b"x" * MAX_RESPONSE_BYTES
+        assert read_limited_response(response, "gemini") == b"x" * MAX_RESPONSE_BYTES
+
+    def test_read_limited_rejects_over_limit(self):
+        from relay.ai.base import MAX_RESPONSE_BYTES, read_limited_response
+
+        response = mock.Mock()
+        response.read.return_value = b"x" * (MAX_RESPONSE_BYTES + 1)
+        with pytest.raises(AIError) as exc_info:
+            read_limited_response(response, "gemini")
+        assert exc_info.value.kind == "bad_response"
+        response.read.assert_called_once_with(MAX_RESPONSE_BYTES + 1)
+
+
 class TestBuildPrompt:
     def test_includes_context_and_commit_rules(self):
         prompt = AIManager.build_prompt("DIFF", "STAT", "main")

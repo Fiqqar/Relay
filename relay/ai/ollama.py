@@ -14,7 +14,7 @@ import urllib.request
 
 from ..config import ai_timeout, ollama_base_url, ollama_model
 from ..errors import AIError
-from .base import AIManager
+from .base import AIManager, read_limited_response
 
 
 class OllamaProvider(AIManager):
@@ -43,7 +43,9 @@ class OllamaProvider(AIManager):
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
+                data = json.loads(
+                    read_limited_response(response, self.provider_name).decode("utf-8")
+                )
         except urllib.error.HTTPError as exc:
             raise AIError(self.provider_name, "unavailable", f"HTTP {exc.code}: {exc.reason}") from exc
         except TimeoutError as exc:

@@ -16,6 +16,30 @@ from abc import ABC, abstractmethod
 from ..config import max_diff_lines
 from ..errors import AIError
 
+# Cap on the HTTP body read from any provider. A commit-message response is a
+# few hundred bytes; anything near 1 MiB is a misbehaving endpoint, not an
+# answer. Rejecting oversized bodies keeps a runaway provider from holding a
+# multi-megabyte blob in memory.
+MAX_RESPONSE_BYTES = 1024 * 1024  # 1 MiB
+
+
+def read_limited_response(response, provider: str) -> bytes:
+    """Read the HTTP body, rejecting anything larger than ``MAX_RESPONSE_BYTES``.
+
+    Reads ``MAX_RESPONSE_BYTES + 1`` so the length check detects oversize
+    without forcing urllib to swallow the whole stream. Raises AIError
+    (``bad_response``) so the Orchestrator's fallback treats a giant payload
+    exactly like any other unusable answer.
+    """
+    body = response.read(MAX_RESPONSE_BYTES + 1)
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise AIError(
+            provider,
+            "bad_response",
+            f"response exceeded the {MAX_RESPONSE_BYTES}-byte limit",
+        )
+    return body
+
 # The single source of truth for how the AI must write commit messages.
 # It lives here (not inside a provider) so every provider produces the same
 # shape of output, which the validator in relay/commit.py can then check.

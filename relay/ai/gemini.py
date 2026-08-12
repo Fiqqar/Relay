@@ -12,7 +12,7 @@ import urllib.request
 
 from ..config import ai_timeout, gemini_api_key, gemini_model
 from ..errors import AIError, ConfigError
-from .base import AIManager
+from .base import AIManager, read_limited_response
 
 _ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -62,7 +62,9 @@ class GeminiProvider(AIManager):
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
+                data = json.loads(
+                    read_limited_response(response, self.provider_name).decode("utf-8")
+                )
         except urllib.error.HTTPError as exc:
             # Map HTTP status codes to AIError kinds the fallback understands:
             # 429 = rate limited (transient), 5xx = server unavailable.

@@ -17,7 +17,7 @@ from ..config import (
     anthropic_model,
 )
 from ..errors import AIError, ConfigError
-from .base import AIManager
+from .base import AIManager, read_limited_response
 
 
 class AnthropicProvider(AIManager):
@@ -57,7 +57,9 @@ class AnthropicProvider(AIManager):
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
+                data = json.loads(
+                    read_limited_response(response, self.provider_name).decode("utf-8")
+                )
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
                 kind = "rate_limited"

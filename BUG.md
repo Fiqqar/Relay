@@ -29,7 +29,7 @@ Status legend:
 | C-05 | team | on branch-create/commit failure the user was stranded on an orphan branch | FIXED | this commit |
 | C-06 | git | `_run()` had no timeout, so `push`/`fetch`/`ls-remote` could hang forever | FIXED | this commit |
 | H-01 | gemini | API key travels via `X-Goog-Api-Key`/`Authorization` header, not `?key=` | ALREADY-FIXED | |
-| H-02 | ai | `response.read()` was unbounded in all four providers | FIXED | |
+| H-02 | ai | `response.read()` was unbounded in all four providers | FIXED | this commit |
 | H-03 | | not reproducible in current code | FALSE-POSITIVE | |
 | H-04 | pr | PR title travels in the JSON body, not in HTTP headers — no header injection | FALSE-POSITIVE | |
 | H-05 | | not reproducible in current code | FALSE-POSITIVE | |
