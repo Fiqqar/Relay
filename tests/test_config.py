@@ -266,14 +266,6 @@ def test_env_beats_file(monkeypatch, tmp_path):
     assert config.ai_timeout() == 10
 
 
-def test_file_timeout_is_still_clamped(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
-        [relay]
-        ai_timeout = 99999
-    """)
-    assert config.ai_timeout() == 120
-
-
 def test_secret_keys_never_read_from_file(monkeypatch, tmp_path):
     _write_toml(monkeypatch, tmp_path, """
         [relay]

@@ -162,7 +162,7 @@ class GitLabClient:
     ) -> dict:
         """Open a merge request and return the created resource as a dict."""
         token = self._require_token()
-        payload = {
+        payload: dict[str, str | bool] = {
             "source_branch": source_branch,
             "target_branch": target_branch,
             "title": title,

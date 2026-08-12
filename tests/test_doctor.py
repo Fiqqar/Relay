@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from relay.cli import build_parser, main
-from relay.doctor import Check, run_doctor
+from relay.doctor import run_doctor
 
 
 class FakeGit:

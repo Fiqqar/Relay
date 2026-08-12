@@ -199,7 +199,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="target shell (default: auto-detect from $SHELL/$ComSpec, else bash)",
     )
 
-    man = subparsers.add_parser(
+    subparsers.add_parser(
         "man",
         help="print the relay(1) manual page (roff) to stdout",
         description="Prints the man page source for `relay`. Pipe it through "
@@ -363,8 +363,9 @@ def main(argv: list[str] | None = None) -> int:
         return 130
     except RelayError as exc:
         print(f"[relay] error: {exc}")
-        if args.verbose and getattr(exc, "stderr", None):
-            print(exc.stderr)
+        stderr = getattr(exc, "stderr", None)
+        if args.verbose and stderr:
+            print(stderr)
         return 1
     except KeyboardInterrupt:
         print("\n[relay] aborted.")

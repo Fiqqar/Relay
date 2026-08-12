@@ -227,18 +227,18 @@ def main() -> int:
 
     scripts = scripts_dir()
     if args.no_path:
-        print(f"\nSkipping PATH update (--no-path).")
+        print("\nSkipping PATH update (--no-path).")
         print(f"  `relay` was installed into: {scripts}")
     else:
         update_path(scripts, args.yes)
 
     print("\nDone. Next steps:")
-    print(f"  1. Open a NEW terminal, then run:  relay doctor")
-    print(f"  2. Set your AI key once (if provider is gemini):")
-    print(f"     Windows cmd:    set GEMINI_API_KEY=your_key")
-    print(f"     PowerShell:     $env:GEMINI_API_KEY=\"your_key\"")
-    print(f"     macOS/Linux:    export GEMINI_API_KEY=your_key")
-    print(f"  3. In a git repository:  git add . && relay")
+    print("  1. Open a NEW terminal, then run:  relay doctor")
+    print("  2. Set your AI key once (if provider is gemini):")
+    print("     Windows cmd:    set GEMINI_API_KEY=your_key")
+    print("     PowerShell:     $env:GEMINI_API_KEY=\"your_key\"")
+    print("     macOS/Linux:    export GEMINI_API_KEY=your_key")
+    print("  3. In a git repository:  git add . && relay")
     return 0
 
 

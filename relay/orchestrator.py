@@ -19,8 +19,9 @@ from .commit import (
     sanitize_ai_message,
     validate_conventional,
 )
-from .config import DEFAULT_BRANCH_TEMPLATE, protected_branches as get_protected_branches
-from .errors import AIError, GitError, ProtectedBranchError, UserAbort
+from .config import DEFAULT_BRANCH_TEMPLATE
+from .config import protected_branches as get_protected_branches
+from .errors import AIError, GitError, UserAbort
 from .git_manager import GitManager
 from .prompt import CONFIRM_PROMPT, interpret_choice
 from .protected import assert_branch_allowed, is_protected
@@ -113,12 +114,14 @@ class Orchestrator:
         # `--yes` only skips the confirmation prompt; it never opts out of this
         # guard, so a scripted/CI run cannot silently land on main/master.
         if self.mode == "team":
+            assert team_branch is not None
             assert_branch_allowed(
                 team_branch, self.protected_branches, force=force
             )
 
         # BRANCH (team mode only): create & check out the feature branch.
         if self.mode == "team":
+            assert team_branch is not None
             self.git.create_branch(team_branch)
             branch = team_branch
 

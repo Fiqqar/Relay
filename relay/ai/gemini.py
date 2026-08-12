@@ -46,8 +46,9 @@ class GeminiProvider(AIManager):
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.2},
         }
-        
+
         headers = {"Content-Type": "application/json"}
+        assert self.api_key is not None
         if self.api_key.startswith("AQ."):
             headers["Authorization"] = f"Bearer {self.api_key}"
         else:

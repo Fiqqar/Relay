@@ -203,7 +203,7 @@ class TestAmendSubcommand:
         orchestrator_cls.return_value.run.assert_called_once_with()
 
     def test_main_forwards_amend_flags(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+        with mock.patch("relay.cli.build_provider"), mock.patch(
             "relay.cli.Orchestrator"
         ) as orchestrator_cls:
             main(["amend", "--yes", "--staged", "--dry-run", "--verbose",
@@ -224,14 +224,14 @@ class TestAmendSubcommand:
         build_provider.assert_called_once_with("ollama", timeout=30)
 
     def test_main_amend_propagates_exit_code(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+        with mock.patch("relay.cli.build_provider"), mock.patch(
             "relay.cli.Orchestrator"
         ) as orchestrator_cls:
             orchestrator_cls.return_value.run.return_value = 7
             assert main(["amend"]) == 7
 
     def test_main_amend_user_abort_maps_to_exit_130(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+        with mock.patch("relay.cli.build_provider"), mock.patch(
             "relay.cli.Orchestrator"
         ) as orchestrator_cls:
             orchestrator_cls.return_value.run.side_effect = UserAbort("aborted")

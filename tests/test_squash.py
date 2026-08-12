@@ -193,7 +193,7 @@ def test_parser_squash_count_flag():
 
 
 def test_main_squash_routes_and_forwards():
-    with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+    with mock.patch("relay.cli.build_provider"), mock.patch(
         "relay.cli.run_squash", return_value=0
     ) as run:
         assert main(["squash", "--count", "4"]) == 0

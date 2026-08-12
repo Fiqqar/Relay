@@ -21,6 +21,7 @@ misparse.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", '"': '"', "\\": "\\"}
 
@@ -68,7 +69,7 @@ def parse(text: str) -> dict:
     return root
 
 
-def _even_backslashes_before(text: str, i: int) -> bool:
+def _even_backslashes_before(text: Sequence[str], i: int) -> bool:
     """True when the run of backslashes ending just before index ``i`` is even.
 
     A quote closes its string only when preceded by an even number of

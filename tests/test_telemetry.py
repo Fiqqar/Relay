@@ -117,7 +117,7 @@ class TestCliTelemetry:
         assert "telemetry" in capsys.readouterr().out
 
     def test_main_reports_after_workflow(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+        with mock.patch("relay.cli.build_provider"), mock.patch(
             "relay.cli.Orchestrator"
         ) as orchestrator_cls, mock.patch("relay.cli.report") as report:
             orchestrator_cls.return_value.run.return_value = 0

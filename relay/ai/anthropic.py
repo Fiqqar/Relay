@@ -37,6 +37,7 @@ class AnthropicProvider(AIManager):
         self.timeout = ai_timeout(timeout)
 
     def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:
+        assert self.api_key is not None
         prompt = self.build_prompt(diff, stat, branch)
         payload = {
             "model": self.model,
