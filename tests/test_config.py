@@ -82,9 +82,10 @@ def test_timeout_has_a_positive_floor(monkeypatch):
     assert config.ai_timeout() == 1
 
 
-def test_invalid_timeout_falls_back_to_default(monkeypatch):
+def test_invalid_timeout_falls_back_to_default(monkeypatch, capsys):
     monkeypatch.setenv("RELAY_AI_TIMEOUT", "banana")
     assert config.ai_timeout() == 30
+    assert "RELAY_AI_TIMEOUT" in capsys.readouterr().err
 
 
 def test_explicit_override_beats_env(monkeypatch):
@@ -141,9 +142,10 @@ def test_api_keys_are_env_only(monkeypatch, tmp_path):
     assert config.anthropic_api_key() is None
 
 
-def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch):
+def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch, capsys):
     monkeypatch.setenv("RELAY_MAX_DIFF_LINES", "huge")
     assert config.max_diff_lines() == 120
+    assert "RELAY_MAX_DIFF_LINES" in capsys.readouterr().err
 
 
 def test_max_diff_lines_has_a_positive_floor(monkeypatch):

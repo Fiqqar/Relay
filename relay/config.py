@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 
 try:  # Python 3.11+
@@ -88,6 +89,15 @@ _ENV_ONLY = {
 # Parsed config-file cache: {(path, mtime_ns, size): document}. Invalidated by
 # a file change (mtime/size), so getters resolve the file only once per state.
 _RAW_CACHE: dict[tuple[str, int, int], dict] = {}
+
+
+def _warn_invalid(setting: str, value) -> None:
+    """One-line stderr notice when a numeric setting cannot be parsed, so a
+    typo like ``RELAY_AI_TIMEOUT=abc`` is visible instead of silently ignored."""
+    print(
+        f"[relay] warning: ignoring invalid {setting}={value!r}; using the default",
+        file=sys.stderr,
+    )
 
 
 def config_file_path() -> Path | None:
@@ -241,6 +251,7 @@ def ai_timeout(override: int | None = None) -> int:
     try:
         requested = int(requested)
     except (ValueError, TypeError):
+        _warn_invalid("RELAY_AI_TIMEOUT", requested)
         requested = DEFAULT_AI_TIMEOUT_SECONDS
     return max(1, min(requested, MAX_AI_TIMEOUT_SECONDS))
 
@@ -256,10 +267,12 @@ def max_diff_lines() -> int:
     """
     resolved = _resolve("RELAY_MAX_DIFF_LINES", "max_diff_lines", DEFAULT_MAX_DIFF_LINES)
     if isinstance(resolved, bool):
+        _warn_invalid("RELAY_MAX_DIFF_LINES", resolved)
         return DEFAULT_MAX_DIFF_LINES
     try:
         value = int(resolved)
     except (ValueError, TypeError):
+        _warn_invalid("RELAY_MAX_DIFF_LINES", resolved)
         return DEFAULT_MAX_DIFF_LINES
     return max(1, value)  # a floor of 0 would send the AI an empty prompt
 

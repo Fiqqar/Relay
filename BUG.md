@@ -54,7 +54,7 @@ Status legend:
 | M-08 | | not reproducible in current code | FALSE-POSITIVE | |
 | M-09 | cli | `--version` exits inside argparse; config is only read on demand | ALREADY-FIXED | |
 | M-10 | cli | top-level imports in `cli.py` are all lightweight internal modules | INTENTIONAL | |
-| M-11 | config | invalid `RELAY_AI_TIMEOUT`/`RELAY_MAX_DIFF_LINES` were silently ignored | FIXED | |
+| M-11 | config | invalid `RELAY_AI_TIMEOUT`/`RELAY_MAX_DIFF_LINES` were silently ignored | FIXED | this commit |
 | M-12 | pr | `pr.py` already checks `git.remote_has_branch(head)` before posting | ALREADY-FIXED | |
 | M-13 | commit | scope regex is already `[^)]+` (accepts dots/slashes) | ALREADY-FIXED | |
 | M-14 | protected | protected-branch comparison was case-sensitive (`Main` != `main`) | FIXED | |
