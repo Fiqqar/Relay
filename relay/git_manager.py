@@ -63,8 +63,6 @@ def parse_remote(url: str) -> tuple[str, str, str]:
     repo = parts[-1]
     if repo.endswith(".git"):
         repo = repo[:-4]
-    if not parts[0] or not repo:
-        raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
     namespace = "/".join(parts[:-1])
     return host, namespace, repo
 
