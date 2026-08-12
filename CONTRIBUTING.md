@@ -3,6 +3,11 @@
 Thanks for taking the time to contribute! Relay is a small, dependency-light CLI
 that prides itself on clean Git history — so we take our conventions seriously.
 
+> **Start here:** [`docs/WORKING_RULES.md`](docs/WORKING_RULES.md) is the
+> mandatory rules document. Read it fully before touching any code — it binds
+> humans and AI/agents alike (one logical change per commit, coverage gate,
+> zero runtime deps, no `ruff format` mass reformatting).
+
 ## Table of Contents
 
 - [Getting started](#getting-started)
@@ -10,6 +15,7 @@ that prides itself on clean Git history — so we take our conventions seriously
 - [Conventions](#conventions)
   - [Conventional Commits](#conventional-commits)
   - [Branch naming](#branch-naming)
+- [Working rules](#working-rules)
 - [Adding an AI provider](#adding-an-ai-provider)
 - [Running tests](#running-tests)
 - [Static analysis & type checking](#static-analysis--type-checking)
@@ -50,6 +56,17 @@ The `dev` extra installs the test suite (`pytest`), the build backend
 - Feature branches use the same convention Relay itself generates:
   `<type>/<feature>`, e.g. `feat/squash-file-whitespace`.
 - Never push directly to `main`/`master`.
+
+## Working rules
+
+The full binding rules live in [`docs/WORKING_RULES.md`](docs/WORKING_RULES.md).
+The short version every change must satisfy:
+
+- One logical change per commit (Conventional Commits).
+- Unit tests for new behavior ship in the same commit.
+- Before pushing: `pytest` (coverage ≥ 85%), `ruff check .`, `mypy relay` all green.
+- Zero runtime dependencies; keep `pyproject.toml` dev deps as a single-line array.
+- Never `ruff format` the whole repo; only touch code related to your task.
 
 ## Adding an AI provider
 
