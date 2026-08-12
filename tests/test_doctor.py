@@ -1,10 +1,11 @@
 """Unit tests for `relay doctor` (relay/doctor.py) and its CLI routing."""
+import subprocess
 from unittest import mock
 
 import pytest
 
 from relay.cli import build_parser, main
-from relay.doctor import run_doctor
+from relay.doctor import _git_version, _ollama_reachable, run_doctor
 
 
 class FakeGit:
@@ -83,6 +84,53 @@ def test_missing_git_identity_fails(healthy_env, capsys):
     assert "git config --global user.email" in out
 
 
+def test_uncommitted_changes_reported(healthy_env, capsys):
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(has_changes=True)):
+        assert run_doctor() == 0  # a dirty tree is a report, not a failure
+    assert "uncommitted changes: yes" in capsys.readouterr().out
+
+
+class TestGitVersion:
+    def test_parses_git_version_output(self):
+        proc = subprocess.CompletedProcess(
+            [], 0, "git version 2.46.0.windows.1\n", ""
+        )
+        with mock.patch("relay.doctor.subprocess.run", return_value=proc):
+            assert _git_version() == "2.46.0.windows.1"
+
+    def test_returns_empty_on_os_error(self):
+        with mock.patch("relay.doctor.subprocess.run", side_effect=OSError("no git")):
+            assert _git_version() == ""
+
+
+class TestOllamaReachable:
+    def test_reachable_with_explicit_port(self):
+        with mock.patch("relay.doctor.socket.create_connection") as conn:
+            ok, detail = _ollama_reachable("http://localhost:11434")
+        conn.assert_called_once_with(("localhost", 11434), timeout=1)
+        assert ok is True
+        assert "reachable" in detail
+
+    def test_defaults_to_port_80(self):
+        with mock.patch("relay.doctor.socket.create_connection") as conn:
+            ok, detail = _ollama_reachable("http://ollama-box")
+        conn.assert_called_once_with(("ollama-box", 80), timeout=1)
+        assert ok is True
+
+    def test_not_reachable_on_os_error(self):
+        with mock.patch(
+            "relay.doctor.socket.create_connection", side_effect=OSError("refused")
+        ):
+            ok, detail = _ollama_reachable("http://localhost:11434")
+        assert ok is False
+        assert "not reachable" in detail
+
+    def test_unparseable_url(self):
+        ok, detail = _ollama_reachable("not-a-url")
+        assert ok is False
+        assert "cannot parse URL" in detail
+
+
 def test_missing_git_fails(healthy_env, capsys):
     def which(name):
         return None if name == "git" else r"C:\tools\Scripts\relay.exe"
@@ -139,6 +187,22 @@ def test_anthropic_provider_checks_anthropic_key(healthy_env, capsys):
     ):
         assert run_doctor() == 0
     assert "ANTHROPIC_API_KEY is set" in capsys.readouterr().out
+
+
+def test_anthropic_provider_missing_key_fails(healthy_env, capsys):
+    with mock.patch("relay.doctor.provider_from_env", return_value="anthropic"), mock.patch(
+        "relay.doctor.anthropic_api_key", return_value=None
+    ):
+        assert run_doctor() == 1
+    assert "ANTHROPIC_API_KEY is not set" in capsys.readouterr().out
+
+
+def test_ollama_custom_base_url_reported_in_detail(healthy_env, capsys):
+    with mock.patch("relay.doctor.provider_from_env", return_value="ollama"), mock.patch(
+        "relay.doctor.ollama_base_url", return_value="http://mybox:8080"
+    ), mock.patch("relay.doctor._ollama_reachable", return_value=(False, "not reachable")):
+        run_doctor()
+    assert "Ollama (http://mybox:8080)" in capsys.readouterr().out
 
 
 def test_unknown_provider_warns(healthy_env, capsys):

@@ -223,5 +223,5 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
     return 0 if counts["fail"] == 0 else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(run_doctor())
