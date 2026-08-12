@@ -35,7 +35,7 @@ Status legend:
 | H-05 | | not reproducible in current code | FALSE-POSITIVE | |
 | H-06 | git | redundant `git status --porcelain` invocations | DEPRIORITIZE | |
 | H-07 | | not reproducible in current code | FALSE-POSITIVE | |
-| H-08 | config | the TOML file was re-parsed on every config access | FIXED | |
+| H-08 | config | the TOML file was re-parsed on every config access | FIXED | this commit |
 | H-09 | git | whole `git diff` held in memory; streaming would complicate the code | DEPRIORITIZE | |
 | H-10 | | already handled in current code | ALREADY-FIXED | |
 | H-11 | squash | squash-all fed `root..tip` to the AI, omitting the root commit's own changes | FIXED | |

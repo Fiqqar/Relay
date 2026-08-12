@@ -11,6 +11,10 @@ file-vs-env-vs-default ordering for everything else. Secrets (``GEMINI_API_KEY``
 ``GITHUB_TOKEN`` / ``GH_TOKEN``) deliberately stay env-variable-only — they are
 never read from the config file (NFR-3), so a config file can happily live in a
 repo or be shared without leaking credentials.
+
+The parsed config file is cached per (path, mtime, size) so a CLI run reads it
+at most once even though individual getters (provider, model, branch template,
+timeouts, protected branches) each resolve through it.
 """
 from __future__ import annotations
 
@@ -81,6 +85,10 @@ _ENV_ONLY = {
     "GH_TOKEN",
 }
 
+# Parsed config-file cache: {(path, mtime_ns, size): document}. Invalidated by
+# a file change (mtime/size), so getters resolve the file only once per state.
+_RAW_CACHE: dict[tuple[str, int, int], dict] = {}
+
 
 def config_file_path() -> Path | None:
     """Path of the TOML config file, honoring ``RELAY_CONFIG``.
@@ -108,13 +116,24 @@ def _load_raw() -> dict:
     ``_load_config`` and ``_load_team_protected`` slice the document they
     need, so the ``[relay]`` and ``[team.protected]`` tables can coexist in
     one file without the parser opening it twice.
+
+    The result is cached keyed on (path, mtime, size): the file is re-read
+    only when it actually changes on disk, so a single CLI run that resolves
+    several settings touches the file once instead of once per getter.
     """
     path = config_file_path()
     if path is None or not path.is_file():
         return {}
     try:
+        stat = path.stat()
+        key = (str(path), stat.st_mtime_ns, stat.st_size)
+        cached = _RAW_CACHE.get(key)
+        if cached is not None:
+            return cached
         with open(path, "rb") as fh:
-            return _load_toml(fh)
+            data = _load_toml(fh)
+        _RAW_CACHE[key] = data
+        return data
     except (OSError, _TOML_DECODE_ERROR):
         return {}
 

@@ -10,6 +10,7 @@ from relay import config
 @pytest.fixture(autouse=True)
 def clear_relay_env(monkeypatch):
     """Make every test start from a clean Relay environment."""
+    config._RAW_CACHE.clear()  # the parsed-file cache is keyed by path+mtime+size
     for key in (
         "RELAY_AI_TIMEOUT",
         "RELAY_MAX_DIFF_LINES",
@@ -285,3 +286,52 @@ def test_invalid_toml_ignored(monkeypatch, tmp_path):
     p = tmp_path / "bad.toml"
     p.write_text("not [valid", encoding="utf-8")
     assert config.ai_timeout() == 30
+
+
+# ---- H-08: the parsed config file is cached until it changes ------------------
+
+
+def test_config_file_is_read_once_per_state(monkeypatch, tmp_path):
+    """Multiple getters must not re-open the file when it hasn't changed."""
+    import builtins
+
+    from relay import config as cfg
+
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        provider = "ollama"
+        ai_timeout = 55
+        branch_template = "release/<feature>"
+    """)
+    opened = []
+    real_open = builtins.open
+
+    def counting_open(file, *args, **kwargs):
+        opened.append(file)
+        return real_open(file, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", counting_open)
+    cfg._RAW_CACHE.clear()
+
+    assert cfg.provider_from_env() == "ollama"
+    assert cfg.ai_timeout() == 55
+    assert cfg.branch_template() == "release/<feature>"
+
+    assert len(opened) == 1
+
+
+def test_config_file_cache_invalidates_on_change(monkeypatch, tmp_path):
+    """Rewriting the file (different mtime/size) must re-parse it."""
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        ai_timeout = 55
+    """)
+    assert config.ai_timeout() == 55
+
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        ai_timeout = 77
+        max_diff_lines = 200
+    """)
+    assert config.ai_timeout() == 77
+    assert config.max_diff_lines() == 200
