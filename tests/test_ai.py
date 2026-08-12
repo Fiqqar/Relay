@@ -21,6 +21,7 @@ from relay.ai import (
     GeminiProvider,
     OllamaProvider,
     OpenAIProvider,
+    build_provider,
 )
 from relay.ai.base import truncate_diff
 from relay.errors import AIError, ConfigError
@@ -358,6 +359,51 @@ class TestMissingApiKey:
         with mock.patch("relay.ai.anthropic.anthropic_api_key", return_value=None):
             with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY"):
                 AnthropicProvider(base_url="http://x/v1")
+
+
+class TestBuildProvider:
+    """The registry (relay/ai/__init__.py) maps a flag/env value to a provider."""
+
+    def test_explicit_name_constructs_that_provider(self):
+        with mock.patch("relay.ai.openai.openai_api_key", return_value="k"), mock.patch(
+            "relay.ai.anthropic.anthropic_api_key", return_value="k"
+        ):
+            assert isinstance(build_provider("ollama"), OllamaProvider)
+            assert isinstance(build_provider("openai"), OpenAIProvider)
+            assert isinstance(build_provider("anthropic"), AnthropicProvider)
+
+    def test_explicit_gemini_constructs_gemini(self):
+        with mock.patch("relay.ai.gemini.gemini_api_key", return_value="k"):
+            assert isinstance(build_provider("gemini"), GeminiProvider)
+
+    def test_name_is_case_insensitive(self):
+        with mock.patch("relay.ai.openai.openai_api_key", return_value="k"):
+            assert isinstance(build_provider("OpenAI"), OpenAIProvider)
+
+    def test_default_provider_comes_from_env(self):
+        with mock.patch("relay.config.provider_from_env", return_value="gemini"), mock.patch(
+            "relay.ai.gemini.gemini_api_key", return_value="k"
+        ):
+            assert isinstance(build_provider(), GeminiProvider)
+
+    def test_explicit_name_beats_env_default(self):
+        with mock.patch("relay.config.provider_from_env", return_value="gemini"), mock.patch(
+            "relay.ai.openai.openai_api_key", return_value="k"
+        ):
+            assert isinstance(build_provider("openai"), OpenAIProvider)
+
+    def test_unknown_provider_raises_config_error(self):
+        with mock.patch("relay.config.provider_from_env", return_value="gemini"):
+            with pytest.raises(ConfigError) as exc_info:
+                build_provider("warp-drive")
+        assert "unknown AI provider 'warp-drive'" in str(exc_info.value)
+        assert "gemini" in str(exc_info.value)
+        assert "ollama" in str(exc_info.value)
+
+    def test_unknown_provider_from_env_raises_config_error(self):
+        with mock.patch("relay.config.provider_from_env", return_value="warp-drive"):
+            with pytest.raises(ConfigError, match="unknown AI provider"):
+                build_provider()
 
 
 class TestGenerateWrapper:
