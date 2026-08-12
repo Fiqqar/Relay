@@ -30,6 +30,12 @@ jobs:
       - name: Run the test suite with the coverage gate
         run: pytest -q --cov --cov-report=term
 
+      - name: Static analysis
+        run: ruff check .
+
+      - name: Type checking
+        run: mypy relay
+
       - name: Smoke test the CLI entry point
         run: relay --version
 

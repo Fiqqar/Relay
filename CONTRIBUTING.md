@@ -78,11 +78,10 @@ pytest -k <sub>   # filter by test name
 
 ```bash
 ruff check .      # lint
-ruff format --check .  # formatting
 mypy relay        # type checking
 ```
 
-CI enforces all three, so running them locally before pushing saves a round trip.
+CI enforces both, so running them locally before pushing saves a round trip.
 
 ## End-to-end test
 
