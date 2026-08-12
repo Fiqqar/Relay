@@ -12,13 +12,15 @@ class FakeGit:
     """Stand-in for GitManager with controllable squash behavior."""
 
     def __init__(self, count=2, message="feat(billing): add invoicing", pushed=False,
-                 depth=5):
+                 depth=5, staged=False):
         self._count = count
         self._message = message
         self._pushed = pushed
         self._depth = depth
+        self._staged = staged
         self.reset_target = None
         self.commit_messages = []
+        self.amend_flags = []
         self.diff_range_calls = []
         self.stat_range_calls = []
         self.staged_diff_called = False
@@ -26,6 +28,15 @@ class FakeGit:
 
     def has_commits(self):
         return self._count > 0
+
+    def commit_count(self):
+        return self._count
+
+    def root_commit(self):
+        return "root123" if self._count else ""
+
+    def has_staged_changes(self):
+        return self._staged
 
     def rev_parse(self, ref):
         if ref == "HEAD":
@@ -68,6 +79,7 @@ class FakeGit:
 
     def commit(self, message, **kwargs):
         self.commit_messages.append(message)
+        self.amend_flags.append(kwargs.get("amend", False))
 
 
 class FakeProvider:
@@ -154,6 +166,39 @@ def test_squash_not_enough_history_raises(git):
         run_squash(git=git, count=5, yes=True)
     assert git.reset_target is None
     assert git.commit_messages == []
+
+
+def test_squash_entire_history_amends_the_root(git):
+    """Regression: squashing ALL commits (`--count N` == total history) used to
+    fail because `HEAD~N` points past the root commit. It must fold the whole
+    tree into a single root-amended commit instead of raising."""
+    git._count = 2
+    git._depth = 1  # only HEAD~1 exists
+    assert run_squash(git=git, count=2, yes=True) == 0
+    assert git.reset_target == "root123"
+    assert git.amend_flags == [True]
+    assert len(git.commit_messages) == 1
+
+
+def test_squash_entire_history_uses_range_diff_for_ai(git):
+    """The AI message for a whole-history fold is generated from root..tip."""
+    git._count = 2
+    git._depth = 1
+    assert run_squash(git=git, count=2, provider=FakeProvider(), yes=True) == 0
+    assert git.diff_range_calls == [("root123", "tip123")]
+    assert git.stat_range_calls == [("root123", "tip123")]
+
+
+def test_squash_refuses_dirty_index(git):
+    """Regression: squash silently swept pre-staged unrelated files into the
+    new commit (reset --soft keeps the index). A non-empty index must be
+    refused before any AI call or confirmation."""
+    git._staged = True
+    with pytest.raises(GitError, match="unrelated staged changes"):
+        run_squash(git=git, count=3, yes=True)
+    assert git.reset_target is None
+    assert git.commit_messages == []
+    assert git.diff_range_calls == []
 
 
 def test_squash_dry_run_changes_nothing(git, capsys):

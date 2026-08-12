@@ -75,14 +75,32 @@ def run_squash(
         raise GitError("squash needs at least 2 commits (--count N)")
     if not git.has_commits():
         raise GitError("no commits to squash")
+    # The index must be clean: ``reset --soft`` keeps it as-is, so anything
+    # staged before the squash (unrelated files) would silently be folded into
+    # the new commit. Refuse early, before any AI call or confirmation.
+    if git.has_staged_changes():
+        raise GitError(
+            "the index has unrelated staged changes; commit or unstage them "
+            "first (git reset -- <path>) before squashing"
+        )
 
     tip = git.rev_parse("HEAD")
+    total = git.commit_count()
     base = git.rev_parse(f"HEAD~{count}")
+    squash_all = False
     if not base:
-        raise GitError(
-            f"not enough history to squash {count} commit(s); "
-            f"only {git.commit_count() if hasattr(git, 'commit_count') else ''} on HEAD"
-        )
+        if total and count <= total:
+            # Squashing the entire history: ``HEAD~N`` points past the root
+            # commit, so fold everything into the root instead. The reset
+            # target becomes the root and the final commit is an --amend, which
+            # leaves exactly ONE commit holding the whole tree.
+            base = git.root_commit()
+            squash_all = True
+        else:
+            raise GitError(
+                f"not enough history to squash {count} commit(s); "
+                f"only {total} on HEAD"
+            )
 
     subjects = git.log_between(base, tip)
     branch = git.current_branch()
@@ -113,9 +131,11 @@ def run_squash(
         return 0
 
     # Soft reset stages everything the N commits introduced; the working tree
-    # itself is untouched, so nothing can be lost.
-    git.reset_soft(f"HEAD~{count}")
-    git.commit(final_message)
+    # itself is untouched, so nothing can be lost. Squashing the entire history
+    # amends the root commit so the fold leaves a single commit behind.
+    reset_target = base if squash_all else f"HEAD~{count}"
+    git.reset_soft(reset_target)
+    git.commit(final_message, amend=squash_all)
     print(f"[relay] squashed {count} commits into one on '{branch}'")
     if git.is_ancestor(tip, f"origin/{branch}"):
         print(

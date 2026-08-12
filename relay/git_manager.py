@@ -302,10 +302,37 @@ class GitManager:
         """True if the current HEAD points at a real commit (repo is not empty)."""
         return self._run("rev-parse", "--verify", "HEAD", check=False).returncode == 0
 
+    def commit_count(self) -> int:
+        """Number of commits reachable from HEAD (0 when the repo has no commits)."""
+        proc = self._run("rev-list", "--count", "HEAD", check=False)
+        return int(proc.stdout.strip()) if proc.returncode == 0 else 0
+
+    def root_commit(self) -> str:
+        """SHA of the first (root) commit on HEAD ('' when the repo has no commits).
+
+        The root is the commit with no parents, i.e. the oldest commit the
+        current branch descends from. ``git rev-list --max-parents=0 HEAD``
+        prints it (for a normal single-root history, exactly one line).
+        """
+        proc = self._run("rev-list", "--max-parents=0", "HEAD", check=False)
+        if proc.returncode != 0:
+            return ""
+        return proc.stdout.strip().splitlines()[0] if proc.stdout.strip() else ""
+
     def rev_parse(self, ref: str) -> str:
         """Full SHA of a ref ('' when the ref does not exist)."""
         proc = self._run("rev-parse", ref, check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
+
+    def has_staged_changes(self) -> bool:
+        """True when the index holds staged changes (the index differs from HEAD).
+
+        Untracked files are not included: a path counts only once it has been
+        ``git add``-ed. This is the guard squash uses to refuse folding when the
+        index carries unrelated changes that a ``reset --soft`` would sweep into
+        the new commit.
+        """
+        return bool(self._run("diff", "--cached", "--name-only").stdout.strip())
 
     def is_ancestor(self, ancestor: str, descendant: str) -> bool:
         """True when ``ancestor`` is reachable from ``descendant``."""
