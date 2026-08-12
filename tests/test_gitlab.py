@@ -81,7 +81,7 @@ class TestGitLabClient:
         err = urllib.error.HTTPError(
             "https://gitlab.com", 409, "Conflict", {}, None
         )
-        err.read = lambda: b'{"message":"Another open merge request already exists for this source branch"}'
+        err.read = lambda *args: b'{"message":"Another open merge request already exists for this source branch"}'
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(DuplicateMergeRequestError):
                 make_client().open_merge_request(
@@ -92,7 +92,7 @@ class TestGitLabClient:
         err = urllib.error.HTTPError(
             "https://gitlab.com", 400, "Bad Request", {}, None
         )
-        err.read = lambda: b'{"message":"Bad source branch name"}'
+        err.read = lambda *args: b'{"message":"Bad source branch name"}'
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(GitLabError) as exc_info:
                 make_client().open_merge_request(
@@ -101,11 +101,23 @@ class TestGitLabClient:
         assert exc_info.value.status == 400
         assert "Bad source branch name" in exc_info.value.reason
 
+    def test_error_body_read_is_capped_at_10kib(self):
+        from relay.gitlab import _MAX_ERROR_BODY_BYTES
+
+        err = urllib.error.HTTPError(
+            "https://gitlab.com", 500, "Internal Server Error", {}, None
+        )
+        err.read = lambda n=0: (b"x" * (_MAX_ERROR_BODY_BYTES + 100))[:n]
+        with mock.patch("urllib.request.urlopen", side_effect=err):
+            with pytest.raises(GitLabError) as exc_info:
+                make_client().find_open_mr(source_branch="b")
+        assert len(exc_info.value.body) <= _MAX_ERROR_BODY_BYTES
+
     def test_reason_handles_field_keyed_message(self):
         err = urllib.error.HTTPError(
             "https://gitlab.com", 400, "Bad Request", {}, None
         )
-        err.read = lambda: b'{"message":{"source_branch":["is invalid"]}}'
+        err.read = lambda *args: b'{"message":{"source_branch":["is invalid"]}}'
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(GitLabError) as exc_info:
                 make_client().open_merge_request(

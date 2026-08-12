@@ -21,6 +21,9 @@ from .errors import RelayError
 
 DEFAULT_TIMEOUT_SECONDS = 30
 _USER_AGENT = "relay-cli"
+# Error bodies are for diagnostics only — a pathological response must not be
+# slurped in full into memory, so reads are capped at 10 KiB.
+_MAX_ERROR_BODY_BYTES = 10 * 1024
 
 
 class GitLabError(RelayError):
@@ -121,7 +124,7 @@ class GitLabClient:
             with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", "replace")
+            body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
             payload = _parse_json(body)
             detail = _extract_reason(payload) or body.strip() or "unknown error"
             raise GitLabError(

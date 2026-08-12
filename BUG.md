@@ -47,7 +47,7 @@ Status legend:
 | M-01 | config | `tomllib` already used on 3.11+, bundled parser only on 3.10 | ALREADY-FIXED | |
 | M-02 | config | `max_diff_lines` allowed a floor of 0 (empty prompt) | FIXED | this commit |
 | M-03 | config | `ai_timeout()` already clamps to `max(1, min(value, 120))` | ALREADY-FIXED | |
-| M-04 | pr | HTTP error bodies were read unbounded in github/gitlab clients | FIXED | |
+| M-04 | pr | HTTP error bodies were read unbounded in github/gitlab clients | FIXED | this commit |
 | M-05 | pr | branch names already url-encoded in github/gitlab | ALREADY-FIXED | |
 | M-06 | | not reproducible in current code | FALSE-POSITIVE | |
 | M-07 | telemetry | `report()` already posts on a daemon thread | ALREADY-FIXED | |

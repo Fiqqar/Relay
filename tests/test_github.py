@@ -94,6 +94,21 @@ class TestFindOpenPr:
         assert exc_info.value.status == 401
 
     @mock.patch("relay.github.urllib.request.urlopen")
+    def test_error_body_read_is_capped_at_10kib(self, mock_urlopen):
+        """M-04: a pathological error body must not be slurped in full."""
+        from relay.github import _MAX_ERROR_BODY_BYTES
+
+        body = b"x" * (_MAX_ERROR_BODY_BYTES + 500)
+        error = urllib.error.HTTPError(
+            "url", 500, "Internal Server Error", {}, io.BytesIO(body)
+        )
+        mock_urlopen.side_effect = error
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError) as exc_info:
+            client.find_open_pr(head="feat/login")
+        assert len(exc_info.value.body) <= _MAX_ERROR_BODY_BYTES
+
+    @mock.patch("relay.github.urllib.request.urlopen")
     def test_strips_whitespace_from_head_and_owner(self, mock_urlopen):
         mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
         client = GitHubClient("acme", "widget", token="t")
