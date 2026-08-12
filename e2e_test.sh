@@ -32,7 +32,9 @@ git -C "$repo" add .
 
 (
   cd "$repo"
-  printf '%s\n' "$expect" | relay --solo --no-push --provider ollama
+  # Subject + trailing blank line so the manual-input loop terminates on
+  # EOF-free, non-interactive stdin (blank line ends the body loop).
+  printf '%s\n\n' "$expect" | relay --solo --no-push --provider ollama
 )
 
 subject="$(git -C "$repo" log -1 --format=%s)"

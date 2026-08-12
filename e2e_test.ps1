@@ -52,7 +52,9 @@ try {
     try {
         Write-Step "running: $cmd $($relayArgs -join ' ')  < stdin: $expect"
         # The correct way to pipe into a native command in PowerShell with args splatting
-        $output = $expect | & $cmd @relayArgs 2>&1
+        # Subject + trailing blank line so the manual-input loop terminates on
+        # non-interactive stdin (blank line ends the body loop).
+        $output = "$expect`n" | & $cmd @relayArgs 2>&1
         $code = $LASTEXITCODE
     } finally {
         Pop-Location
