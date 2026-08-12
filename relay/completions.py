@@ -49,14 +49,6 @@ _FISH_DESCRIPTIONS = {
 SHELLS = ("bash", "zsh", "fish", "powershell")
 
 
-def _flag_completions(shell: str, *, include_subcommands: bool = True) -> str:
-    """The flag/token list handed to each shell's completion function."""
-    tokens = list(GLOBAL_FLAGS)
-    if include_subcommands:
-        tokens += list(SUBCOMMANDS)
-    return " ".join(tokens)
-
-
 def _bash_list() -> str:
     return " ".join(GLOBAL_FLAGS + list(SUBCOMMANDS))
 
