@@ -22,6 +22,15 @@ def run_undo(git: GitManager | None = None, verbose: bool = False) -> int:
         raise GitError("not a git repository - run `relay undo` from inside a work tree")
     if not git.has_commits():
         raise GitError("no commits to undo (the repository has no HEAD)")
+    # `git reset --soft HEAD~1` needs a parent; the root commit has none, so a
+    # single-commit repo cannot be undone the normal way. Say so clearly
+    # instead of leaking git's raw "fatal: unknown revision" message.
+    if git.commit_count() <= 1:
+        raise GitError(
+            "only 1 commit on this branch; nothing to undo. "
+            "Rewrite its message with `relay amend`, or if you really want to "
+            "drop it: `git update-ref -d HEAD` (keeps the working tree)."
+        )
 
     branch = git.current_branch() or "HEAD"
     tip = git.rev_parse("HEAD")

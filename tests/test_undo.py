@@ -11,11 +11,13 @@ from relay.undo import run_undo
 class FakeGit:
     """Stand-in for GitManager with controllable undo behavior."""
 
-    def __init__(self, is_repo=True, has_commits=True, branch="main", pushed=False):
+    def __init__(self, is_repo=True, has_commits=True, branch="main", pushed=False,
+                 commit_count=5):
         self._is_repo = is_repo
         self._commits = has_commits
         self._branch = branch
         self._pushed = pushed
+        self._count = commit_count
         self.reset_calls = 0
 
     def is_repo(self):
@@ -23,6 +25,9 @@ class FakeGit:
 
     def has_commits(self):
         return self._commits
+
+    def commit_count(self):
+        return self._count
 
     def current_branch(self):
         return self._branch
@@ -67,6 +72,16 @@ def test_undo_not_a_repo_raises(git):
 def test_undo_no_commits_raises(git):
     git._commits = False
     with pytest.raises(GitError, match="no commits to undo"):
+        run_undo(git)
+    assert git.reset_calls == 0
+
+
+def test_undo_single_commit_raises_clear_message(git):
+    """Regression: undo on a repo with exactly one commit leaked git's raw
+    `fatal: unknown revision` from `git reset --soft HEAD~1`. It must refuse
+    with a clear, actionable message instead."""
+    git._count = 1
+    with pytest.raises(GitError, match="only 1 commit"):
         run_undo(git)
     assert git.reset_calls == 0
 
