@@ -125,6 +125,12 @@ class GitManager:
                 f"git command timed out after {timeout:.0f}s",
                 command=" ".join(cmd),
             ) from exc
+        except FileNotFoundError:
+            raise GitError(
+                "git not found on PATH — install git and make it available in "
+                "your shell",
+                command=" ".join(cmd),
+            ) from None
         if check and proc.returncode != 0:
             raise GitError(
                 f"git command failed (exit {proc.returncode})",

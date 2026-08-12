@@ -71,6 +71,16 @@ class TestRun:
         assert "timed out after 60" in str(exc_info.value)
         assert exc_info.value.command == "git push origin main"
 
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_missing_git_binary_raises_clear_git_error(self, mock_run, git, make_proc):
+        """H-16: when `git` is not on PATH, subprocess raises FileNotFoundError
+        — that raw OS error must become a clear GitError, not a traceback."""
+        mock_run.side_effect = FileNotFoundError()
+        with pytest.raises(GitError) as exc_info:
+            git.stage_all()
+        assert "git not found on PATH" in str(exc_info.value)
+        assert exc_info.value.command == "git add ."
+
 
 class TestPreflightHelpers:
     @mock.patch("relay.git_manager.subprocess.run")

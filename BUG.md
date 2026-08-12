@@ -43,7 +43,7 @@ Status legend:
 | H-13 | git | `current_branch()` returns `""` on detached HEAD; solo push could push an empty branch | FIXED | |
 | H-14 | cli | a missing API key aborted solo/team instead of falling back to manual input | FIXED | this commit |
 | H-15 | | already handled in current code | ALREADY-FIXED | |
-| H-16 | git | `git` missing on PATH surfaced a raw OS error | FIXED | |
+| H-16 | git | `git` missing on PATH surfaced a raw OS error | FIXED | this commit |
 | M-01 | config | `tomllib` already used on 3.11+, bundled parser only on 3.10 | ALREADY-FIXED | |
 | M-02 | config | `max_diff_lines` allowed a floor of 0 (empty prompt) | FIXED | |
 | M-03 | config | `ai_timeout()` already clamps to `max(1, min(value, 120))` | ALREADY-FIXED | |
