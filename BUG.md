@@ -45,7 +45,7 @@ Status legend:
 | H-15 | | already handled in current code | ALREADY-FIXED | |
 | H-16 | git | `git` missing on PATH surfaced a raw OS error | FIXED | this commit |
 | M-01 | config | `tomllib` already used on 3.11+, bundled parser only on 3.10 | ALREADY-FIXED | |
-| M-02 | config | `max_diff_lines` allowed a floor of 0 (empty prompt) | FIXED | |
+| M-02 | config | `max_diff_lines` allowed a floor of 0 (empty prompt) | FIXED | this commit |
 | M-03 | config | `ai_timeout()` already clamps to `max(1, min(value, 120))` | ALREADY-FIXED | |
 | M-04 | pr | HTTP error bodies were read unbounded in github/gitlab clients | FIXED | |
 | M-05 | pr | branch names already url-encoded in github/gitlab | ALREADY-FIXED | |

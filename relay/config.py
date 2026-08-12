@@ -258,9 +258,10 @@ def max_diff_lines() -> int:
     if isinstance(resolved, bool):
         return DEFAULT_MAX_DIFF_LINES
     try:
-        return int(resolved)
+        value = int(resolved)
     except (ValueError, TypeError):
         return DEFAULT_MAX_DIFF_LINES
+    return max(1, value)  # a floor of 0 would send the AI an empty prompt
 
 
 def pr_open_browser() -> bool:

@@ -146,6 +146,15 @@ def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch):
     assert config.max_diff_lines() == 120
 
 
+def test_max_diff_lines_has_a_positive_floor(monkeypatch):
+    """A cap of 0 (or negative) would send the AI an empty/absurd prompt;
+    clamp to at least 1 line (M-02)."""
+    monkeypatch.setenv("RELAY_MAX_DIFF_LINES", "0")
+    assert config.max_diff_lines() == 1
+    monkeypatch.setenv("RELAY_MAX_DIFF_LINES", "-5")
+    assert config.max_diff_lines() == 1
+
+
 def test_max_diff_lines_wrong_typed_config_value_falls_back(monkeypatch, tmp_path):
     """Regression: a non-int TOML entry (bool / list) used to raise TypeError
     (uncaught, since only ValueError was caught) and crashed instead of falling
