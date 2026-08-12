@@ -186,12 +186,16 @@ def test_squash_entire_history_amends_the_root(git):
 
 
 def test_squash_entire_history_uses_range_diff_for_ai(git):
-    """The AI message for a whole-history fold is generated from root..tip."""
+    """Regression (H-11): a whole-history fold used `root..tip`, silently
+    omitting the root commit's own changes from the AI prompt. The diff base
+    must be the empty tree so the root's content is included."""
+    from relay.squash import EMPTY_TREE
+
     git._count = 2
     git._depth = 1
     assert run_squash(git=git, count=2, provider=FakeProvider(), yes=True) == 0
-    assert git.diff_range_calls == [("root123", "tip123")]
-    assert git.stat_range_calls == [("root123", "tip123")]
+    assert git.diff_range_calls == [(EMPTY_TREE, "tip123")]
+    assert git.stat_range_calls == [(EMPTY_TREE, "tip123")]
 
 
 def test_squash_refuses_dirty_index(git):

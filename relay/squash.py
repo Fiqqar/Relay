@@ -23,6 +23,12 @@ from .errors import GitError, UserAbort
 from .git_manager import GitManager
 from .prompt import CONFIRM_PROMPT, interpret_choice
 
+# The well-known empty-tree SHA: ``git diff <this>..HEAD`` includes the root
+# commit's own changes, which ``git diff <root>..HEAD`` always omits. Squashing
+# the entire history folds the root into the final commit, so the AI message
+# must be generated from a diff that contains the root's content too.
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 
 def _confirm(message: str, yes: bool) -> str:
     """Confirm/let the user edit the proposed message (skippable with --yes)."""
@@ -115,9 +121,12 @@ def run_squash(
     elif provider is not None:
         # The combined diff of the squashed commits — NOT the index. The index
         # still holds whatever the working tree happened to have staged, which
-        # is unrelated (or empty) here because reset --soft runs later.
-        diff = git.diff_range(base, tip)
-        stat = git.stat_range(base, tip)
+        # is unrelated (or empty) here because reset --soft runs later. When
+        # the entire history is being folded, diff against the EMPTY_TREE so
+        # the root commit's own changes are included in the AI prompt.
+        diff_base = EMPTY_TREE if squash_all else base
+        diff = git.diff_range(diff_base, tip)
+        stat = git.stat_range(diff_base, tip)
         final_message = _message_from_ai(provider, diff, stat, branch, fallback)
     else:
         final_message = fallback
