@@ -76,7 +76,7 @@ Status legend:
 | L-12 | | negligible polish | DEPRIORITIZE | |
 | L-13 | | negligible polish | DEPRIORITIZE | |
 | L-14 | | negligible polish | DEPRIORITIZE | |
-| L-15 | config | an unparseable config TOML was silently ignored | FIXED | |
+| L-15 | config | an unparseable config TOML was silently ignored | FIXED | this commit |
 
 ## Commit log
 

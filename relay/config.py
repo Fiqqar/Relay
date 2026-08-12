@@ -144,7 +144,18 @@ def _load_raw() -> dict:
             data = _load_toml(fh)
         _RAW_CACHE[key] = data
         return data
-    except (OSError, _TOML_DECODE_ERROR):
+    except OSError:
+        return {}
+    except _TOML_DECODE_ERROR:
+        # A malformed config file is not a hard error (the defaults still make
+        # Relay run), but it must not be silent either — the developer wrote
+        # something and it is not being honored (L-15). Cache the failure so the
+        # warning is printed once per state, not once per getter.
+        print(
+            f"[relay] warning: ignoring malformed config file {path}; using defaults",
+            file=sys.stderr,
+        )
+        _RAW_CACHE[key] = {}
         return {}
 
 

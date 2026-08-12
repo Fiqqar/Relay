@@ -292,11 +292,28 @@ def test_missing_file_still_uses_defaults(monkeypatch, tmp_path):
     assert config.ai_timeout() == 30
 
 
-def test_invalid_toml_ignored(monkeypatch, tmp_path):
+def test_invalid_toml_warns_and_falls_back_to_defaults(monkeypatch, tmp_path, capsys):
+    """L-15: a malformed config file must be visible, not silently dropped."""
     monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "bad.toml"))
     p = tmp_path / "bad.toml"
     p.write_text("not [valid", encoding="utf-8")
     assert config.ai_timeout() == 30
+    err = capsys.readouterr().err
+    assert "malformed config file" in err
+    assert str(p) in err
+
+
+def test_invalid_toml_warning_printed_once_per_state(monkeypatch, tmp_path, capsys):
+    """The malformed-file warning must not repeat for every getter."""
+    monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "bad.toml"))
+    p = tmp_path / "bad.toml"
+    p.write_text("not [valid", encoding="utf-8")
+    config.ai_timeout()
+    config.max_diff_lines()
+    config.branch_template()
+    config.protected_branches()
+    err = capsys.readouterr().err
+    assert err.count("malformed config file") == 1
 
 
 # ---- H-08: the parsed config file is cached until it changes ------------------
