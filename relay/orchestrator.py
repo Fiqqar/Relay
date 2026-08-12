@@ -122,11 +122,34 @@ class Orchestrator:
         # BRANCH (team mode only): create & check out the feature branch.
         if self.mode == "team":
             assert team_branch is not None
+            original_branch = branch
             self.git.create_branch(team_branch)
             branch = team_branch
-
-        # COMMIT — the irreversible point. Everything before it is reversible.
-        self.git.commit(message, no_verify=self.no_verify)
+            try:
+                self.git.commit(message, no_verify=self.no_verify)
+            except GitError:
+                # The commit failed on the freshly created branch: it is an
+                # orphan holding nothing but the failed attempt. Put the
+                # developer back on the original branch and delete it, so the
+                # run never strands them on a branch with no commit. The
+                # original branch (e.g. main) is untouched — only the orphan is
+                # removed. Best-effort: if the rollback itself fails, surface
+                # the original error and let the user clean up by hand.
+                try:
+                    self.git.checkout(original_branch)
+                    self.git.delete_branch(team_branch)
+                    print(
+                        f"[relay] commit failed; deleted the orphan branch "
+                        f"'{team_branch}' and restored '{original_branch}'."
+                    )
+                except GitError:
+                    print(
+                        f"[relay] commit failed; could not auto-clean the "
+                        f"orphan branch '{team_branch}' (reflog: `git reflog`)."
+                    )
+                raise
+        else:
+            self.git.commit(message, no_verify=self.no_verify)
 
         if self.no_push:
             print(f"[relay] committed (--no-push): {message}")

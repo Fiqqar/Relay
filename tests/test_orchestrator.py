@@ -342,6 +342,45 @@ def test_push_failure_returns_1_and_keeps_commit(mock_input, git):
     git.commit.assert_called_once()  # commit happened; only the push failed
 
 
+# ---- C-05: team commit failure rolls back the orphan branch --------------------
+
+
+@mock.patch("builtins.input", side_effect=["feat: team work", ""])
+def test_team_commit_failure_rolls_back_orphan_branch(mock_input, git):
+    """Regression: a failed commit on the freshly created feature branch used
+    to strand the developer on an orphan branch with the original branch
+    abandoned. It must check out the original branch and delete the orphan."""
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    git.commit.side_effect = GitError("hook rejected")
+    with pytest.raises(GitError):
+        make_orchestrator(git, provider=ai, mode="team", feature="payments").run()
+    git.create_branch.assert_called_once_with("feat/payments")
+    git.checkout.assert_called_once_with("main")
+    git.delete_branch.assert_called_once_with("feat/payments")
+
+
+@mock.patch("builtins.input", side_effect=["feat: team work", ""])
+def test_team_commit_failure_reports_when_rollback_also_fails(mock_input, git, capsys):
+    """If the rollback itself fails (e.g. a detached HEAD with no branch to go
+    back to), the original GitError must still surface with a cleanup hint."""
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    git.commit.side_effect = GitError("hook rejected")
+    git.checkout.side_effect = GitError("checkout failed")
+    with pytest.raises(GitError, match="hook rejected"):
+        make_orchestrator(git, provider=ai, mode="team", feature="payments").run()
+    assert "could not auto-clean" in capsys.readouterr().out
+
+
+@mock.patch("builtins.input", side_effect=["feat: team work", ""])
+def test_team_commit_success_does_not_touch_original_branch(mock_input, git):
+    """The rollback must only run on the failure path."""
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="team", feature="payments").run()
+    assert code == 0
+    git.checkout.assert_not_called()
+    git.delete_branch.assert_not_called()
+
+
 # ---- Preflight / guards ------------------------------------------------------
 
 

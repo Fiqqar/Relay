@@ -276,6 +276,15 @@ class GitManager:
         """Create and check out a new branch (`git checkout -b`)."""
         self._run("checkout", "-b", name)
 
+    def checkout(self, branch: str) -> None:
+        """Check out an existing branch (`git checkout <branch>`)."""
+        self._run("checkout", branch)
+
+    def delete_branch(self, name: str, force: bool = True) -> None:
+        """Delete a branch. Force-deletes by default (`-D`) so an unmerged
+        orphan branch can be cleaned up; the branch must not be checked out."""
+        self._run("branch", "-D" if force else "-d", name)
+
     def push(self, branch: str, set_upstream: bool = False) -> None:
         cmd = ["push"]
         if set_upstream:

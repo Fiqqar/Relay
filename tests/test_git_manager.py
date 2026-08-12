@@ -147,6 +147,24 @@ class TestMutations:
         assert mock_run.call_args.args[0] == ["git", "checkout", "-b", "status/payments"]
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_checkout(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.checkout("main")
+        assert mock_run.call_args.args[0] == ["git", "checkout", "main"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_delete_branch_force_by_default(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.delete_branch("orphan/feat")
+        assert mock_run.call_args.args[0] == ["git", "branch", "-D", "orphan/feat"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_delete_branch_safe_flag(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.delete_branch("feat/x", force=False)
+        assert mock_run.call_args.args[0] == ["git", "branch", "-d", "feat/x"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_push_without_upstream(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.push("main")
