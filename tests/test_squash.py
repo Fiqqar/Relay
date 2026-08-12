@@ -18,7 +18,9 @@ class FakeGit:
         self._pushed = pushed
         self._depth = depth
         self._staged = staged
+        self.commit_error = None
         self.reset_target = None
+        self.reset_targets = []
         self.commit_messages = []
         self.amend_flags = []
         self.diff_range_calls = []
@@ -76,8 +78,11 @@ class FakeGit:
 
     def reset_soft(self, target):
         self.reset_target = target
+        self.reset_targets.append(target)
 
     def commit(self, message, **kwargs):
+        if self.commit_error:
+            raise self.commit_error
         self.commit_messages.append(message)
         self.amend_flags.append(kwargs.get("amend", False))
 
@@ -212,6 +217,31 @@ def test_squash_warns_when_pushed(git, capsys):
     git._pushed = True
     assert run_squash(git=git, count=3, yes=True) == 0
     assert "already pushed" in capsys.readouterr().out
+
+
+def test_squash_restores_head_when_commit_fails(git, capsys):
+    """Regression (C-04): a failed commit after the soft reset used to leave
+    HEAD mid-reset, with the folds staged and no way to recover visually. It
+    must reset --soft back to the original tip (non-destructive) and re-raise
+    instead of pretending success."""
+    git.commit_error = GitError("commit failed", command="git commit", stderr="hook rejected")
+    with pytest.raises(GitError, match="commit failed"):
+        run_squash(git=git, count=3, yes=True)
+    assert git.reset_targets == ["HEAD~3", "tip123"]
+    assert "HEAD restored" in capsys.readouterr().out
+    assert git.commit_messages == []
+
+
+def test_squash_entire_history_restores_head_on_commit_failure(git, capsys):
+    """The HEAD-restore must work for squash-all too (reset target was the
+    root; the restore needs the original tip, not the root)."""
+    git._count = 2
+    git._depth = 1
+    git.commit_error = GitError("commit failed")
+    with pytest.raises(GitError):
+        run_squash(git=git, count=2, yes=True)
+    assert git.reset_targets == ["root123", "tip123"]
+    assert git.commit_messages == []
 
 
 # ---- confirmation gate ------------------------------------------------------

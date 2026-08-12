@@ -25,7 +25,7 @@ Status legend:
 | C-01 | github/gitlab | API_BASE hardcoded `https://api.github.com`; no env override, so no HTTP-downgrade path exists | FALSE-POSITIVE | |
 | C-02 | telemetry | non-HTTPS `RELAY_TELEMETRY_URL` was accepted and posted over HTTP / to internal hosts | FIXED | |
 | C-03 | | not reproducible in current code | FALSE-POSITIVE | |
-| C-04 | squash | if the commit after `reset --soft` failed, HEAD was left reset and the fold unrecoverable | FIXED | |
+| C-04 | squash | if the commit after `reset --soft` failed, HEAD was left reset and the fold unrecoverable | FIXED | this commit |
 | C-05 | team | on branch-create/commit failure the user was stranded on an orphan branch | FIXED | |
 | C-06 | git | `_run()` had no timeout, so `push`/`fetch`/`ls-remote` could hang forever | FIXED | |
 | H-01 | gemini | API key travels via `X-Goog-Api-Key`/`Authorization` header, not `?key=` | ALREADY-FIXED | |

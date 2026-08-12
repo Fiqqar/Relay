@@ -135,7 +135,23 @@ def run_squash(
     # amends the root commit so the fold leaves a single commit behind.
     reset_target = base if squash_all else f"HEAD~{count}"
     git.reset_soft(reset_target)
-    git.commit(final_message, amend=squash_all)
+    try:
+        git.commit(final_message, amend=squash_all)
+    except GitError:
+        # The reset already moved HEAD; a failed commit (e.g. a rejecting hook)
+        # must not leave the branch mid-reset. `git reset --soft <tip>` moves
+        # HEAD back without touching the working tree or the index, restoring
+        # the exact pre-squash state — everything stays staged, nothing is lost.
+        try:
+            git.reset_soft(tip)
+        except GitError:
+            pass
+        print(
+            "[relay] squash commit failed; HEAD restored to its original commit. "
+            "Inspect `git status` — your changes are still there (reflog: "
+            "`git reflog`)."
+        )
+        raise
     print(f"[relay] squashed {count} commits into one on '{branch}'")
     if git.is_ancestor(tip, f"origin/{branch}"):
         print(
