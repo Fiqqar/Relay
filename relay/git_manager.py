@@ -14,6 +14,12 @@ import subprocess
 
 from .errors import GitError
 
+# Commands that talk to a remote and must never hang the CLI forever. A local
+# git op that stalls (locks, hooks) still blocks, but a network command that
+# has lost its connection would otherwise wait on the OS default (indefinitely).
+_NETWORK_COMMANDS = frozenset({"push", "fetch", "ls-remote"})
+_NETWORK_TIMEOUT_SECONDS = 60.0
+
 
 def parse_remote(url: str) -> tuple[str, str, str]:
     """Parse an HTTPS or SSH remote URL into ``(host, namespace, repo)``.
@@ -89,22 +95,36 @@ class GitManager:
         *args: str,
         check: bool = True,
         input_text: str | None = None,
+        timeout: float | None = None,
     ) -> subprocess.CompletedProcess:
         """Run a git command safely.
 
         Args are passed as a list (never a shell string) so filenames with
         spaces or special characters cannot be injected into the shell.
+        Network commands (push/fetch/ls-remote) get a hard timeout so an
+        unreachable or hung remote can never stall the workflow forever; a
+        timeout surfaces as GitError just like any other git failure.
         """
         cmd = ["git", *args]
         if self.verbose:
             print(f"[relay] $ {' '.join(cmd)}")
-        proc = subprocess.run(
-            cmd,
-            cwd=self.cwd,
-            capture_output=True,
-            text=True,
-            input=input_text,
-        )
+        if timeout is None and args and args[0] in _NETWORK_COMMANDS:
+            timeout = _NETWORK_TIMEOUT_SECONDS
+        kwargs: dict = {
+            "cwd": self.cwd,
+            "capture_output": True,
+            "text": True,
+            "input": input_text,
+        }
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        try:
+            proc = subprocess.run(cmd, **kwargs)
+        except subprocess.TimeoutExpired as exc:
+            raise GitError(
+                f"git command timed out after {timeout:.0f}s",
+                command=" ".join(cmd),
+            ) from exc
         if check and proc.returncode != 0:
             raise GitError(
                 f"git command failed (exit {proc.returncode})",

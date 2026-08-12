@@ -4,6 +4,7 @@ subprocess.run is mocked on EVERY test so no real git commands are ever
 executed — the suite is fully hermetic and safe to run on a machine that may
 not even have git installed.
 """
+import subprocess
 from unittest import mock
 
 import pytest
@@ -40,6 +41,35 @@ class TestRun:
         assert "exit 128" in str(exc_info.value)
         assert exc_info.value.stderr == "fatal: not a git repository"
         assert exc_info.value.command == "git rev-parse"
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_network_command_gets_a_timeout(self, mock_run, git, make_proc):
+        """push/fetch/ls-remote must carry a hard timeout so an unreachable
+        remote cannot hang the workflow forever (C-06)."""
+        mock_run.return_value = make_proc()
+        git.push("main")
+        assert mock_run.call_args.kwargs["timeout"] == pytest.approx(60.0)
+
+        git.fetch("origin", "main")
+        assert mock_run.call_args.kwargs["timeout"] == pytest.approx(60.0)
+
+        git.remote_has_branch("feat/x")
+        assert mock_run.call_args.kwargs["timeout"] == pytest.approx(60.0)
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_local_command_has_no_timeout_kwarg(self, mock_run, git, make_proc):
+        """Local commands keep the exact previous call shape (no timeout)."""
+        mock_run.return_value = make_proc(stdout="true")
+        git.is_repo()
+        assert "timeout" not in mock_run.call_args.kwargs
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_timeout_raises_git_error(self, mock_run, git, make_proc):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["git", "push"], timeout=60)
+        with pytest.raises(GitError) as exc_info:
+            git.push("main")
+        assert "timed out after 60" in str(exc_info.value)
+        assert exc_info.value.command == "git push origin main"
 
 
 class TestPreflightHelpers:
