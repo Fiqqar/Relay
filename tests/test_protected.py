@@ -136,6 +136,29 @@ def test_solo_mode_keeps_committing_to_any_branch(git):
     git.commit.assert_called_once()  # on "main" — solo convention preserved
 
 
+def test_team_mode_on_protected_branch_prompts_for_feature(git):
+    """L-10: running --team straight from main/master must not inherit
+    'main'/'master' as the feature name (which would then be refused as a
+    protected branch). Ask the developer for a real feature name instead."""
+    git.current_branch.return_value = "main"
+    ai = StubAI()
+    with mock.patch("builtins.input", side_effect=["a", "payments"]):
+        code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("feat/payments")
+    git.commit.assert_called_once()
+
+
+def test_team_mode_from_feature_branch_still_inherits_feature_name(git):
+    """A non-protected current branch keeps inheriting its feature name."""
+    git.current_branch.return_value = "feat/payments"
+    ai = StubAI()
+    with mock.patch("builtins.input", return_value="a"):
+        code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    git.create_branch.assert_called_once_with("feat/payments")
+
+
 def test_non_protected_team_branch_is_untouched(git):
     ai = StubAI()
     with mock.patch("builtins.input", return_value="a"):

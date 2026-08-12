@@ -313,11 +313,16 @@ class Orchestrator:
         The branch prefix is the Conventional Commit type extracted from the
         (already confirmed) message — ``feat(auth): ...`` -> ``feat/...`` —
         falling back to ``feat/...`` when the message has no valid type.
+
+        The current branch only counts when it is not itself a protected
+        (default) branch: on ``main``/``master`` there is no feature name to
+        inherit, so the developer is asked instead (L-10).
         """
         feature = self.feature
         if not feature:
             current = self.git.current_branch()
-            feature = current.split("/")[-1] if current else None
+            if current and not is_protected(current, self.protected_branches):
+                feature = current.split("/")[-1]
             if not feature:
                 feature = self._prompt_feature_name()
         commit_type = extract_commit_type(message) or "feat"

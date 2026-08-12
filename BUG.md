@@ -71,7 +71,7 @@ Status legend:
 | L-07 | | negligible polish | DEPRIORITIZE | |
 | L-08 | undo | already fixed in v0.5.6 (`commit_count <= 1` guard) | ALREADY-FIXED | |
 | L-09 | prompt | `interpret_choice()` already maps E->edit and R->retry via `.lower()` | ALREADY-FIXED | |
-| L-10 | team | on a protected/default branch the feature name was derived from `main`/`master` | FIXED | |
+| L-10 | team | on a protected/default branch the feature name was derived from `main`/`master` | FIXED | this commit |
 | L-11 | | already handled in current code | ALREADY-FIXED | |
 | L-12 | | negligible polish | DEPRIORITIZE | |
 | L-13 | | negligible polish | DEPRIORITIZE | |
