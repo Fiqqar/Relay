@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.4` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.5` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.4` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.4`)
+## Shipped history (`0.1.0` → `0.5.5`)
 
 ### v0.1.0 — MVP
 
@@ -180,6 +180,26 @@ fails if any shell drops one. ✅
 
 **Exit:** AI-failure paths never abort a squash; parser edge cases tested;
 suite green (525 tests) with no environment-dependent tests. ✅
+
+### v0.5.5 — Patch (project hygiene + CI hardening)
+
+- [x] **Project governance files** — `LICENSE` (MIT, matching the declared
+      license), `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, and
+      `CHANGELOG.md` (Keep a Changelog, dates verified against `git log`).
+- [x] **CI coverage gate** — `pytest --cov` with an 85% branch-coverage floor
+      (`[tool.coverage]` in `pyproject.toml`, `pytest-cov` added to dev extras).
+- [x] **Static analysis + type checking in CI** — `ruff check .` and
+      `mypy relay` run on every commit (`ruff`/`mypy` added to dev extras).
+- [x] **Type-safety + lint fixes** — mypy/ruff flagged real bugs: a possible
+      `None` `api_key` dereference in the Gemini/Anthropic providers, a
+      mistyped GitLab MR payload, an unused variable, and a duplicated test;
+      all fixed with the suite still green (525 tests).
+- [x] **E2E in CI** — `e2e_test.sh` (Linux) and `e2e_test.ps1` (Windows) run on
+      every commit; the scripts were also fixed (manual-input stdin now
+      terminates with a blank line instead of crashing on EOF).
+
+**Exit:** repo ships full governance docs; CI enforces coverage, lint, types,
+and the e2e fallback flow on all platforms. ✅
 
 ---
 
