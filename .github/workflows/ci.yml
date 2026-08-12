@@ -27,8 +27,8 @@ jobs:
       - name: Install dependencies (editable + dev extras)
         run: pip install -e ".[dev]"
 
-      - name: Run the test suite
-        run: pytest -q
+      - name: Run the test suite with the coverage gate
+        run: pytest -q --cov --cov-report=term
 
       - name: Smoke test the CLI entry point
         run: relay --version
