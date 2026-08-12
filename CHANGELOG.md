@@ -5,6 +5,10 @@ All notable changes to Relay are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note:** Release tags exist from `v0.3.0` onward; `v0.1.0` and `v0.2.0`
+> shipped before the tag workflow existed, so their dates below are the date
+> of the last commit in each era (from `git log`), not a tag date.
+
 ## [Unreleased]
 
 ### Added
@@ -14,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Static analysis (`ruff`) and type checking (`mypy`) jobs in CI.
 - E2E scripts (`e2e_test.sh` / `e2e_test.ps1`) wired into CI.
 
-## [0.5.4] - 2026-08-12
+## [0.5.4] - 2026-08-11
 
 ### Fixed
 - `relay squash` no longer aborts the whole fold when the AI is offline,
@@ -33,14 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test suite made hermetic: no environment-dependent tests, `api_error`
   HTTP/retry branches now covered (525 tests green).
 
-## [0.5.3] - 2026-07-29
+## [0.5.3] - 2026-08-11
 
 ### Fixed
 - Fish completion dropped 3 subcommands (`stage`, `man`, `telemetry`); it now
   generates subcommand lines from the `SUBCOMMANDS` source of truth and the
   test asserts every shell advertises every subcommand.
 
-## [0.5.2] - 2026-07-22
+## [0.5.2] - 2026-08-11
 
 ### Fixed
 - `relay squash` fed the AI the wrong diff (the current index instead of the
@@ -48,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GitManager.diff_range` / `stat_range`, with regression tests asserting the
   staging area is never touched.
 
-## [0.5.1] - 2026-07-15
+## [0.5.1] - 2026-08-11
 
 ### Fixed
 - `--yes` decoupled from protected-branch safety — it now only skips the
@@ -62,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `RELEASE.md` step 1b now requires re-pointing so a release can never
   silently ship stale package channels.
 
-## [0.5.0] - 2026-07-08
+## [0.5.0] - 2026-08-11
 
 ### Added
 - Team-mode default-branch safety: `relay team` refuses to commit to a
@@ -77,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New README Security section: env-only secrets, no shell injection surface,
   opt-in telemetry, checksum verification for production installs.
 
-## [0.4.1] - 2026-06-18
+## [0.4.1] - 2026-08-09
 
 ### Fixed
 - `relay man` rendered troff escapes as form-feed bytes (`\x0c`); now a raw
@@ -85,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Homebrew install docs — Homebrew ≥6 rejects raw-URL formulas; README +
   formula comment fixed to tap-by-URL.
 
-## [0.4.0] - 2026-06-11
+## [0.4.0] - 2026-08-09
 
 ### Added
 - Shell completions: bash / zsh / fish / PowerShell (`relay completions`).
@@ -98,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitLab MR support (`gitlab.com` + self-hosted, `GITLAB_TOKEN`).
 - `relay doctor` checks all 4 providers + forge tokens.
 
-## [0.3.0] - 2026-05-27
+## [0.3.0] - 2026-08-08
 
 ### Added
 - Release pipeline: sdist + wheel builds published to GitHub Releases on `v*`
@@ -108,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version-consistency guard (`tests/test_version.py`).
 - Release runbook (`RELEASE.md`).
 
-## [0.2.0] - 2026-05-10
+## [0.2.0] - 2026-08-08
 
 ### Added
 - Gemini provider + env-var config (`GEMINI_API_KEY`, never logged).
@@ -123,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TOML config file (internal parser, no runtime deps).
 - CI + pytest suite (3 OS × 3 Python versions).
 
-## [0.1.0] - 2026-04-22
+## [0.1.0] - 2026-08-03
 
 ### Added
 - `relay` CLI with `--solo` and `--team [FEATURE]` modes.
