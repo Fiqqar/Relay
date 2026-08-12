@@ -4,6 +4,8 @@ The core contract under test: nothing is ever sent (and no thread even starts)
 unless the user explicitly opted in. The rest is the fire-and-forget payload
 shape, which is asserted through a fake thread target.
 """
+import json
+import urllib.error
 from unittest import mock
 
 import pytest
@@ -117,6 +119,40 @@ class TestReport:
         with mock.patch("urllib.request.urlopen") as urlopen:
             telemetry._send_payload({"event": "relay_run", "ok": True})
         urlopen.assert_not_called()
+
+
+class TestStateFile:
+    def test_state_file_falls_back_to_home_dir(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.delenv("APPDATA", raising=False)
+        with mock.patch("relay.telemetry.Path.home", return_value=tmp_path):
+            assert telemetry._state_file() == tmp_path / ".config" / "relay" / "telemetry"
+
+
+class TestSendPayload:
+    def test_posts_json_payload_over_https(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
+        with mock.patch("urllib.request.urlopen") as urlopen:
+            telemetry._send_payload({"event": "relay_run", "ok": True, "mode": "solo"})
+        urlopen.assert_called_once()
+        request = urlopen.call_args.args[0]
+        assert request.full_url == "https://t.example/collect"
+        assert request.method == "POST"
+        assert urlopen.call_args.kwargs["timeout"] == 3
+        assert json.loads(request.data) == {"event": "relay_run", "ok": True, "mode": "solo"}
+
+    def test_swallows_network_failure(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
+        with mock.patch("urllib.request.urlopen", side_effect=RuntimeError("unreachable")):
+            telemetry._send_payload({"event": "relay_run", "ok": True})  # never raises
+
+    def test_swallows_http_error(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError("https://t.example", 500, "boom", {}, None),
+        ):
+            telemetry._send_payload({"event": "relay_run", "ok": True})  # never raises
 
 
 def test_parser_telemetry_defaults_status():
