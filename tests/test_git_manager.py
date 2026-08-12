@@ -315,6 +315,12 @@ class TestParseRemoteUrl:
         assert parsed_host == host
         assert (owner, repo) == owner_repo
 
+    def test_parse_remote_with_empty_host_raises(self):
+        """A URL-style remote with an empty host (``https://`` followed
+        straight by the path) must be rejected, not silently misparsed."""
+        with pytest.raises(ValueError, match="cannot extract host"):
+            parse_remote("https:///owner/repo.git")
+
 
 class TestRemoteHelpers:
     @mock.patch("relay.git_manager.subprocess.run")
