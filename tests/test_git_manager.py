@@ -364,3 +364,62 @@ class TestVerbose:
         GitManager(cwd=None, verbose=True).stage_all()
         captured = capsys.readouterr()
         assert "$ git add ." in captured.out
+
+
+class TestStagingEdgePaths:
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_stage_files_with_no_paths_is_a_noop(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.stage_files()
+        mock_run.assert_not_called()
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_stage_files_uses_guard_before_paths(self, mock_run, git, make_proc):
+        """Paths must be handed verbatim after ``--`` so shell-special filenames
+        (leading dashes, spaces) can never be misread as flags."""
+        mock_run.return_value = make_proc()
+        git.stage_files("app.py", "-config.txt")
+        assert mock_run.call_args.args[0] == ["git", "add", "--", "app.py", "-config.txt"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstage_with_no_paths_is_a_noop(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.unstage()
+        mock_run.assert_not_called()
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstage_with_paths(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.unstage("app.py")
+        assert mock_run.call_args.args[0] == ["git", "reset", "--", "app.py"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstaged_changes_includes_untracked(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="?? new.txt\n")
+        assert git.unstaged_changes() == ["new.txt"]
+        assert mock_run.call_args.args[0] == ["git", "status", "--porcelain"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstaged_changes_includes_worktree_modified(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout=" M app.py\n")
+        assert git.unstaged_changes() == ["app.py"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstaged_changes_excludes_staged_only(self, mock_run, git, make_proc):
+        """A file whose change lives only in the index (``M  ``) is already
+        staged, so the interactive picker must not offer it again."""
+        mock_run.return_value = make_proc(stdout="M  staged.py\nA  added.py\n")
+        assert git.unstaged_changes() == []
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstaged_changes_mixed_porcelain(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="?? new.txt\n M app.py\nM  staged.py\n")
+        assert git.unstaged_changes() == ["new.txt", "app.py"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_add_interactive_invokes_git_add_p(self, mock_run, git, make_proc):
+        """Patch mode inherits the real terminal (no capture_output), so the
+        only assertable contract is the argv list and the working directory."""
+        mock_run.return_value = make_proc()
+        git.add_interactive()
+        mock_run.assert_called_once_with(["git", "add", "-p"], cwd="/fake/repo")
