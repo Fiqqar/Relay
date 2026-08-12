@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-08-12
+
+### Fixed
+- `relay squash` no longer silently folds unrelated pre-staged files into the
+  new commit (`reset --soft` kept the index as-is, so anything staged before
+  the squash leaked in); it now refuses up front with `git reset -- <path>` in
+  the message.
+- `relay squash --count N` now works when `N` equals the total history —
+  previously `HEAD~N` pointed past the root commit and the fold failed with
+  "not enough history"; the whole branch now folds into a single root-amended
+  commit.
+- `relay undo` on a repository with exactly one commit now gives a clear,
+  actionable error instead of leaking git's raw `fatal: unknown revision`.
+- The `relay squash` "not enough history" message now reports the real commit
+  count (the old one referenced a non-existent `commit_count()` helper).
+
+### Added
+- `docs/WORKING_RULES.md` — the mandatory rules document for contributors and
+  AI agents (one logical change per commit, coverage gate before push, zero
+  runtime deps, no mass reformatting). Root `AGENTS.md` points agents at it,
+  and `CONTRIBUTING.md` links it as the starting point.
+
 ## [0.5.5] - 2026-08-12
 
 ### Added
