@@ -423,3 +423,84 @@ class TestStagingEdgePaths:
         mock_run.return_value = make_proc()
         git.add_interactive()
         mock_run.assert_called_once_with(["git", "add", "-p"], cwd="/fake/repo")
+
+
+class TestUndoAndSquashGuards:
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_has_commits_true_when_head_resolves(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=0, stdout="abc1234\n")
+        assert git.has_commits() is True
+        assert mock_run.call_args.args[0] == ["git", "rev-parse", "--verify", "HEAD"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_has_commits_false_when_repo_empty(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: Needed a single revision")
+        assert git.has_commits() is False
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_count_returns_number(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="42\n")
+        assert git.commit_count() == 42
+        assert mock_run.call_args.args[0] == ["git", "rev-list", "--count", "HEAD"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_count_zero_when_repo_empty(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: bad default revision")
+        assert git.commit_count() == 0
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_root_commit_returns_sha(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b\n")
+        assert git.root_commit() == "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_root_commit_empty_when_git_fails(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal")
+        assert git.root_commit() == ""
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_root_commit_empty_when_no_output(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=0, stdout="")
+        assert git.root_commit() == ""
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_rev_parse_returns_full_sha(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="abc1234\n")
+        assert git.rev_parse("HEAD") == "abc1234"
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_rev_parse_empty_when_ref_missing(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: ambiguous argument")
+        assert git.rev_parse("nope") == ""
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_has_staged_changes_true(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="app.py\n")
+        assert git.has_staged_changes() is True
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_has_staged_changes_false_when_index_matches_head(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="")
+        assert git.has_staged_changes() is False
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_is_ancestor_true(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=0)
+        assert git.is_ancestor("base", "tip") is True
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_is_ancestor_false(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=1)
+        assert git.is_ancestor("tip", "base") is False
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_reset_soft_defaults_to_head_parent(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.reset_soft()
+        assert mock_run.call_args.args[0] == ["git", "reset", "--soft", "HEAD~1"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_reset_soft_custom_target(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.reset_soft("HEAD~3")
+        assert mock_run.call_args.args[0] == ["git", "reset", "--soft", "HEAD~3"]
