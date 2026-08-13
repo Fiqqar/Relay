@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.6` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.7` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.6` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.6`)
+## Shipped history (`0.1.0` → `0.5.7`)
 
 ### v0.1.0 — MVP
 
@@ -217,6 +217,36 @@ and the e2e fallback flow on all platforms. ✅
 
 **Exit:** dirty-index squash and single-commit undo give actionable errors; the
 working rules are the documented gate for all contributors. ✅
+
+### v0.5.7 — Patch (post-release audit fixes)
+
+- [x] **Team orphan-branch rollback** — on commit failure after the feature
+      branch was created, Relay checks out the original branch and deletes the
+      empty orphan instead of stranding the user (C-05).
+- [x] **Squash HEAD restore** — if the fold commit fails, HEAD is soft-reset
+      back to the original tip so nothing is lost mid-reset (C-04).
+- [x] **Network git timeout** — `push`/`fetch`/`ls-remote` now time out after
+      60s instead of hanging forever on an unreachable remote (C-06).
+- [x] **AI response cap** — all four providers reject bodies over 1 MiB as
+      `bad_response` instead of parsing them (H-02).
+- [x] **Manual-input fallback hardening** — a missing API key (H-14), a
+      binary-only staged diff (H-12), and a detached HEAD (H-13) all degrade
+      to safe manual/skipped paths instead of aborting or pushing an empty ref.
+- [x] **Config parsing fixes** — parsed once per file state (H-08), malformed
+      files warn once (L-15), invalid env values warn (M-11), `max_diff_lines`
+      clamps to a positive floor (M-02).
+- [x] **Case-insensitive protected branches** — `Main` can no longer bypass a
+      rule written for `main` (M-14); team mode on a protected branch prompts
+      for a real feature name (L-10).
+- [x] **Telemetry https-only** — non-HTTPS `RELAY_TELEMETRY_URL` is rejected
+      with a warning (C-02); forge HTTP error bodies are read with a 10 KiB cap.
+- [x] **Docs hygiene** — `BUG.md` dropped (all triaged issues resolved),
+      `WORKING_RULES.md` + `AGENTS.md` translated to English.
+- [x] **Test suite expanded to 638 tests (~96% branch coverage)** covering the
+      fallback/error paths above.
+
+**Exit:** every post-0.5.6 triaged issue is fixed and covered; suite green at
+96% branch coverage with no environment-dependent tests. ✅
 
 ---
 
