@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.7` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.8` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.7` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.7`)
+## Shipped history (`0.1.0` → `0.5.8`)
 
 ### v0.1.0 — MVP
 
@@ -247,6 +247,18 @@ working rules are the documented gate for all contributors. ✅
 
 **Exit:** every post-0.5.6 triaged issue is fixed and covered; suite green at
 96% branch coverage with no environment-dependent tests. ✅
+
+### v0.5.8 — Patch (cross-platform decode crash)
+
+- [x] **Subprocess decode crash** — `git` output containing bytes the locale
+      codec (cp1252 on Windows) cannot decode used to kill subprocess's reader
+      thread, leaving `stdout`/`stderr` as `None` and crashing `relay --solo`
+      with `'NoneType' object has no attribute 'strip'` (e.g. Unity repos with
+      binary-ish diffs). Git output is now decoded as UTF-8 with
+      `errors="replace"`, so stdout is always a `str` (C-17).
+
+**Exit:** `relay` runs end-to-end in repos whose diffs hold non-cp1252 bytes;
+the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 
 ---
 
