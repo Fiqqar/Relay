@@ -108,10 +108,17 @@ class GitManager:
             print(f"[relay] $ {' '.join(cmd)}")
         if timeout is None and args and args[0] in _NETWORK_COMMANDS:
             timeout = _NETWORK_TIMEOUT_SECONDS
+        # git on Windows emits UTF-8, but a repo holding bytes the locale
+        # codec (cp1252) cannot decode would otherwise kill subprocess's reader
+        # thread with UnicodeDecodeError, leaving stdout/stderr as None and
+        # crashing every `.strip()` downstream. utf-8 + errors=replace turns
+        # any byte sequence into a str no matter what git emits.
         kwargs: dict = {
             "cwd": self.cwd,
             "capture_output": True,
             "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
             "input": input_text,
         }
         if timeout is not None:

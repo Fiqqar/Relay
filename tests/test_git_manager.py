@@ -28,8 +28,34 @@ class TestRun:
             cwd="/fake/repo",
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             input=None,
         )
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_invalid_bytes_never_yield_none_stdout(self, mock_run, git):
+        """C-17: git output the locale codec (cp1252 on Windows) cannot decode
+        must not crash. `subprocess.run` with text=True and no encoding lets a
+        UnicodeDecodeError kill the reader thread, after which stdout/stderr
+        come back as None and `proc.stdout.strip()` raises AttributeError. The
+        explicit utf-8 + errors=replace kwargs guarantee stdout is always str.
+        """
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=None, stderr=None
+        )
+        git._run("diff", "--cached", "--unified=0")
+        assert mock_run.call_args.kwargs["encoding"] == "utf-8"
+        assert mock_run.call_args.kwargs["errors"] == "replace"
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_non_utf8_bytes_decode_to_replacement_char(self, mock_run, git):
+        """A byte sequence invalid in both cp1252 and utf-8 becomes U+FFFD in
+        the captured stdout instead of raising in the reader thread."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="\ufffd", stderr=""
+        )
+        assert git.staged_diff() == "\ufffd"
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_raises_git_error_on_nonzero_exit(self, mock_run, git, make_proc):
