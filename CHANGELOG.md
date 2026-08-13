@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-08-13
+
+### Fixed
+- `relay` on Windows no longer crashes with `'NoneType' object has no
+  attribute 'strip'` when a repo contains bytes the locale codec (cp1252)
+  cannot decode — git output is now read as UTF-8 with replacement, so a
+  binary-ish diff (e.g. in a Unity project) never kills subprocess's reader
+  thread and leaves `stdout` as `None`.
+
 ## [0.5.7] - 2026-08-13
 
 ### Fixed
@@ -215,7 +224,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.8...HEAD
+[0.5.8]: https://github.com/Fiqqar/Relay/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/Fiqqar/Relay/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/Fiqqar/Relay/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/Fiqqar/Relay/compare/v0.5.4...v0.5.5
