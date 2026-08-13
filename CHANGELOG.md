@@ -11,6 +11,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-08-13
+
+### Fixed
+- `relay team` no longer strands you on an orphan branch when the commit fails —
+  it checks out the original branch and deletes the empty feature branch
+  (best-effort; a cleanup failure prints a reflog hint instead of crashing).
+- `relay squash` restores `HEAD` if the fold commit fails, so the branch is
+  never left mid-reset with the fold unrecoverable.
+- Network git commands (`push`/`fetch`/`ls-remote`) now time out after 60s
+  instead of hanging the CLI forever on an unreachable remote.
+- AI provider responses are capped at 1 MiB — an oversized body is treated as
+  an unusable answer and falls back instead of being parsed (H-02).
+- `relay` on a machine without git on PATH reports a clear error instead of a
+  raw `FileNotFoundError` traceback (H-16).
+- A missing API key no longer aborts the run — the provider is built lazily
+  and solo/team degrade to manual input (H-14).
+- Binary-only staged diffs skip the AI entirely and go straight to manual
+  input instead of asking the AI to summarize content it cannot read (H-12).
+- Solo mode refuses to push on a detached HEAD, committing safely and telling
+  you how to turn the commit into a branch (H-13).
+- `relay squash --count N` now feeds the root commit's own changes to the AI
+  when folding the whole history, via the empty-tree diff base (H-11).
+- The config file is parsed at most once per (path, mtime, size) state instead
+  of re-opened on every config access (H-08).
+- Telemetry collection URLs are restricted to `https://` — a non-HTTPS or
+  local `RELAY_TELEMETRY_URL` is ignored with a warning (C-02).
+- Protected-branch matching is case-insensitive, so `Main` cannot bypass a
+  rule written for `main` (M-14).
+- `max_diff_lines` clamps to a positive floor of 1 line, so a bad config value
+  can no longer send the AI an empty prompt (M-02).
+- Invalid `RELAY_AI_TIMEOUT` / `RELAY_MAX_DIFF_LINES` env values now warn
+  instead of being silently ignored (M-11).
+- Forge HTTP error bodies (GitHub/GitLab) are read with a 10 KiB cap so a
+  huge error response can't be slurped into memory.
+- A malformed config file prints a one-time warning and falls back to defaults
+  instead of silently dropping the file (L-15).
+- `relay team` on a protected/default branch now prompts for a real feature
+  name instead of deriving it from `main`/`master` (L-10).
+
+### Changed
+- `BUG.md` removed — every triaged issue is resolved or marked false-positive.
+- `docs/WORKING_RULES.md` and `AGENTS.md` translated to English.
+- Test suite expanded to 638 tests (~96% branch coverage), covering the
+  error/fallback paths above.
+
 ## [0.5.6] - 2026-08-12
 
 ### Fixed
@@ -170,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/Fiqqar/Relay/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/Fiqqar/Relay/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/Fiqqar/Relay/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/Fiqqar/Relay/compare/v0.5.3...v0.5.4
