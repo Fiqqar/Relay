@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.5` are shipped and closed; `0.6.0`+ are planned.
+through `0.5.6` are shipped and closed; `0.6.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.5` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.5`)
+## Shipped history (`0.1.0` → `0.5.6`)
 
 ### v0.1.0 — MVP
 
@@ -200,6 +200,23 @@ suite green (525 tests) with no environment-dependent tests. ✅
 
 **Exit:** repo ships full governance docs; CI enforces coverage, lint, types,
 and the e2e fallback flow on all platforms. ✅
+
+### v0.5.6 — Patch (squash/undo robustness + working rules)
+
+- [x] **`relay squash` refuses a dirty index** — anything pre-staged before the
+      fold used to leak into the new commit (`reset --soft` keeps the index);
+      squash now fails up front with `git reset -- <path>` in the message.
+- [x] **`relay squash --count N` folds the whole history** — when `N` equals
+      the total commit count, `HEAD~N` used to point past the root commit and
+      fail with "not enough history"; the whole branch now folds into a single
+      root-amended commit.
+- [x] **`relay undo` on a single-commit repo** — now a clear, actionable error
+      instead of leaking git's raw `fatal: unknown revision`.
+- [x] **`docs/WORKING_RULES.md`** — the mandatory rules document for humans and
+      AI agents; `AGENTS.md` and `CONTRIBUTING.md` point to it.
+
+**Exit:** dirty-index squash and single-commit undo give actionable errors; the
+working rules are the documented gate for all contributors. ✅
 
 ---
 
