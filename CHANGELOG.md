@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > shipped before the tag workflow existed, so their dates below are the date
 > of the last commit in each era (from `git log`), not a tag date.
 
-## [Unreleased]
+## [0.6.0] - 2026-08-16
 
 ### Fixed
 - TOML parser no longer silently mis-parses: unterminated strings, unknown
