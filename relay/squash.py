@@ -80,7 +80,7 @@ def run_squash(
     if count < 2:
         raise GitError("squash needs at least 2 commits (--count N)")
     if not git.has_commits():
-        raise GitError("no commits to squash")
+        raise GitError("no commits to squash; create a commit first")
     # The index must be clean: ``reset --soft`` keeps it as-is, so anything
     # staged before the squash (unrelated files) would silently be folded into
     # the new commit. Refuse early, before any AI call or confirmation.
@@ -105,7 +105,7 @@ def run_squash(
         else:
             raise GitError(
                 f"not enough history to squash {count} commit(s); "
-                f"only {total} on HEAD"
+                f"only {total} on HEAD (try --count {total})"
             )
 
     subjects = git.log_between(base, tip)

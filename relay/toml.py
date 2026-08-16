@@ -16,7 +16,9 @@ file actually needs:
 plus full-line ``#`` comments, quoted keys, dotted keys, and inline tables.
 ``[[array of tables]]`` and multi-line strings are intentionally unsupported —
 the config layer never produces them, so an explicit error beats a silent
-misparse.
+misparse. The parser is strict about everything it *does* accept: unterminated
+strings, unknown escapes, duplicate keys, and scalar/table redefinitions all
+raise instead of silently mis-parsing or dropping data.
 """
 from __future__ import annotations
 
@@ -43,7 +45,7 @@ def parse(text: str) -> dict:
     """Parse TOML-subset text into nested dicts. Raises ValueError on bad input."""
     root: dict = {}
     current = root
-    path: tuple[str, ...] = ()
+    declared_tables: set[tuple[str, ...]] = set()
 
     for lineno, raw in enumerate(text.splitlines(), 1):
         line = _strip_comment(raw).strip()
@@ -58,7 +60,12 @@ def parse(text: str) -> dict:
                 if not line.endswith("]"):
                     raise ValueError(f"unclosed table header: {line!r}")
                 path = tuple(_split_dotted(line[1:-1]))
-                current = _node_at(root, path, create=True)
+                if path in declared_tables:
+                    raise ValueError(
+                        f"table {'.'.join(path)!r} is declared more than once"
+                    )
+                declared_tables.add(path)
+                current = _table_at(root, path)
                 continue
             key_raw, value_raw = _split_kv(line)
             keys = tuple(_split_dotted(key_raw))
@@ -153,9 +160,11 @@ def _split_kv(line: str) -> tuple[str, str]:
 
 def _parse_value(raw: str):
     value = raw.strip()
-    if value.lower() == "true":
+    # TOML booleans are exactly ``true``/``false``; ``True``/``FALSE`` are
+    # invalid and must not be silently accepted as a lenient convenience.
+    if value == "true":
         return True
-    if value.lower() == "false":
+    if value == "false":
         return False
     if value.startswith("["):
         return _parse_array(value)
@@ -166,6 +175,9 @@ def _parse_value(raw: str):
     if re.fullmatch(r"[+-]?\d+", value):
         return int(value)
     if re.fullmatch(r"[+-]?\d+\.\d+([eE][+-]?\d+)?", value):
+        return float(value)
+    # ``1e5`` is a valid TOML float (exponent without a decimal point).
+    if re.fullmatch(r"[+-]?\d+[eE][+-]?\d+", value):
         return float(value)
     raise ValueError(f"unsupported value: {value!r}")
 
@@ -221,6 +233,15 @@ def _split_items(raw: str) -> list[str]:
 
 
 def _parse_string(raw: str) -> str:
+    """Parse a basic (``"``) or literal (``'``) single-line string.
+
+    Strict by design: unterminated strings, trailing backslashes, and unknown
+    escape sequences raise instead of silently mis-parsing (the old code
+    turned an unterminated ``"abc`` into ``abc`` and kept an invalid ``\\q``
+    as a literal backslash).
+    """
+    if len(raw) < 2 or raw[0] not in ("'", '"') or raw[-1] != raw[0]:
+        raise ValueError(f"unterminated string: {raw!r}")
     quote = raw[0]
     body = raw[1:-1]
     if quote == "'":
@@ -229,22 +250,29 @@ def _parse_string(raw: str) -> str:
     i = 0
     while i < len(body):
         ch = body[i]
-        if ch == "\\" and i + 1 < len(body):
+        if ch == "\\":
+            if i + 1 >= len(body):
+                raise ValueError("string ends with an unescaped backslash")
             nxt = body[i + 1]
             if nxt in _ESCAPES:
                 out.append(_ESCAPES[nxt])
                 i += 2
                 continue
-            if nxt == "u" and i + 5 < len(body):
-                try:
-                    out.append(chr(int(body[i + 2 : i + 6], 16)))
+            if nxt == "u":
+                digits = body[i + 2 : i + 6]
+                if len(digits) == 4 and re.fullmatch(r"[0-9a-fA-F]{4}", digits):
+                    out.append(chr(int(digits, 16)))
                     i += 6
                     continue
-                except ValueError:
-                    pass
-            out.append("\\")
-            i += 1
-            continue
+                raise ValueError(f"invalid \\u escape: {body[i : i + 6]!r}")
+            if nxt == "U":
+                digits = body[i + 2 : i + 10]
+                if len(digits) == 8 and re.fullmatch(r"[0-9a-fA-F]{8}", digits):
+                    out.append(chr(int(digits, 16)))
+                    i += 10
+                    continue
+                raise ValueError(f"invalid \\U escape: {body[i : i + 10]!r}")
+            raise ValueError(f"invalid escape sequence: \\{nxt}")
         out.append(ch)
         i += 1
     return "".join(out)
@@ -259,30 +287,46 @@ def _parse_array(raw: str) -> list:
     return [_parse_value(item) for item in _split_items(inner) if item]
 
 
-def _node_at(root: dict, path: tuple[str, ...], *, create: bool) -> dict:
-    """Reach/fetch a nested dict; ``create=True`` builds missing tables."""
+def _table_at(root: dict, path: tuple[str, ...]) -> dict:
+    """Reach (or create) the table at ``path``; raise on a conflicting value.
+
+    Only *explicitly* declared headers are tracked by the caller, so an
+    implicitly created parent (``[a.b]`` implies ``a``) can still be declared
+    later — TOML allows that. But redefining a scalar as a table (``a = 1``
+    then ``[a]``) is a data-loss bug and must fail loudly.
+    """
     node = root
     for part in path:
-        child = node.get(part) if isinstance(node, dict) else None
+        child = node.get(part)
         if isinstance(child, dict):
             node = child
-        elif create:
+        elif child is None:
             new: dict = {}
             node[part] = new
             node = new
         else:
-            return {}
+            raise ValueError(f"cannot redefine key {part!r} as a table")
     return node
 
 
 def _set_node(table: dict, keys: tuple[str, ...], value) -> None:
-    if len(keys) == 1:
-        table[keys[0]] = value
-        return
+    """Assign ``value`` at ``keys`` (dotted keys are relative to ``table``).
+
+    Raises on duplicate keys and on redefining an existing value as a table.
+    The old behavior silently overwrote both — a scalar replaced by a table
+    (or vice versa) dropped real data without any error.
+    """
     for key in keys[:-1]:
         child = table.get(key)
-        if not isinstance(child, dict):
-            child = {}
-            table[key] = child
-        table = child
-    table[keys[-1]] = value
+        if isinstance(child, dict):
+            table = child
+        elif child is None:
+            new: dict = {}
+            table[key] = new
+            table = new
+        else:
+            raise ValueError(f"cannot redefine key {key!r} as a table")
+    last = keys[-1]
+    if last in table:
+        raise ValueError(f"duplicate key: {last!r}")
+    table[last] = value

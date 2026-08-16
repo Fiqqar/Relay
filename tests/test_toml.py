@@ -169,3 +169,98 @@ def test_error_reports_line_number():
     with pytest.raises(ValueError) as exc:
         toml.parse("ok = 1\nbad line\n")
     assert "line 2" in str(exc.value)
+
+
+# ---- Strictness: silent mis-parses must fail loudly --------------------------
+
+
+def test_unterminated_basic_string_raises():
+    with pytest.raises(ValueError, match="unterminated string"):
+        toml.parse('key = "abc')
+
+
+def test_lone_quote_value_raises():
+    with pytest.raises(ValueError, match="unterminated string"):
+        toml.parse('key = "')
+
+
+def test_unterminated_literal_string_raises():
+    with pytest.raises(ValueError, match="unterminated string"):
+        toml.parse("key = 'abc")
+
+
+def test_newline_inside_basic_string_raises():
+    """Multi-line strings are unsupported, so a raw newline inside a basic
+    string must error (the line-by-line scanner would otherwise mis-parse)."""
+    with pytest.raises(ValueError, match="unterminated string"):
+        toml.parse('key = "a\nb"')
+
+
+def test_unknown_escape_sequence_raises():
+    with pytest.raises(ValueError, match="invalid escape sequence"):
+        toml.parse(r'key = "a\qb"')
+
+
+def test_invalid_unicode_escape_raises():
+    with pytest.raises(ValueError, match=r"invalid \\u escape"):
+        toml.parse(r'key = "\uZZZZ"')
+
+
+def test_trailing_backslash_raises():
+    with pytest.raises(ValueError, match="backslash"):
+        toml.parse(r'key = "abc\"')
+
+
+def test_unicode_escapes_are_supported():
+    assert toml.parse(r'key = "\u00e9 \U0001f600"') == {"key": "é 😀"}
+
+
+def test_escaped_backslash_before_quote_still_works():
+    """An even run of backslashes must still close the string: ``a\\\"``
+    (escaped backslash + closing quote) parses, with the trailing comment
+    properly stripped."""
+    assert toml.parse(r'key = "a\\\\" # comment') == {"key": "a\\\\"}
+
+
+def test_scalar_redefined_as_table_raises():
+    with pytest.raises(ValueError, match="redefine"):
+        toml.parse("a = 1\n[a]\n")
+
+
+def test_dotted_key_over_scalar_raises():
+    with pytest.raises(ValueError, match="redefine"):
+        toml.parse("a = 5\na.b = 1\n")
+
+
+def test_duplicate_key_raises():
+    with pytest.raises(ValueError, match="duplicate key"):
+        toml.parse("a = 1\na = 2\n")
+
+
+def test_duplicate_key_in_inline_table_raises():
+    with pytest.raises(ValueError, match="duplicate key"):
+        toml.parse('x = { a = 1, a = 2 }')
+
+
+def test_repeated_table_header_raises():
+    with pytest.raises(ValueError, match="more than once"):
+        toml.parse("[a]\nx = 1\n[a]\ny = 2\n")
+
+
+def test_parent_table_declared_after_child_is_allowed():
+    """TOML allows declaring a table after its implicitly-created parent."""
+    assert toml.parse("[a.b]\nx = 1\n[a]\ny = 2\n") == {
+        "a": {"b": {"x": 1}, "y": 2}
+    }
+
+
+def test_booleans_are_case_sensitive():
+    with pytest.raises(ValueError, match="unsupported value"):
+        toml.parse("a = True")
+    with pytest.raises(ValueError, match="unsupported value"):
+        toml.parse("a = FALSE")
+
+
+def test_exponent_float_without_decimal_point():
+    assert toml.parse("a = 1e5") == {"a": 100000.0}
+    assert toml.parse("a = -2.5E-3") == {"a": -0.0025}

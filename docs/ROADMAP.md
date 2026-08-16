@@ -267,40 +267,65 @@ the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 ### v0.6.0 — Distribution polish
 
 - [ ] Submit `relay.json` to `ScoopInstaller/Extras`
-- [ ] Publish Homebrew **tap repo** (`homebrew-Relay`) so `brew tap Fiqqar/relay`
-      works without an explicit URL
-- [ ] Auto-update `checkver`/`autoupdate` verified on fresh machines
-- [ ] `relay --version` smoke test on verified install paths in CI matrix
-- [ ] Docs: single-line install instructions for each supported platform
+- [ ] Publish a Homebrew **tap repo** (`homebrew-Relay`) so
+      `brew tap Fiqqar/relay` works without an explicit URL
+- [ ] Auto-update (`checkver` / `autoupdate`) verified on fresh machines
+- [ ] `relay --version` smoke test on every verified install path in CI
+- [ ] Docs: single-line install instructions per supported platform
 
-**Exit:** clean one-liner installs for Windows / macOS / Linux via the resubmitted
-storefronts (`scoop install extras/relay`, `brew install Fiqqar/relay/relay`).
+**Exit:** `scoop install extras/relay` and `brew install Fiqqar/relay/relay`
+work on a fresh machine with no manual version bump anywhere.
 
 ### v0.7.0 — Provider & forge breadth
 
-- [ ] Additional providers (Mistral, Groq, xAI) — add a class in `relay/ai/` +
-      register in `_PROVIDERS`
-- [ ] Bitbucket client for `relay pr` (pattern: new client + routing in `pr.py`)
-- [ ] Provider per-command override already present (`--provider`); add per-mode
-      default in config maybe (`[ai] default = "ollama"`)
-- [ ] Doc: provider matrix (keys, base URLs, compat notes) in README/ARCHITECTURE
+- [ ] Additional providers (Mistral, Groq, xAI): one class in `relay/ai/` +
+      registration in `_PROVIDERS`
+- [ ] Bitbucket client for `relay pr` (new client + routing in `pr.py`)
+- [ ] Per-mode provider default in config (`[ai] default = "ollama"`)
+- [ ] Provider matrix doc (keys, base URLs, compat notes) in README/ARCHITECTURE
 
-**Exit:** ≥ 6 providers + 2 forges covered; new provider = drop-in class + test.
+**Exit:** ≥ 6 providers + 2 forges covered; a new provider is a drop-in class +
+test.
 
-### v0.8.0 — GA hardening
+### v0.8.0 — Core workflow depth
 
-- [ ] Freeze CLI surface (subcommands/flags) — anything new requires a design note
-- [ ] 100% error messages: every failure has a human-readable next action (NFR-7)
-- [ ] Coverage gate in CI (e.g. ≥ 90% branch)
-- [ ] Security review: secrets only from env, never logged (NFR-3)
+The versions above are distribution / providers; this one grows the workflow
+itself. Every item ships with unit tests and its own WORKING_RULES-compliant
+commit:
+
+- [ ] **Hunk-level AI messages** — `relay stage -p` (or a `--hunks` flag) sends
+      each selected hunk to the AI for its own subject, so one commit can carry
+      a real multi-part Conventional Commit body instead of a single
+      top-of-diff summary
+- [ ] **Multi-repo runs** — operate across git worktrees / submodules in one
+      invocation (`relay --repo <path> ...` plus a `[repos]` config list)
+- [ ] **Custom hooks** — pre/post commit & push scripts configured in TOML
+      (`[hooks.pre_commit]`, `[hooks.post_push]`), run through the same
+      argv-as-list security rules
+- [ ] **AI diff ignore paths** — `[relay.ignore] paths = [...]` (or
+      `RELAY_IGNORE_PATHS`) keeps generated files out of the AI prompt without
+      hiding them from git
+
+**Exit:** `relay stage` produces multi-part AI messages end-to-end; multi-repo
+and hooks run with unit tests; ignore paths keep lockfiles/generated code out
+of the prompt.
+
+### v0.9.0 — GA hardening
+
+- [ ] Freeze the CLI surface (subcommands/flags) — anything new needs a design note
+- [ ] NFR-7 audit complete: every failure message carries an actionable next
+      step (the `tests/test_error_audit.py` gate already runs in CI as of 0.5.x)
+- [ ] Coverage gate ≥ 90% branch in CI (raised from 85% in 0.5.x)
+- [ ] Security review: secrets env-only, never logged (NFR-3)
 - [ ] Performance pass (NFR-1): sub-500 ms CLI overhead excluding LLM latency
 
-**Exit:** CI-green on 3 OS × 3 Python; coverage gate; error-message audit logged.
+**Exit:** CI-green on 3 OS × 3 Python; coverage gate ≥ 90%; error-message audit
+results logged in the release notes.
 
 ### v1.0.0 — GA
 
 - [ ] Mark all `M` milestones (M0–M3) as **stable**, no loose ends
-- [ ] Public docs: README/ARCHITECTURE/FLOW + roadmap point to stable API
+- [ ] Public docs: README/ARCHITECTURE/FLOW + roadmap point to the stable API
 - [ ] Cut `v1.0.0` per `RELEASE.md`; artifacts verified on all channels
 - [ ] Deprecation policy documented (semver commits)
 

@@ -127,7 +127,8 @@ class GitManager:
             proc = subprocess.run(cmd, **kwargs)
         except subprocess.TimeoutExpired as exc:
             raise GitError(
-                f"git command timed out after {timeout:.0f}s",
+                f"git command timed out after {timeout:.0f}s; "
+                "check your network connection and retry",
                 command=" ".join(cmd),
             ) from exc
         except FileNotFoundError:
@@ -138,7 +139,8 @@ class GitManager:
             ) from None
         if check and proc.returncode != 0:
             raise GitError(
-                f"git command failed (exit {proc.returncode})",
+                f"git command failed (exit {proc.returncode}); "
+                "see the stderr above or re-run with --verbose",
                 command=" ".join(cmd),
                 stderr=proc.stderr.strip(),
             )

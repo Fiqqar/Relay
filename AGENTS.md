@@ -9,7 +9,7 @@ rules. Those rules bind humans and AI alike and are summarized briefly here:
 
 - **One logical change = one commit** (Conventional Commits:
   `type(scope): subject`). Don't mix unrelated topics into a single commit.
-- **Never commit/push before** `pytest` (coverage ≥ 85%), `ruff check .`, and
+- **Never commit/push before** `pytest` (coverage ≥ 90%), `ruff check .`, and
   `mypy relay` are all green. New tests must ship in the same commit as the code.
 - **Zero runtime dependencies** — stdlib only.
 - **`pyproject.toml`** dev deps must stay a single-line array (tests parse it
