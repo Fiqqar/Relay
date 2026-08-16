@@ -133,3 +133,14 @@ class TestGitLabClient:
                 make_client().open_merge_request(
                     title="t", source_branch="b", target_branch="main"
                 )
+
+    def test_oversized_success_response_is_rejected(self):
+        """A healthy-looking but huge 2xx body must not be slurped whole."""
+        from relay.gitlab import MAX_RESPONSE_BYTES
+
+        response = mock.Mock()
+        response.read.return_value = b"x" * (MAX_RESPONSE_BYTES + 1)
+        with mock.patch("urllib.request.urlopen") as urlopen:
+            urlopen.return_value.__enter__.return_value = response
+            with pytest.raises(GitLabError, match="byte limit"):
+                make_client().find_open_mr(source_branch="feat/login")

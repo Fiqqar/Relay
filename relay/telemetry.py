@@ -16,6 +16,7 @@ Privacy contract (matches the zero-config, zero-phone-home philosophy):
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import sys
@@ -65,16 +66,49 @@ def _collect_url() -> str:
     return os.environ.get("RELAY_TELEMETRY_URL", "").strip()
 
 
+def _is_local_or_private_host(host: str) -> bool:
+    """True when ``host`` is a loopback/private/link-local address.
+
+    Covers literal IPs (IPv4 + IPv6, including IPv4-mapped IPv6) and the
+    well-known ``localhost`` / ``*.localhost`` names, which need no DNS to
+    identify. A plain domain name is allowed: resolving it would require a
+    DNS lookup, which telemetry must not perform offline.
+    """
+    host = host.rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False  # not an IP literal; treated as a public hostname
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return (
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_unspecified
+        or ip.is_reserved
+    )
+
+
 def _is_https(url: str) -> bool:
-    """True only for a well-formed ``https://`` URL with a host.
+    """True only for a well-formed ``https://`` URL to a public host.
 
     Any other scheme (``http://``, a bare host, a relative path) is rejected
-    before anything is sent: telemetry carries only non-secret run metadata,
-    but it must never travel over cleartext HTTP or hit a local/private
-    endpoint that a misconfigured operator URL could point at.
+    before anything is sent, and so is a loopback/private/link-local endpoint:
+    telemetry carries only non-secret run metadata, but it must never travel
+    over cleartext HTTP or hit a local/private endpoint that a misconfigured
+    operator URL could point at.
     """
     parts = urllib.parse.urlsplit(url)
-    return parts.scheme == "https" and bool(parts.netloc)
+    if parts.scheme != "https" or not parts.netloc:
+        return False
+    host = parts.hostname
+    if host is None:
+        return False
+    return not _is_local_or_private_host(host)
 
 
 def _send_payload(payload: dict) -> None:
@@ -105,7 +139,7 @@ def report(*, mode: str, provider: str, ok: bool) -> None:
     if not _is_https(url):
         print(
             "[relay] warning: ignoring RELAY_TELEMETRY_URL "
-            "(only https:// endpoints are allowed)",
+            "(only public https:// endpoints are allowed)",
             file=sys.stderr,
         )
         return
