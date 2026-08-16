@@ -55,6 +55,14 @@ Relay collapses this into a single workflow while keeping the developer in contr
 
 Requires **Python 3.10+** and `git` on your `PATH`
 
+**Quick install — one line per platform:**
+
+| Platform | Command |
+| --- | --- |
+| macOS / Linux (Homebrew) | `brew tap Fiqqar/relay https://github.com/Fiqqar/Relay && brew install Fiqqar/relay/relay` |
+| Windows (Scoop) | `scoop bucket add relay https://github.com/Fiqqar/Relay && scoop install relay/relay` |
+| Anywhere (pip) | `pip install "git+https://github.com/Fiqqar/Relay.git"` |
+
 ```bash
 pip install "git+https://github.com/Fiqqar/Relay.git"
 ```
