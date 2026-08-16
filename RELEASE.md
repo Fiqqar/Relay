@@ -9,8 +9,9 @@ CI-verified, so the only manual work is choosing a version number.
 - [ ] The version-consistency test (`tests/test_version.py`) passes — it
       asserts `pyproject.toml` and `relay.__version__` match, so a bump can
       never ship half-applied.
-- [ ] `Formula/relay.rb` and `bucket/relay.json` point at the new version's
-      assets (URL + `sha256`) — see step 1b below.
+- [ ] The Homebrew tap formula (`Fiqqar/homebrew-Relay` → `relay.rb`) and
+      `bucket/relay.json` point at the new version's assets (URL + `sha256`) —
+      see step 1b below.
 
 ## Steps
 
@@ -23,13 +24,15 @@ Update **both** of these to the same value (e.g. `0.3.0`):
 
 ### 1b. Re-point the package channels (same version)
 
-After the version bump, update **both** package manifests so installs track
-the release:
+After the version bump, re-point both package channels so installs track the
+release:
 
-- `Formula/relay.rb` → `url` (sdist `...v<ver>/relay_cli-<ver>.tar.gz`) + `sha256`
-- `bucket/relay.json` → `version`, `url` (wheel), and `hash` (the installer
-  script already references the wheel via `$version`, so Scoop autoupdate
-  keeps it in sync automatically)
+- **Homebrew** — update `relay.rb` in the **`Fiqqar/homebrew-Relay` tap repo**:
+  `url` (sdist `...v<ver>/relay_cli-<ver>.tar.gz`) + `sha256`, then commit and
+  push there. The main repo no longer ships a formula.
+- **Scoop** — update `bucket/relay.json` → `version`, `url` (wheel), and `hash`
+  (the installer script already references the wheel via `$version`, so Scoop
+  autoupdate keeps it in sync automatically)
 
 Fetch the hashes from the **next** release's assets (built by CI once the tag
 is pushed) or from a local `python -m build`. A release whose manifests still
@@ -79,6 +82,7 @@ bumping to the next patch (`v0.3.1`) and following the same steps.
 | Channel | Status |
 | --- | --- |
 | GitHub Releases (sdist + wheel) | primary |
-| Homebrew / Scoop | packaged (`Formula/relay.rb`, `bucket/relay.json`; Scoop install verified on Windows) |
+| Homebrew | tap `Fiqqar/relay` (repo `Fiqqar/homebrew-Relay`, formula `relay.rb`) |
+| Scoop | bucket `relay` (`bucket/relay.json`, autoupdate via `$version`) |
 
 _This file is part of the v0.3 "Release & Distribution" milestone._

@@ -1,12 +1,14 @@
 """Guardrail for the release pipeline: the declared package version must always
-match the version Relay reports at runtime (``relay --version``), and the
-packaged distribution channels (Homebrew / Scoop) must track it too — so a
-bump in ``pyproject.toml`` can never be shipped without the matching
-``__version__`` or without the manifests pointing at that version's assets
-(``RELEASE.md`` step 1b).
+match the version Relay reports at runtime (``relay --version``), and the Scoop
+manifest must track it too — so a bump in ``pyproject.toml`` can never be
+shipped without the matching ``__version__`` or with a manifest pointing at an
+old release's assets (``RELEASE.md`` step 1b).
+
+The Homebrew formula is not covered here since v0.6: it lives in its own tap
+repo (``Fiqqar/homebrew-Relay``), so its consistency is enforced by the release
+runbook instead of a local test.
 """
 import json
-import re
 from pathlib import Path
 
 from relay import __version__, toml
@@ -46,10 +48,3 @@ def test_scoop_manifest_tracks_version():
     installer = "\n".join(manifest["installer"]["script"])
     assert "$version" in installer
     assert __version__ not in installer
-
-
-def test_homebrew_formula_tracks_version():
-    """The Homebrew formula must point at the current release's sdist."""
-    formula = (_REPO_ROOT / "Formula" / "relay.rb").read_text("utf-8")
-    assert f"v{__version__}/relay_cli-{__version__}.tar.gz" in formula
-    assert re.search(r'sha256 "[0-9a-f]{64}"', formula)

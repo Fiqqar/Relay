@@ -267,7 +267,7 @@ the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 ### v0.6.0 — Distribution polish
 
 - [ ] Submit `relay.json` to `ScoopInstaller/Extras`
-- [ ] Publish Homebrew **tap repo** (`homebrew-Relay`) so `brew tap Fiqqar/relay`
+- [x] Publish Homebrew **tap repo** (`homebrew-Relay`) so `brew tap Fiqqar/relay`
       works without an explicit URL
 - [ ] Auto-update `checkver`/`autoupdate` verified on fresh machines
 - [ ] `relay --version` smoke test on verified install paths in CI matrix
