@@ -109,6 +109,18 @@ class TestFindOpenPr:
         assert len(exc_info.value.body) <= _MAX_ERROR_BODY_BYTES
 
     @mock.patch("relay.github.urllib.request.urlopen")
+    def test_oversized_success_response_is_rejected(self, mock_urlopen):
+        """A healthy-looking but huge 2xx body must not be slurped whole."""
+        from relay.github import MAX_RESPONSE_BYTES
+
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = (
+            b"x" * (MAX_RESPONSE_BYTES + 1)
+        )
+        client = GitHubClient("acme", "widget", token="t")
+        with pytest.raises(GitHubError, match="byte limit"):
+            client.find_open_pr(head="feat/login")
+
+    @mock.patch("relay.github.urllib.request.urlopen")
     def test_strips_whitespace_from_head_and_owner(self, mock_urlopen):
         mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
         client = GitHubClient("acme", "widget", token="t")

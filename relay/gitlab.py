@@ -31,6 +31,10 @@ _USER_AGENT = "relay-cli"
 # Error bodies are for diagnostics only — a pathological response must not be
 # slurped in full into memory, so reads are capped at 10 KiB.
 _MAX_ERROR_BODY_BYTES = 10 * 1024
+# Cap on a successful API body. An MR listing is a few KiB at most; anything
+# near 1 MiB is a misbehaving endpoint, and holding a giant blob in memory
+# is not worth it (mirrors the AI providers' response cap).
+MAX_RESPONSE_BYTES = 1024 * 1024  # 1 MiB
 
 
 class GitLabError(RelayError):
@@ -129,7 +133,12 @@ class GitLabClient:
             print(f"[relay] gitlab {request.get_method()} {request.full_url}")
         try:
             with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                body = resp.read(MAX_RESPONSE_BYTES + 1)
+                if len(body) > MAX_RESPONSE_BYTES:
+                    raise GitLabError(
+                        f"GitLab API response exceeded the {MAX_RESPONSE_BYTES}-byte limit"
+                    )
+                return json.loads(body.decode("utf-8"))
         except urllib.error.HTTPError as exc:
             body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
             payload = _parse_json(body)

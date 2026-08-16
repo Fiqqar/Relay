@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`localhost`, `127.0.0.1`, `10.x`, `192.168.x`, `[::1]`, IPv4-mapped
   addresses, ...), so a misconfigured operator URL can never point telemetry
   at a local/private host even over HTTPS.
+- Successful GitHub/GitLab API responses are capped at 1 MiB (error bodies
+  were already capped at 10 KiB), so a misbehaving forge endpoint can no
+  longer make Relay hold a giant blob in memory.
 
 ### Changed
 - `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` documented as a trust decision:
