@@ -81,7 +81,7 @@ Developer        relay              git               LLM
 
 **Goal:** working tree → new `<type>/<feature>` branch → committed & pushed.
 
-Differences from Solo: an extra **BRANCH** step before commit, and `push -u` sets upstream.
+Differences from Solo: an extra **BRANCH** step before commit, and `push -u` sets upstream
 
 ```
 TEAM
