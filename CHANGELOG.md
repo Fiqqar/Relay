@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > shipped before the tag workflow existed, so their dates below are the date
 > of the last commit in each era (from `git log`), not a tag date.
 
+## [Unreleased]
+
+### Security
+- `relay pr` now enforces a GitLab trust boundary. The host is derived from
+  the `origin` remote — attacker-controllable data — so `GITLAB_TOKEN` is
+  only ever sent to `gitlab.com` unless a self-hosted host is explicitly
+  allowed via `RELAY_TRUSTED_GITLAB_HOSTS` (env) or `trusted_gitlab_hosts`
+  (the `[relay]` config table). Untrusted hosts are refused before any token
+  is read or any request is made (credential-exfiltration hardening).
+
 ## [0.6.0] - 2026-08-16
 
 ### Fixed

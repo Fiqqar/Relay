@@ -19,6 +19,7 @@ def clear_relay_env(monkeypatch):
         "RELAY_PR_OPEN",
         "RELAY_CONFIG",
         "RELAY_PROTECTED_BRANCHES",
+        "RELAY_TRUSTED_GITLAB_HOSTS",
         "XDG_CONFIG_HOME",
         "APPDATA",
         "GEMINI_MODEL",
@@ -241,6 +242,76 @@ def test_forge_tokens_are_env_only(monkeypatch, tmp_path):
         monkeypatch.delenv(key, raising=False)
     assert github_token() is None
     assert gitlab_token() is None
+
+
+# ---- GitLab host trust boundary (credential-exfiltration hardening) ----------
+
+
+def test_trusted_gitlab_hosts_defaults_to_gitlab_com():
+    assert config.trusted_gitlab_hosts() == ["gitlab.com"]
+
+
+def test_trusted_gitlab_hosts_env_is_additive(monkeypatch):
+    """gitlab.com stays trusted; the env var only adds hosts, so a mis-set
+    value can never accidentally break the canonical host."""
+    monkeypatch.setenv(
+        "RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com, git.company.io"
+    )
+    assert config.trusted_gitlab_hosts() == [
+        "gitlab.com",
+        "gitlab.example.com",
+        "git.company.io",
+    ]
+
+
+def test_trusted_gitlab_hosts_env_lowercases_and_dedupes(monkeypatch):
+    monkeypatch.setenv(
+        "RELAY_TRUSTED_GITLAB_HOSTS", "GitLab.Example.COM gitlab.example.com gitlab.com"
+    )
+    assert config.trusted_gitlab_hosts() == ["gitlab.com", "gitlab.example.com"]
+
+
+def test_trusted_gitlab_hosts_read_from_config_file(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        trusted_gitlab_hosts = ["gitlab.internal.example", "gitlab.example.com"]
+    """)
+    assert config.trusted_gitlab_hosts() == [
+        "gitlab.com",
+        "gitlab.internal.example",
+        "gitlab.example.com",
+    ]
+
+
+def test_trusted_gitlab_hosts_env_beats_file(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        trusted_gitlab_hosts = ["gitlab.internal.example"]
+    """)
+    monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com")
+    assert config.trusted_gitlab_hosts() == ["gitlab.com", "gitlab.example.com"]
+
+
+def test_trusted_gitlab_hosts_empty_env_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "   ")
+    assert config.trusted_gitlab_hosts() == ["gitlab.com"]
+
+
+def test_trusted_gitlab_hosts_absent_file_falls_back_to_default(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        provider = "ollama"
+    """)
+    assert config.trusted_gitlab_hosts() == ["gitlab.com"]
+
+
+def test_trusted_gitlab_hosts_empty_file_list_is_ignored(monkeypatch, tmp_path):
+    """An explicit empty list means 'no extra hosts', not 'trust nothing'."""
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        trusted_gitlab_hosts = []
+    """)
+    assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
 # ---- F6: TOML config file (flags > env > file > defaults) --------------------

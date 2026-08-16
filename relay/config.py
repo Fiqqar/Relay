@@ -52,6 +52,12 @@ DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
 # canonical GitHub/older default-branch names.
 DEFAULT_PROTECTED_BRANCHES = ["main", "master"]
 
+# GitLab hosts `relay pr` may send GITLAB_TOKEN to without an explicit opt-in.
+# The host comes from the repo's `origin` remote — attacker-controllable data —
+# so anything outside this allowlist is refused unless the user trusts it
+# explicitly (RELAY_TRUSTED_GITLAB_HOSTS / `trusted_gitlab_hosts`).
+DEFAULT_TRUSTED_GITLAB_HOSTS = ("gitlab.com",)
+
 # Performance knobs: keep the diff payload small and give the LLM a realistic
 # window to respond. 30s is enough for normal network conditions (and large
 # diffs) while still falling back to manual input if the provider hangs.
@@ -302,6 +308,41 @@ def pr_open_browser() -> bool:
 def _split_branch_list(raw: str) -> list[str]:
     """Split a comma/space-separated env list of branch names."""
     return [item.strip() for item in re.split(r"[, ]+", raw) if item.strip()]
+
+
+def _normalize_hosts(raw) -> list[str]:
+    """Lowercase and dedupe a host list, dropping empties."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for entry in raw:
+        host = str(entry).strip().lower()
+        if host and host not in seen:
+            seen.add(host)
+            result.append(host)
+    return result
+
+
+def trusted_gitlab_hosts() -> list[str]:
+    """GitLab hosts `relay pr` may send the token to (always lowercased).
+
+    ``gitlab.com`` is always trusted; any other host (a self-hosted instance)
+    must be opted in explicitly via the ``RELAY_TRUSTED_GITLAB_HOSTS`` env var
+    (comma/space separated) or the ``trusted_gitlab_hosts`` list in the
+    ``[relay]`` config table. The allowlist is additive on purpose: forgetting
+    to repeat ``gitlab.com`` can never accidentally break the common case, and
+    ``gitlab.com`` cannot be disabled by a mis-set env var. This is the trust
+    boundary that stops a malicious ``origin`` remote from redirecting
+    GITLAB_TOKEN to an attacker's host.
+    """
+    extra: list[str] = []
+    env_raw = os.environ.get("RELAY_TRUSTED_GITLAB_HOSTS")
+    if env_raw is not None and env_raw.strip():
+        extra = _split_branch_list(env_raw)
+    else:
+        file_hosts = _load_config().get("trusted_gitlab_hosts")
+        if isinstance(file_hosts, list) and file_hosts:
+            extra = [str(h) for h in file_hosts]
+    return _normalize_hosts([*DEFAULT_TRUSTED_GITLAB_HOSTS, *extra])
 
 
 def protected_branches() -> list[str]:

@@ -114,6 +114,12 @@ scoop install relay/relay
   and `GITLAB_TOKEN` are read from the environment and never written to disk or
   logged. Relay never sends your diff, commit messages, or file names anywhere
   except the AI provider you explicitly configure.
+- **Forge hosts are explicitly trusted.** `relay pr` derives the forge host
+  from your `origin` remote — data a malicious repository can control — so it
+  only ever sends `GITLAB_TOKEN` to `gitlab.com` unless you explicitly add a
+  self-hosted GitLab host to `RELAY_TRUSTED_GITLAB_HOSTS` (or
+  `trusted_gitlab_hosts` in the `[relay]` config table). Untrusted hosts are
+  refused before any token is read or sent. Only trust instances you own.
 - **No shell injection surface.** Every `git` invocation passes arguments as a
   list (`shell=True` is never used), so filenames with spaces or special
   characters cannot be injected into a shell.

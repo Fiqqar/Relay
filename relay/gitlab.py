@@ -8,6 +8,13 @@ zero-dependency philosophy.
 Host is derived from the ``origin`` remote (``gitlab.com`` or a self-hosted
 GitLab instance). A project is addressed by its URL-encoded ``group/repo`` path,
 the form GitLab's REST API accepts for the ``id`` field.
+
+Because the host comes from the ``origin`` remote (attacker-controllable data),
+the token must never be sent to a host the user has not explicitly trusted:
+``relay/pr.py`` enforces an allowlist (``gitlab.com`` by default, extended via
+``RELAY_TRUSTED_GITLAB_HOSTS`` / ``trusted_gitlab_hosts``) before this client
+is ever constructed. Direct use of this class bypasses that boundary and is
+only appropriate for hosts the caller has already vetted.
 """
 from __future__ import annotations
 
