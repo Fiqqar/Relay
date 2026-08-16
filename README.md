@@ -55,6 +55,14 @@ Relay collapses this into a single workflow while keeping the developer in contr
 
 Requires **Python 3.10+** and `git` on your `PATH`
 
+**Quick install — one line per platform:**
+
+| Platform | Command |
+| --- | --- |
+| macOS / Linux (Homebrew) | `brew tap Fiqqar/relay && brew install Fiqqar/relay/relay` |
+| Windows (Scoop) | `scoop bucket add relay https://github.com/Fiqqar/Relay && scoop install relay/relay` |
+| Anywhere (pip) | `pip install "git+https://github.com/Fiqqar/Relay.git"` |
+
 ```bash
 pip install "git+https://github.com/Fiqqar/Relay.git"
 ```
@@ -82,15 +90,14 @@ python -m pip install -e .     # editable install -> `relay` on your PATH
 ```
 
 GitHub Releases publishing is wired up via `.github/workflows/release.yml`
-(push a `v*` tag). A Homebrew formula (`Formula/relay.rb`) and a Scoop
-manifest (`bucket/relay.json`) are shipped in this repo for native package
-managers.
+(push a `v*` tag). The Scoop manifest (`bucket/relay.json`) is shipped in this
+repo; the Homebrew formula lives in its own tap repo
+(`Fiqqar/homebrew-Relay`).
 
-On **macOS/Linux** (Homebrew ≥6 requires formulae to come from a *tap*, not a
-URL):
+On **macOS/Linux** (Homebrew ≥6 requires formulae to come from a *tap*):
 
 ```bash
-brew tap Fiqqar/relay https://github.com/Fiqqar/Relay
+brew tap Fiqqar/relay
 brew install Fiqqar/relay/relay
 ```
 
