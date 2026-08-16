@@ -48,3 +48,11 @@ def test_scoop_manifest_tracks_version():
     installer = "\n".join(manifest["installer"]["script"])
     assert "$version" in installer
     assert __version__ not in installer
+    # Relay needs git at runtime, so the manifest must pull it in too
+    # (flagged in the Scoop Extras review, PR #18536).
+    assert set(manifest["depends"]) == {"git", "python"}
+    # The launcher must run the bundled lib in Python isolated mode, so a
+    # relay.py / relay/ package in the working directory can never shadow it.
+    assert "python -I" in installer
+    assert "relay.cli" in installer
+    assert "RELAY_LIB" in installer

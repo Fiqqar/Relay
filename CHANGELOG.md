@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   history, `relay stage` selection mistakes, `relay pr` without an `origin`
   remote, and git timeouts/failures each tell the developer exactly what to
   do next.
+- The Scoop manifest now declares `git` as a runtime dependency and runs its
+  launcher in Python isolated mode (`-I`) with the bundled lib path, so a
+  `relay.py` / `relay/` package in the working directory can never shadow the
+  installed CLI (flagged in the Scoop Extras review, PR #18536).
 
 ### Added
 - `tests/test_error_audit.py` — a static NFR-7 gate that scans every
