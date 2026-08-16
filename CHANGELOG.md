@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (the `[relay]` config table). Untrusted hosts are refused before any token
   is read or any request is made (credential-exfiltration hardening).
 
+### Changed
+- `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` documented as a trust decision:
+  the API key is sent to that host as a Bearer credential, so it must only
+  point at endpoints you control (README Security section).
+- Prompt injection from diffs documented: the staged diff is untrusted LLM
+  input; the model's output is only used as a sanitized, user-confirmed
+  commit message and is never executed.
+
 ## [0.6.0] - 2026-08-16
 
 ### Fixed

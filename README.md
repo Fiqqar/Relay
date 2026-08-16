@@ -134,6 +134,17 @@ scoop install relay/relay
   pins the wheel hash in `bucket/relay.json`.
 - **Your keys are your own.** Relay talks only to the provider/forge you point
   it at. If you use `--verbose`, assume git commands (never keys) are echoed.
+- **Custom base URLs receive your keys as Bearer credentials.** Pointing
+  `OPENAI_BASE_URL` (or `ANTHROPIC_BASE_URL`) at an OpenAI-compatible endpoint
+  — e.g. llama.cpp or vLLM — sends `OPENAI_API_KEY` to that host with every
+  request. Only point these at endpoints you trust, and never at an
+  untrusted/unknown server.
+- **Diffs are untrusted LLM input.** The staged diff is sent to the AI provider
+  as prompt context, so committed code could contain prompt-injection text
+  ("ignore previous instructions"). Impact is limited by design: the model's
+  output is only ever used as a commit message — sanitized, shown for
+  confirmation, and never executed — but you should still review AI-generated
+  messages before committing.
 
 ## Quick Start
 
