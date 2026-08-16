@@ -92,7 +92,10 @@ Run a read-only self-diagnostic (PATH, git, AI credentials).
 .B pr
 Open a pull request / merge request for the current branch. Detects the host
 from the \fIorigin\fR remote: GitHub (uses \fIGITHUB_TOKEN\fR) or GitLab
-(gitlab.com or self-hosted, uses \fIGITLAB_TOKEN\fR).
+(uses \fIGITLAB_TOKEN\fR). Only \fIgitlab.com\fR is trusted by default; a
+self-hosted GitLab host must be added to \fIRELAY_TRUSTED_GITLAB_HOSTS\fR
+(or \fItrusted_gitlab_hosts\fR in the \fI[relay]\fR config table) or the
+request is refused before any token is sent.
 .TP
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
@@ -140,7 +143,13 @@ Personal access token used by \fBrelay pr\fR on GitHub.
 .TP
 .I GITLAB_TOKEN
 Personal access token used by \fBrelay pr\fR on GitLab
-(gitlab.com or a self-hosted instance).
+(gitlab.com or a self-hosted instance you have trusted).
+.TP
+.I RELAY_TRUSTED_GITLAB_HOSTS
+Comma/space-separated allowlist of self-hosted GitLab hosts (beyond
+\fIgitlab.com\fR) that \fBrelay pr\fR may send \fIGITLAB_TOKEN\fR to. The
+host is derived from the \fIorigin\fR remote, so anything outside this list
+is refused. Only ever trust instances you own.
 .SH EXIT STATUS
 0 on success, 1 on a Relay or git error, 130 when the user aborts.
 .SH SEE ALSO

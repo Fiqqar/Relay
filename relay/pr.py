@@ -18,6 +18,7 @@ from __future__ import annotations
 import webbrowser
 
 from .commit import sanitize_ai_message
+from .config import trusted_gitlab_hosts
 from .errors import RelayError
 from .git_manager import GitManager, parse_remote
 from .github import DuplicatePullRequestError, GitHubClient, GitHubError
@@ -203,6 +204,19 @@ def run_pr(
         host, owner, repo = parse_remote(remote)
     except ValueError as exc:
         raise RelayError(str(exc)) from exc
+
+    # The GitLab host is derived from `origin`, which a malicious repository
+    # (e.g. a fork you clone) can point anywhere. Refuse before any token is
+    # read or any request is sent unless the host is explicitly trusted —
+    # only gitlab.com is trusted by default (SECURITY: credential exfil).
+    if host != "github.com" and host not in trusted_gitlab_hosts():
+        raise RelayError(
+            f"refusing to send GITLAB_TOKEN to untrusted GitLab host '{host}': "
+            "the host comes from your 'origin' remote, which an attacker could "
+            "control. Trust it explicitly by adding it to "
+            "`RELAY_TRUSTED_GITLAB_HOSTS` (or `trusted_gitlab_hosts` in the "
+            "`[relay]` config table) — only do this for instances you own"
+        )
 
     head = git.current_branch()
     if not head:

@@ -292,6 +292,17 @@ class TestOpenBrowser:
 
 
 class TestGitLab:
+    @pytest.fixture(autouse=True)
+    def clean_relay_env(self, monkeypatch):
+        """The trust boundary reads the environment, so each test starts clean
+        (a stray RELAY_CONFIG / RELAY_TRUSTED_GITLAB_HOSTS on the host machine
+        must not leak into the assertions)."""
+        from relay import config
+
+        monkeypatch.delenv("RELAY_CONFIG", raising=False)
+        monkeypatch.delenv("RELAY_TRUSTED_GITLAB_HOSTS", raising=False)
+        config._RAW_CACHE.clear()
+
     @pytest.fixture
     def fake_gitlab(self):
         with mock.patch("relay.pr.GitLabClient") as client_cls:
@@ -364,7 +375,49 @@ class TestGitLab:
         with pytest.raises(GitLabError):
             run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"))
 
-    def test_self_hosted_gitlab_remote(self, fake_gitlab):
+    def test_self_hosted_gitlab_refused_without_trust(self, fake_gitlab):
+        """The host comes from `origin` (attacker-controllable), so an untrusted
+        host must be refused before any token is read or request is made."""
+        git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
+        with pytest.raises(RelayError, match="RELAY_TRUSTED_GITLAB_HOSTS"):
+            run_pr(git=git)
+        fake_gitlab.assert_not_called()
+
+    def test_self_hosted_gitlab_allowed_when_env_trusted(
+        self, fake_gitlab, monkeypatch
+    ):
+        monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com")
         git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
         assert run_pr(git=git) == 0
+        fake_gitlab.assert_called_once_with(
+            "gitlab.example.com", "group/sub/widget", verbose=False
+        )
+
+    def test_self_hosted_trust_match_is_case_insensitive(
+        self, fake_gitlab, monkeypatch
+    ):
+        monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "GitLab.Example.COM")
+        git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
+        assert run_pr(git=git) == 0
+        fake_gitlab.assert_called_once_with(
+            "gitlab.example.com", "group/sub/widget", verbose=False
+        )
+
+    def test_self_hosted_gitlab_allowed_when_config_trusted(
+        self, fake_gitlab, monkeypatch, tmp_path
+    ):
+        from relay import config
+
+        p = tmp_path / "config.toml"
+        p.write_text(
+            '[relay]\ntrusted_gitlab_hosts = ["gitlab.example.com"]\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("RELAY_CONFIG", str(p))
+        config._RAW_CACHE.clear()
+        git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
+        assert run_pr(git=git) == 0
+        fake_gitlab.assert_called_once_with(
+            "gitlab.example.com", "group/sub/widget", verbose=False
+        )
         fake_gitlab.assert_called_once_with("gitlab.example.com", "group/sub/widget", verbose=False)
