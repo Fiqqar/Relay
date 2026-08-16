@@ -27,8 +27,9 @@ After the version bump, update **both** package manifests so installs track
 the release:
 
 - `Formula/relay.rb` → `url` (sdist `...v<ver>/relay_cli-<ver>.tar.gz`) + `sha256`
-- `bucket/relay.json` → `version`, `url` (wheel), `hash`, and the wheel
-  filename inside the `installer` script
+- `bucket/relay.json` → `version`, `url` (wheel), and `hash` (the installer
+  script already references the wheel via `$version`, so Scoop autoupdate
+  keeps it in sync automatically)
 
 Fetch the hashes from the **next** release's assets (built by CI once the tag
 is pushed) or from a local `python -m build`. A release whose manifests still

@@ -15,7 +15,7 @@
   },
   "installer": {
     "script": [
-      "python -c \"import zipfile; zipfile.ZipFile(r'$dir\\relay_cli-0.5.8-py3-none-any.whl').extractall(r'$dir\\lib')\"",
+      "python -c \"import zipfile; zipfile.ZipFile(r'$dir\\relay_cli-$version-py3-none-any.whl').extractall(r'$dir\\lib')\"",
       "Set-Content -Path \"$dir\\relay.ps1\" -Value '$env:PYTHONPATH = (Join-Path $PSScriptRoot \"lib\"); python -m relay @args' -Encoding UTF8"
     ]
   },
