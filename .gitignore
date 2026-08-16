@@ -37,3 +37,6 @@ env/
 Thumbs.db
 __pycache__/
 *.pyc
+
+# AI agent folders
+.freebuff
