@@ -34,9 +34,13 @@ release:
   (the installer script already references the wheel via `$version`, so Scoop
   autoupdate keeps it in sync automatically)
 
-Fetch the hashes from the **next** release's assets (built by CI once the tag
-is pushed) or from a local `python -m build`. A release whose manifests still
-point at an older patch silently ships the previous version.
+Fetch the hashes from the **published** release's assets (built by CI once
+the tag is pushed) — **never** from a local `python -m build`, because pure-
+Python wheels and sdists are not byte-reproducible across environments
+(e.g. a local build on Windows/Python 3.14 hashes differently from the CI
+build on Ubuntu/Python 3.12), and a wrong hash breaks `scoop install`.
+A release whose manifests still point at an older patch silently ships the
+previous version.
 
 ### 2. Verify + commit
 
