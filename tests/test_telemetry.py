@@ -120,6 +120,51 @@ class TestReport:
             telemetry._send_payload({"event": "relay_run", "ok": True})
         urlopen.assert_not_called()
 
+    # ---- Local/private endpoints are rejected (C-02 hardening) ---------------
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://127.0.0.1/collect",
+            "https://localhost/collect",
+            "https://foo.localhost/collect",
+            "https://10.1.2.3/collect",
+            "https://172.16.0.5/collect",
+            "https://192.168.1.1/collect",
+            "https://169.254.1.1/collect",
+            "https://[::1]/collect",
+            "https://[fc00::1]/collect",
+            "https://[fe80::1]/collect",
+        ],
+    )
+    def test_local_private_url_does_not_start_thread(self, monkeypatch, url):
+        monkeypatch.setenv("RELAY_TELEMETRY", "1")
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", url)
+        with mock.patch.object(telemetry.threading, "Thread") as thread:
+            telemetry.report(mode="solo", provider="gemini", ok=True)
+        thread.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://t.example/collect",
+            "https://analytics.internal.example/collect",
+            "https://[2606:4700:4700::1111]/collect",
+        ],
+    )
+    def test_public_url_still_sends(self, monkeypatch, url):
+        monkeypatch.setenv("RELAY_TELEMETRY", "1")
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", url)
+        with mock.patch.object(telemetry.threading, "Thread") as thread:
+            telemetry.report(mode="solo", provider="gemini", ok=True)
+        thread.assert_called_once()
+
+    def test_send_payload_skips_private_host_without_network(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://127.0.0.1/collect")
+        with mock.patch("urllib.request.urlopen") as urlopen:
+            telemetry._send_payload({"event": "relay_run", "ok": True})
+        urlopen.assert_not_called()
+
 
 class TestStateFile:
     def test_state_file_falls_back_to_home_dir(self, monkeypatch, tmp_path):

@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   allowed via `RELAY_TRUSTED_GITLAB_HOSTS` (env) or `trusted_gitlab_hosts`
   (the `[relay]` config table). Untrusted hosts are refused before any token
   is read or any request is made (credential-exfiltration hardening).
+- `RELAY_TELEMETRY_URL` now rejects loopback/private/link-local endpoints
+  (`localhost`, `127.0.0.1`, `10.x`, `192.168.x`, `[::1]`, IPv4-mapped
+  addresses, ...), so a misconfigured operator URL can never point telemetry
+  at a local/private host even over HTTPS.
 
 ### Changed
 - `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` documented as a trust decision:
