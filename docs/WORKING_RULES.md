@@ -28,12 +28,12 @@ decision must protect both.
 Before pushing, run these in order and make sure they all PASS:
 
 ```bash
-python -m pytest -q --cov=relay --cov-branch --cov-fail-under=85
+python -m pytest -q --cov=relay --cov-branch --cov-fail-under=90
 ruff check .
 mypy relay
 ```
 
-- The 85% (branch) coverage gate is mandatory.
+- The 90% (branch) coverage gate is mandatory.
 - Unit tests for new behavior **must land in the same commit** as the code.
 - Tests must be hermetic: no dependence on the network, `$HOME`, real AI
   providers, or env vars that are not set in CI.

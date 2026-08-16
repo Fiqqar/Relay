@@ -196,7 +196,8 @@ def run_pr(
     remote = git.remote_url()
     if not remote:
         raise RelayError(
-            "no 'origin' remote configured; cannot determine the hosting service"
+            "no 'origin' remote configured; cannot determine the hosting service "
+            "(add one with `git remote add origin <url>`)"
         )
     try:
         host, owner, repo = parse_remote(remote)

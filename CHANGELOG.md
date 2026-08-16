@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- TOML parser no longer silently mis-parses: unterminated strings, unknown
+  escape sequences, duplicate keys, and scalar/table redefinitions now fail
+  loudly (with a line number) instead of returning wrong values or dropping
+  data — a config file containing any of them falls back to defaults with the
+  usual one-time warning.
+- Workflow error messages now always carry an actionable next step (NFR-7):
+  `relay undo` on an empty repo, `relay squash` with no commits / not enough
+  history, `relay stage` selection mistakes, `relay pr` without an `origin`
+  remote, and git timeouts/failures each tell the developer exactly what to
+  do next.
+
+### Added
+- `tests/test_error_audit.py` — a static NFR-7 gate that scans every
+  `raise <RelayError>` site under `relay/` and requires an exact
+  command/flag reference or an imperative verb in the message.
+- TOML parser accepts spec-valid `1e5`-style exponent floats and `\UXXXXXXXX`
+  escapes; booleans are case-strict (`True` is now rejected, matching
+  `tomllib`).
+
+### Changed
+- Coverage gate raised from 85% to 90% branch coverage (`pyproject.toml`,
+  `docs/WORKING_RULES.md`, `AGENTS.md`, `CONTRIBUTING.md`).
+- Roadmap re-scoped: v0.8 becomes core workflow depth (hunk-level AI
+  messages, multi-repo, custom hooks, AI diff ignore paths); GA hardening
+  moves to v0.9.
+
 ## [0.5.8] - 2026-08-13
 
 ### Fixed

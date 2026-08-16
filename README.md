@@ -353,9 +353,8 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging. ✅ shipped
 - **v0.4** — DX layer: telemetry opt-in, man pages (`man relay`), shell completions (bash/zsh/fish/PowerShell), `relay undo`, `relay squash`, `relay stage` (incl. `git add -p`), OpenAI / Anthropic / llama.cpp providers, GitLab MR creation. ✅ shipped
 - **v0.5** — team default-branch safety: protected-branch rules (`[team.protected]`, `RELAY_PROTECTED_BRANCHES`), team-mode refusal with `--allow-protected`/`--yes` escape hatch, doctor reporting. ✅ shipped
-- **v1.0** — GA: stability freeze, coverage gate, docs + packaging finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
-- **v0.6 – v0.8** — distribution polish, more providers/forges, GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
-- **Later** — team default-branch safety rules.
+- **v0.6 – v0.9** — distribution polish (Scoop Extras, Homebrew tap), provider/forge breadth, core workflow depth (hunk-level AI messages, multi-repo, custom hooks), then GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
+- **v1.0** — GA: CLI surface freeze, ≥90% coverage gate, NFR-7 error-message audit, docs + packaging finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
 
 ## Documentation
 

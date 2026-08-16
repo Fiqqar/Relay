@@ -64,7 +64,7 @@ The short version every change must satisfy:
 
 - One logical change per commit (Conventional Commits).
 - Unit tests for new behavior ship in the same commit.
-- Before pushing: `pytest` (coverage ≥ 85%), `ruff check .`, `mypy relay` all green.
+- Before pushing: `pytest` (coverage ≥ 90%), `ruff check .`, `mypy relay` all green.
 - Zero runtime dependencies; keep `pyproject.toml` dev deps as a single-line array.
 - Never `ruff format` the whole repo; only touch code related to your task.
 

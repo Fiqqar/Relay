@@ -42,20 +42,28 @@ def _parse_selection(spec: str, total: int) -> set[int] | None:
             try:
                 lo, hi = int(lo_s), int(hi_s)
             except ValueError as exc:
-                raise GitError(f"invalid range: {chunk}") from exc
+                raise GitError(
+                    f"invalid range: {chunk} (use 'all' or forms like 2-4, 1,3,5)"
+                ) from exc
             if lo < 1 or hi > total or lo > hi:
-                raise GitError(f"range {chunk} out of 1..{total}")
+                raise GitError(
+                    f"range {chunk} out of 1..{total}; use numbers between 1 and {total}"
+                )
             picked.update(range(lo, hi + 1))
             continue
         try:
             n = int(chunk)
         except ValueError as exc:
-            raise GitError(f"invalid selection: {chunk}") from exc
+            raise GitError(
+                f"invalid selection: {chunk} (use numbers, 'all', or 'none')"
+            ) from exc
         if not 1 <= n <= total:
-            raise GitError(f"{n} out of range (1..{total})")
+            raise GitError(
+                f"{n} out of range (1..{total}); pick a number in that range"
+            )
         picked.add(n)
     if not picked:
-        raise GitError("no files selected")
+        raise GitError("no files selected; pick at least one file (or 'all')")
     return picked
 
 
