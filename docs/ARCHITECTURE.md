@@ -103,6 +103,19 @@ class AIManager(ABC):
 
 - **GeminiProvider** (`relay/ai/gemini.py`) — calls the Google Generative Language REST API with stdlib `urllib` (API key via the `X-Goog-Api-Key` header, never in the URL or logs). Raises `ConfigError` if `GEMINI_API_KEY` is missing.
 - **OllamaProvider** (`relay/ai/ollama.py`) — calls the local `POST /api/generate` endpoint with `stream: false`. Zero credentials; connection-refused maps to an `AIError{unavailable}`.
+- **OpenAI-compatible providers** — `OpenAIProvider` (`relay/ai/openai.py`) targets `POST {base}/chat/completions`; `AnthropicProvider` (`relay/ai/anthropic.py`) targets `POST {base}/messages`; `MistralProvider`, `GroqProvider`, and `XAIProvider` subclass the OpenAI provider and differ only in their credentials, base URL, and default model:
+
+| Provider | Key env var | Base URL (default) | Default model | API shape |
+| --- | --- | --- | --- | --- |
+| `openai` | `OPENAI_API_KEY` | `https://api.openai.com/v1` | `gpt-4o-mini` | OpenAI `/chat/completions` |
+| `anthropic` | `ANTHROPIC_API_KEY` | `https://api.anthropic.com/v1` | `claude-3-5-haiku-latest` | Anthropic `/messages` |
+| `mistral` | `MISTRAL_API_KEY` | `https://api.mistral.ai/v1` | `mistral-small-latest` | OpenAI `/chat/completions` |
+| `groq` | `GROQ_API_KEY` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | OpenAI `/chat/completions` |
+| `xai` | `XAI_API_KEY` | `https://api.x.ai/v1` | `grok-beta` | OpenAI `/chat/completions` |
+
+Each model/base URL is overridable via `<PROVIDER>_MODEL` / `<PROVIDER>_BASE_URL`; the
+full provider list lives in `_PROVIDERS` (`relay/ai/__init__.py`). A new provider is a
+drop-in: subclass `OpenAIProvider`, register it, add a config getter + doctor branch.
 - Shared behavior: HTTP timeouts and typed errors:
 
 ```python

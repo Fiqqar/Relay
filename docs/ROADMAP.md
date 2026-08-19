@@ -278,14 +278,14 @@ work on a fresh machine with no manual version bump anywhere.
 
 ### v0.7.0 — Provider & forge breadth
 
-- [ ] Additional providers (Mistral, Groq, xAI): one class in `relay/ai/` +
+- [x] Additional providers (Mistral, Groq, xAI): one class in `relay/ai/` +
       registration in `_PROVIDERS`
-- [ ] Bitbucket client for `relay pr` (new client + routing in `pr.py`)
-- [ ] Per-mode provider default in config (`[ai] default = "ollama"`)
-- [ ] Provider matrix doc (keys, base URLs, compat notes) in README/ARCHITECTURE
+- [x] Bitbucket client for `relay pr` (new client + routing in `pr.py`)
+- [x] Per-mode provider default in config (`[ai] default = "ollama"`)
+- [x] Provider matrix doc (keys, base URLs, compat notes) in README/ARCHITECTURE
 
 **Exit:** ≥ 6 providers + 2 forges covered; a new provider is a drop-in class +
-test.
+test. ✅
 
 ### v0.8.0 — Core workflow depth
 
