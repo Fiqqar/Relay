@@ -31,6 +31,8 @@ def clear_relay_env(monkeypatch):
         "ANTHROPIC_BASE_URL",
         "MISTRAL_MODEL",
         "MISTRAL_BASE_URL",
+        "GROQ_MODEL",
+        "GROQ_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -142,19 +144,31 @@ def test_mistral_settings_defaults_then_env(monkeypatch):
     assert config.mistral_base_url() == "https://gateway.local/v1"
 
 
+def test_groq_settings_defaults_then_env(monkeypatch):
+    assert config.groq_model() == config.DEFAULT_GROQ_MODEL
+    assert config.groq_base_url() == config.DEFAULT_GROQ_BASE_URL
+    monkeypatch.setenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    monkeypatch.setenv("GROQ_BASE_URL", "https://gateway.local/v1")
+    assert config.groq_model() == "llama-3.1-8b-instant"
+    assert config.groq_base_url() == "https://gateway.local/v1"
+
+
 def test_api_keys_are_env_only(monkeypatch, tmp_path):
     _write_toml(monkeypatch, tmp_path, """
         [relay]
         openai_api_key = "leaked"
         anthropic_api_key = "leaked"
         mistral_api_key = "leaked"
+        groq_api_key = "leaked"
     """)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     assert config.openai_api_key() is None
     assert config.anthropic_api_key() is None
     assert config.mistral_api_key() is None
+    assert config.groq_api_key() is None
 
 
 def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch, capsys):

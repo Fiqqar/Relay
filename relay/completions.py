@@ -88,7 +88,7 @@ def zsh_script() -> str:
 _arguments \\
   '--solo[stage, commit and push to the current branch]' \\
   '--team=[create & checkout a feature branch]:feature' \\
-  '--provider[AI provider]:provider:(anthropic gemini mistral ollama openai)' \\
+  '--provider[AI provider]:provider:(anthropic gemini groq mistral ollama openai)' \\
   '--timeout[seconds to wait for the AI response]:seconds' \\
   '--yes[skip the confirmation prompt]' \\
   '--dry-run[show the plan; change nothing]' \\
@@ -119,7 +119,7 @@ def fish_script() -> str:
     lines += [
         "complete -c relay -n '__fish_use_subcommand' -l solo -d 'commit on the current branch'",
         "complete -c relay -n '__fish_use_subcommand' -l team -d 'create & checkout a feature branch'",
-        "complete -c relay -n '__fish_use_subcommand' -l provider -x -a 'anthropic gemini mistral ollama openai' -d 'AI provider'",
+        "complete -c relay -n '__fish_use_subcommand' -l provider -x -a 'anthropic gemini groq mistral ollama openai' -d 'AI provider'",
         "complete -c relay -n '__fish_use_subcommand' -l timeout -x -d 'seconds to wait for the AI'",
         "complete -c relay -n '__fish_use_subcommand' -l yes -d 'skip the confirmation prompt'",
         "complete -c relay -n '__fish_use_subcommand' -l dry-run -d 'show the plan; change nothing'",

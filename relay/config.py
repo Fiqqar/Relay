@@ -47,6 +47,8 @@ DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
 DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 DEFAULT_MISTRAL_MODEL = "mistral-small-latest"
 DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
 
 # Branches the default-branch safety rule refuses to touch, when neither the
@@ -79,6 +81,8 @@ _CFG_KEYS = {
     "ANTHROPIC_BASE_URL": "anthropic_base_url",
     "MISTRAL_MODEL": "mistral_model",
     "MISTRAL_BASE_URL": "mistral_base_url",
+    "GROQ_MODEL": "groq_model",
+    "GROQ_BASE_URL": "groq_base_url",
     "RELAY_BRANCH_TEMPLATE": "branch_template",
     "RELAY_AI_TIMEOUT": "ai_timeout",
     "RELAY_MAX_DIFF_LINES": "max_diff_lines",
@@ -93,6 +97,7 @@ _ENV_ONLY = {
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "MISTRAL_API_KEY",
+    "GROQ_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
 }
@@ -264,6 +269,19 @@ def mistral_model() -> str:
 def mistral_base_url() -> str:
     """Base URL for the Mistral API (OpenAI-compatible ``/chat/completions``)."""
     return str(_resolve("MISTRAL_BASE_URL", "mistral_base_url", DEFAULT_MISTRAL_BASE_URL))
+
+
+def groq_api_key() -> str | None:
+    return os.environ.get("GROQ_API_KEY")
+
+
+def groq_model() -> str:
+    return str(_resolve("GROQ_MODEL", "groq_model", DEFAULT_GROQ_MODEL))
+
+
+def groq_base_url() -> str:
+    """Base URL for the Groq API (OpenAI-compatible ``/chat/completions``)."""
+    return str(_resolve("GROQ_BASE_URL", "groq_base_url", DEFAULT_GROQ_BASE_URL))
 
 
 def branch_template() -> str:
