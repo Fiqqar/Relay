@@ -49,6 +49,8 @@ DEFAULT_MISTRAL_MODEL = "mistral-small-latest"
 DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+DEFAULT_XAI_MODEL = "grok-beta"
+DEFAULT_XAI_BASE_URL = "https://api.x.ai/v1"
 DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
 
 # Branches the default-branch safety rule refuses to touch, when neither the
@@ -83,6 +85,8 @@ _CFG_KEYS = {
     "MISTRAL_BASE_URL": "mistral_base_url",
     "GROQ_MODEL": "groq_model",
     "GROQ_BASE_URL": "groq_base_url",
+    "XAI_MODEL": "xai_model",
+    "XAI_BASE_URL": "xai_base_url",
     "RELAY_BRANCH_TEMPLATE": "branch_template",
     "RELAY_AI_TIMEOUT": "ai_timeout",
     "RELAY_MAX_DIFF_LINES": "max_diff_lines",
@@ -98,6 +102,7 @@ _ENV_ONLY = {
     "ANTHROPIC_API_KEY",
     "MISTRAL_API_KEY",
     "GROQ_API_KEY",
+    "XAI_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
 }
@@ -282,6 +287,19 @@ def groq_model() -> str:
 def groq_base_url() -> str:
     """Base URL for the Groq API (OpenAI-compatible ``/chat/completions``)."""
     return str(_resolve("GROQ_BASE_URL", "groq_base_url", DEFAULT_GROQ_BASE_URL))
+
+
+def xai_api_key() -> str | None:
+    return os.environ.get("XAI_API_KEY")
+
+
+def xai_model() -> str:
+    return str(_resolve("XAI_MODEL", "xai_model", DEFAULT_XAI_MODEL))
+
+
+def xai_base_url() -> str:
+    """Base URL for the xAI API (OpenAI-compatible ``/chat/completions``)."""
+    return str(_resolve("XAI_BASE_URL", "xai_base_url", DEFAULT_XAI_BASE_URL))
 
 
 def branch_template() -> str:

@@ -23,6 +23,7 @@ from relay.ai import (
     MistralProvider,
     OllamaProvider,
     OpenAIProvider,
+    XaiProvider,
     build_provider,
 )
 from relay.ai.base import truncate_diff
@@ -347,6 +348,67 @@ class TestAnthropic:
         assert "unexpected payload" in str(exc_info.value)
 
 
+class TestXai:
+    def make_provider(self):
+        return XaiProvider(api_key="test-key", model="grok-beta", base_url="https://api.x.ai/v1", timeout=5)
+
+    def test_success_returns_text_and_sends_correct_request(self, sample_diff, sample_stat):
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(OPENAI_SUCCESS)
+            result = self.make_provider().generate_commit_message(sample_diff, sample_stat, "main")
+
+        assert result == "feat(api): add login"
+        request = mock_urlopen.call_args.args[0]
+        assert request.full_url == "https://api.x.ai/v1/chat/completions"
+        headers = {key.lower(): value for key, value in request.headers.items()}
+        assert headers["authorization"] == "Bearer test-key"
+        assert headers["content-type"] == "application/json"
+
+    def test_missing_api_key_raises_config_error(self):
+        with mock.patch("relay.ai.xai.xai_api_key", return_value=None):
+            with pytest.raises(ConfigError, match="XAI_API_KEY"):
+                XaiProvider(model="m", base_url="http://x/v1")
+
+    def test_http_429_maps_to_rate_limited_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://example.com", 429, "Too Many Requests", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "rate_limited"
+
+    def test_http_4xx_maps_to_api_error_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://example.com", 401, "Unauthorized", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "api_error"
+
+    def test_http_5xx_maps_to_unavailable_aierror(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+            "https://example.com", 503, "Service Unavailable", {}, None
+        )):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "unavailable"
+
+    def test_malformed_payload_maps_to_bad_response_aierror(self):
+        payload = {"unexpected": "shape"}
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(payload)
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+
+    def test_error_field_maps_to_bad_response_aierror(self):
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+
+
 class TestGroq:
     def make_provider(self):
         return GroqProvider(api_key="test-key", model="llama-3.3-70b-versatile", base_url="https://api.groq.com/openai/v1", timeout=5)
@@ -489,6 +551,7 @@ class TestResponseLimit:
             lambda: AnthropicProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
             lambda: MistralProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
             lambda: GroqProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
+            lambda: XaiProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
         ],
     )
     def test_oversized_response_is_rejected(self, make_provider):
@@ -589,6 +652,10 @@ class TestTimeoutCaps:
         p = GroqProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
         assert p.timeout == 120
 
+    def test_xai_timeout_clamped_to_120_seconds_max(self):
+        p = XaiProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        assert p.timeout == 120
+
 
 class TestMissingApiKey:
     def test_openai_requires_key(self):
@@ -611,6 +678,11 @@ class TestMissingApiKey:
             with pytest.raises(ConfigError, match="GROQ_API_KEY"):
                 GroqProvider(base_url="http://x/v1")
 
+    def test_xai_requires_key(self):
+        with mock.patch("relay.ai.xai.xai_api_key", return_value=None):
+            with pytest.raises(ConfigError, match="XAI_API_KEY"):
+                XaiProvider(base_url="http://x/v1")
+
 
 class TestBuildProvider:
     """The registry (relay/ai/__init__.py) maps a flag/env value to a provider."""
@@ -630,6 +702,10 @@ class TestBuildProvider:
     def test_explicit_groq_constructs_groq(self):
         with mock.patch("relay.ai.groq.groq_api_key", return_value="k"):
             assert isinstance(build_provider("groq"), GroqProvider)
+
+    def test_explicit_xai_constructs_xai(self):
+        with mock.patch("relay.ai.xai.xai_api_key", return_value="k"):
+            assert isinstance(build_provider("xai"), XaiProvider)
 
     def test_explicit_gemini_constructs_gemini(self):
         with mock.patch("relay.ai.gemini.gemini_api_key", return_value="k"):

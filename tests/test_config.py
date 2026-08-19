@@ -33,6 +33,8 @@ def clear_relay_env(monkeypatch):
         "MISTRAL_BASE_URL",
         "GROQ_MODEL",
         "GROQ_BASE_URL",
+        "XAI_MODEL",
+        "XAI_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -153,6 +155,15 @@ def test_groq_settings_defaults_then_env(monkeypatch):
     assert config.groq_base_url() == "https://gateway.local/v1"
 
 
+def test_xai_settings_defaults_then_env(monkeypatch):
+    assert config.xai_model() == config.DEFAULT_XAI_MODEL
+    assert config.xai_base_url() == config.DEFAULT_XAI_BASE_URL
+    monkeypatch.setenv("XAI_MODEL", "grok-2-latest")
+    monkeypatch.setenv("XAI_BASE_URL", "https://gateway.local/v1")
+    assert config.xai_model() == "grok-2-latest"
+    assert config.xai_base_url() == "https://gateway.local/v1"
+
+
 def test_api_keys_are_env_only(monkeypatch, tmp_path):
     _write_toml(monkeypatch, tmp_path, """
         [relay]
@@ -160,15 +171,18 @@ def test_api_keys_are_env_only(monkeypatch, tmp_path):
         anthropic_api_key = "leaked"
         mistral_api_key = "leaked"
         groq_api_key = "leaked"
+        xai_api_key = "leaked"
     """)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
     assert config.openai_api_key() is None
     assert config.anthropic_api_key() is None
     assert config.mistral_api_key() is None
     assert config.groq_api_key() is None
+    assert config.xai_api_key() is None
 
 
 def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch, capsys):

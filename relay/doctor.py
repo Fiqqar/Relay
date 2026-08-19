@@ -26,6 +26,7 @@ from .config import (
     openai_api_key,
     protected_branches,
     provider_from_env,
+    xai_api_key,
 )
 from .git_manager import GitManager
 from .github import github_token
@@ -191,9 +192,18 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         else:
             checks[6].status = "fail"
             checks[6].detail = "GROQ_API_KEY is not set; see `relay --help`"
+    elif chosen == "xai":
+        checks[5].detail = "xAI API"
+        key = xai_api_key()
+        if key:
+            checks[6].status = "ok"
+            checks[6].detail = "XAI_API_KEY is set"
+        else:
+            checks[6].status = "fail"
+            checks[6].detail = "XAI_API_KEY is not set; see `relay --help`"
     else:
         checks[6].status = "warn"
-        checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic|mistral|groq)"
+        checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic|mistral|groq|xai)"
 
     # Forge token for `relay pr`. Missing is a warning, not a failure, since
     # `relay pr` is an optional part of the workflow.

@@ -57,7 +57,7 @@ Stage all, generate a message, commit, and push to the current branch.
 Create and check out a new branch \fI<type>/<feature>\fR, commit, and push.
 .TP
 .B \-\-provider \fIname\fR
-AI provider (\fIgemini\fR, \fIollama\fR, \fIopenai\fR, \fIanthropic\fR, \fImistral\fR, or \fIgroq\fR).
+AI provider (\fIgemini\fR, \fIollama\fR, \fIopenai\fR, \fIanthropic\fR, \fImistral\fR, \fIgroq\fR, or \fIxai\fR).
 \fIopenai\fR also talks to OpenAI-compatible local servers (llama.cpp, vLLM)
 via \fIOPENAI_BASE_URL\fR. Default: \fIgemini\fR or \fIRELAY_AI_PROVIDER\fR.
 .TP
@@ -136,7 +136,7 @@ Base URL of a local Ollama server (default http://localhost:11434).
 Ollama model name (default qwen2.5-coder:7b).
 .TP
 .I RELAY_AI_PROVIDER
-Default provider name (gemini|ollama|openai|anthropic|mistral|groq).
+Default provider name (gemini|ollama|openai|anthropic|mistral|groq|xai).
 .TP
 .I GITHUB_TOKEN
 Personal access token used by \fBrelay pr\fR on GitHub.

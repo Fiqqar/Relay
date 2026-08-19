@@ -11,6 +11,7 @@ from .groq import GroqProvider
 from .mistral import MistralProvider
 from .ollama import OllamaProvider
 from .openai import OpenAIProvider
+from .xai import XaiProvider
 
 _PROVIDERS = {
     "gemini": GeminiProvider,
@@ -19,6 +20,7 @@ _PROVIDERS = {
     "anthropic": AnthropicProvider,
     "mistral": MistralProvider,
     "groq": GroqProvider,
+    "xai": XaiProvider,
 }
 
 PROVIDER_NAMES = tuple(sorted(_PROVIDERS))
@@ -51,5 +53,6 @@ __all__ = [
     "MistralProvider",
     "OllamaProvider",
     "OpenAIProvider",
+    "XaiProvider",
     "build_provider",
 ]
