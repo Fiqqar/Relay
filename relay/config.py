@@ -197,6 +197,14 @@ def _load_team_protected() -> dict:
     return protected if isinstance(protected, dict) else {}
 
 
+def _load_ai() -> dict:
+    """Parse the ``[ai]`` table from the config file (or {} when absent)."""
+    section = _load_raw().get("ai")
+    if not isinstance(section, dict):
+        return {}
+    return section
+
+
 def _resolve(env_key: str, cfg_key: str, default):
     """resolve(env_key, cfg_key, default): env > file > default.
 
@@ -214,8 +222,25 @@ def _resolve(env_key: str, cfg_key: str, default):
 
 
 def provider_from_env() -> str:
-    resolved = _resolve("RELAY_AI_PROVIDER", "provider", DEFAULT_PROVIDER)
-    return str(resolved).lower()
+    """The default AI provider, lowercased.
+
+    Resolution order: ``RELAY_AI_PROVIDER`` env var > ``[relay] provider`` in
+    the config file > ``[ai] default`` in the config file > the built-in
+    default (``gemini``). The ``[ai]`` table gives a config file a second,
+    dedicated knob for the default provider without touching the ``[relay]``
+    table or the env var — useful when a team wants to standardize on one
+    provider across machines.
+    """
+    env_val = os.environ.get("RELAY_AI_PROVIDER")
+    if env_val is not None:
+        return str(env_val).lower()
+    relay_provider = _load_config().get("provider")
+    if relay_provider is not None:
+        return str(relay_provider).lower()
+    ai_default = _load_ai().get("default")
+    if ai_default is not None:
+        return str(ai_default).lower()
+    return DEFAULT_PROVIDER
 
 
 def gemini_api_key() -> str | None:

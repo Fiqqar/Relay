@@ -257,11 +257,18 @@ gemini_model = "gemini-2.5-flash"
 ollama_model = "qwen2.5-coder:7b"
 ollama_base_url = "http://localhost:11434"
 
+[ai]
+default = "ollama"
+
 [team.protected]
 branches = ["main", "develop"]
 ```
 
 Keys mirror the non-secret env vars above. A missing/malformed file is ignored.
+The `[ai]` table adds a dedicated `default` knob for the default provider
+(lower precedence than `RELAY_AI_PROVIDER` and the `[relay] provider` key, so a
+team can standardize on one provider without touching env vars or existing
+config).
 
 ---
 

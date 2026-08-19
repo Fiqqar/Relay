@@ -356,6 +356,57 @@ def test_trusted_gitlab_hosts_empty_file_list_is_ignored(monkeypatch, tmp_path):
     assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
+def test_ai_default_supplies_provider_from_file(monkeypatch, tmp_path):
+    """The [ai] table is a dedicated knob for the default provider."""
+    _write_toml(monkeypatch, tmp_path, """
+        [ai]
+        default = "ollama"
+    """)
+    assert config.provider_from_env() == "ollama"
+
+
+def test_relay_provider_beats_ai_default(monkeypatch, tmp_path):
+    """The existing [relay] provider key stays the higher-precedence file knob."""
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        provider = "gemini"
+
+        [ai]
+        default = "ollama"
+    """)
+    assert config.provider_from_env() == "gemini"
+
+
+def test_env_beats_ai_default(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [ai]
+        default = "ollama"
+    """)
+    monkeypatch.setenv("RELAY_AI_PROVIDER", "openai")
+    assert config.provider_from_env() == "openai"
+
+
+def test_ai_default_absent_falls_back_to_builtin(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [team.protected]
+        branches = ["main"]
+    """)
+    assert config.provider_from_env() == config.DEFAULT_PROVIDER
+
+
+def test_ai_default_supported_by_internal_toml_parser(monkeypatch, tmp_path):
+    """The bundled Python 3.10 TOML fallback must handle the [ai] table too."""
+    from relay import toml
+
+    monkeypatch.setattr(config, "_load_toml", toml.load)
+    monkeypatch.setattr(config, "_TOML_DECODE_ERROR", ValueError)
+    _write_toml(monkeypatch, tmp_path, """
+        [ai]
+        default = "ollama"
+    """)
+    assert config.provider_from_env() == "ollama"
+
+
 # ---- F6: TOML config file (flags > env > file > defaults) --------------------
 
 
