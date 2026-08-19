@@ -16,6 +16,7 @@ import sys
 from dataclasses import dataclass
 
 from . import __version__
+from .bitbucket import bitbucket_token
 from .config import (
     DEFAULT_OLLAMA_BASE_URL,
     anthropic_api_key,
@@ -213,10 +214,13 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
     elif gitlab_token():
         checks[7].status = "ok"
         checks[7].detail = "GITLAB_TOKEN is set"
+    elif bitbucket_token():
+        checks[7].status = "ok"
+        checks[7].detail = "BITBUCKET_TOKEN is set"
     else:
         checks[7].status = "warn"
         checks[7].detail = (
-            "GITHUB_TOKEN / GITLAB_TOKEN is not set; `relay pr` cannot open PRs/MRs"
+            "GITHUB_TOKEN / GITLAB_TOKEN / BITBUCKET_TOKEN is not set; `relay pr` cannot open PRs/MRs"
         )
 
     # Protected branches: report the configured default-branch safety rules and

@@ -272,6 +272,7 @@ def test_protected_branches_empty_file_list_falls_back_to_default(monkeypatch, t
 def test_forge_tokens_are_env_only(monkeypatch, tmp_path):
     """NFR: forge tokens are never read from the config file; a config file
     that declares them must have no effect on the env-only getters."""
+    from relay.bitbucket import bitbucket_token
     from relay.github import github_token
     from relay.gitlab import gitlab_token
 
@@ -279,11 +280,13 @@ def test_forge_tokens_are_env_only(monkeypatch, tmp_path):
         [relay]
         github_token = "leaked"
         gitlab_token = "leaked"
+        bitbucket_token = "leaked"
     """)
-    for key in ("GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN"):
+    for key in ("GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN", "BITBUCKET_TOKEN"):
         monkeypatch.delenv(key, raising=False)
     assert github_token() is None
     assert gitlab_token() is None
+    assert bitbucket_token() is None
 
 
 # ---- GitLab host trust boundary (credential-exfiltration hardening) ----------

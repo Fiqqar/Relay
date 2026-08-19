@@ -145,6 +145,11 @@ Personal access token used by \fBrelay pr\fR on GitHub.
 Personal access token used by \fBrelay pr\fR on GitLab
 (gitlab.com or a self-hosted instance you have trusted).
 .TP
+.I BITBUCKET_TOKEN
+Username and App Password for \fBrelay pr\fR on Bitbucket Cloud, in
+\fIusername:app_password\fR form (Bitbucket uses HTTP Basic auth, not a
+single token).
+.TP
 .I RELAY_TRUSTED_GITLAB_HOSTS
 Comma/space-separated allowlist of self-hosted GitLab hosts (beyond
 \fIgitlab.com\fR) that \fBrelay pr\fR may send \fIGITLAB_TOKEN\fR to. The

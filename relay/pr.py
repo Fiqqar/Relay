@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import webbrowser
 
+from .bitbucket import BitbucketClient, BitbucketError
+from .bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
 from .commit import sanitize_ai_message
 from .config import trusted_gitlab_hosts
 from .errors import RelayError
@@ -31,27 +33,43 @@ def _host_web_base(host: str, owner: str, repo: str) -> str:
     """Human-visible base URL a browser can open for this host's PR list."""
     if host == "github.com":
         return f"https://github.com/{owner}/{repo}/pulls"
+    if host == "bitbucket.org":
+        return f"https://bitbucket.org/{owner}/{repo}/pull-requests"
     return f"https://{host}/{owner}/{repo}/-/merge_requests"
 
 
 def _pr_web_url(host: str, owner: str, repo: str, number) -> str:
     if host == "github.com":
         return f"https://github.com/{owner}/{repo}/pull/{number}"
+    if host == "bitbucket.org":
+        return f"https://bitbucket.org/{owner}/{repo}/pull-requests/{number}"
     return f"https://{host}/{owner}/{repo}/-/merge_requests/{number}"
+
+
+def _existing_url(host: str, owner: str, repo: str, existing) -> str:
+    """The best URL for an existing PR/MR resource across the forge clients.
+
+    GitHub and GitLab expose ``html_url``/``web_url`` at the top level while
+    Bitbucket nests it under ``links.html.href``, so this helper normalizes all
+    three before falling back to a best-effort constructed URL.
+    """
+    if existing is None:
+        return _host_web_base(host, owner, repo)
+    url = existing.get("html_url") or existing.get("web_url") or ""
+    if not url:
+        html = (existing.get("links") or {}).get("html") or {}
+        url = html.get("href") or ""
+    if url:
+        return url
+    number = existing.get("number") or existing.get("iid") or existing.get("id")
+    return _pr_web_url(host, owner, repo, number)
 
 
 def _exit_existing_pr_host(
     host: str, owner: str, repo: str, existing, open_browser: bool
 ) -> int:
     """Report an existing PR/MR (or the best URL we can build) and stop gracefully."""
-    if existing is not None:
-        url = (
-            existing.get("html_url")
-            or existing.get("web_url")
-            or _pr_web_url(host, owner, repo, existing.get("number") or existing.get("iid"))
-        )
-    else:
-        url = _host_web_base(host, owner, repo)
+    url = _existing_url(host, owner, repo, existing)
     print(f"[relay] PR already exists: {url}")
     if open_browser:
         webbrowser.open(url)
@@ -125,6 +143,46 @@ def _run_github(
         raise
     number = created.get("number")
     url = created.get("html_url") or _pr_web_url("github.com", owner, repo, number)
+    print(f"[relay] opened PR #{number}: {url}")
+    if open_browser:
+        webbrowser.open(url)
+    return 0
+
+
+def _run_bitbucket(
+    *,
+    owner: str,
+    repo: str,
+    head: str,
+    base: str,
+    title: str,
+    body: str,
+    draft: bool,
+    open_browser: bool,
+    verbose: bool,
+) -> int:
+    client = BitbucketClient(owner, repo, verbose=verbose)
+    existing = client.find_open_pull(source_branch=head)
+    if existing is not None:
+        return _exit_existing_pr_host("bitbucket.org", owner, repo, existing, open_browser)
+    try:
+        created = client.open_pull(
+            title=title, source_branch=head, destination_branch=base,
+            description=body, draft=draft,
+        )
+    except BitbucketDuplicateError:
+        # Race or a stale lookup: re-query and exit gracefully instead of a 400.
+        existing = client.find_open_pull(source_branch=head)
+        return _exit_existing_pr_host("bitbucket.org", owner, repo, existing, open_browser)
+    except BitbucketError as exc:
+        if exc.status in (400, 409):
+            print(f"[relay] Cannot open PR: {exc.reason}")
+            return 1
+        raise
+    number = created.get("id")
+    url = (created.get("links") or {}).get("html", {}).get("href") or _pr_web_url(
+        "bitbucket.org", owner, repo, number
+    )
     print(f"[relay] opened PR #{number}: {url}")
     if open_browser:
         webbrowser.open(url)
@@ -205,17 +263,19 @@ def run_pr(
     except ValueError as exc:
         raise RelayError(str(exc)) from exc
 
-    # The GitLab host is derived from `origin`, which a malicious repository
-    # (e.g. a fork you clone) can point anywhere. Refuse before any token is
-    # read or any request is sent unless the host is explicitly trusted —
-    # only gitlab.com is trusted by default (SECURITY: credential exfil).
-    if host != "github.com" and host not in trusted_gitlab_hosts():
+    # The forge host is derived from `origin`, which a malicious repository
+    # (e.g. a fork you clone) can point anywhere. Only github.com and
+    # bitbucket.org are trusted by default; any other host is refused before
+    # any token is read or any request is sent unless it is a GitLab instance
+    # the user explicitly trusts (SECURITY: credential exfil).
+    if host not in ("github.com", "bitbucket.org") and host not in trusted_gitlab_hosts():
         raise RelayError(
-            f"refusing to send GITLAB_TOKEN to untrusted GitLab host '{host}': "
-            "the host comes from your 'origin' remote, which an attacker could "
-            "control. Trust it explicitly by adding it to "
-            "`RELAY_TRUSTED_GITLAB_HOSTS` (or `trusted_gitlab_hosts` in the "
-            "`[relay]` config table) — only do this for instances you own"
+            f"unsupported or untrusted forge host '{host}': `relay pr` supports "
+            "github.com and bitbucket.org by default, plus gitlab.com or any host "
+            "listed in RELAY_TRUSTED_GITLAB_HOSTS (or `trusted_gitlab_hosts` in "
+            "the `[relay]` config table). The host comes from your 'origin' "
+            "remote, which an attacker could control; refusing to send a forge "
+            "token to an unvetted host"
         )
 
     head = git.current_branch()
@@ -244,8 +304,14 @@ def run_pr(
             title=pr_title, body=body, draft=draft,
             open_browser=open_browser, verbose=verbose,
         )
-    return _run_gitlab(
-        host=host, owner=owner, repo=repo, head=head, base=base,
+    if host in trusted_gitlab_hosts():
+        return _run_gitlab(
+            host=host, owner=owner, repo=repo, head=head, base=base,
+            title=pr_title, body=body, draft=draft,
+            open_browser=open_browser, verbose=verbose,
+        )
+    return _run_bitbucket(
+        owner=owner, repo=repo, head=head, base=base,
         title=pr_title, body=body, draft=draft,
         open_browser=open_browser, verbose=verbose,
     )

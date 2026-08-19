@@ -48,6 +48,8 @@ def healthy_env():
     ), mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), mock.patch(
         "relay.doctor.github_token", return_value="test-token"
     ), mock.patch("relay.doctor.gitlab_token", return_value=None), mock.patch(
+        "relay.doctor.bitbucket_token", return_value=None
+    ), mock.patch(
         "relay.doctor.protected_branches", return_value=["main", "master"]
     ):
         yield
@@ -220,7 +222,7 @@ def test_github_token_missing_warns_but_passes(healthy_env, capsys):
     with mock.patch("relay.doctor.github_token", return_value=None):
         assert run_doctor() == 0  # a missing token is a warn, not a failure
     out = capsys.readouterr().out
-    assert "GITHUB_TOKEN / GITLAB_TOKEN is not set" in out
+    assert "GITHUB_TOKEN / GITLAB_TOKEN / BITBUCKET_TOKEN is not set" in out
     assert "WARN" in out
 
 
@@ -230,6 +232,14 @@ def test_gitlab_token_set_passes(healthy_env, capsys):
     ):
         assert run_doctor() == 0
     assert "GITLAB_TOKEN is set" in capsys.readouterr().out
+
+
+def test_bitbucket_token_set_passes(healthy_env, capsys):
+    with mock.patch("relay.doctor.github_token", return_value=None), mock.patch(
+        "relay.doctor.gitlab_token", return_value=None
+    ), mock.patch("relay.doctor.bitbucket_token", return_value="user:app_password"):
+        assert run_doctor() == 0
+    assert "BITBUCKET_TOKEN is set" in capsys.readouterr().out
 
 
 def test_provider_override_flag(healthy_env):

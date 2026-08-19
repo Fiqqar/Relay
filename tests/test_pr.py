@@ -3,6 +3,8 @@ from unittest import mock
 
 import pytest
 
+from relay.bitbucket import BitbucketError
+from relay.bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
 from relay.errors import RelayError
 from relay.github import DuplicatePullRequestError, GitHubError
 from relay.gitlab import DuplicateMergeRequestError, GitLabError
@@ -179,7 +181,7 @@ class TestRunPr:
 
     def test_unrecognized_host_raises(self, fake_client):
         with pytest.raises(RelayError):
-            run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"))
+            run_pr(git=FakeGit(remote="git@myforge.example.com:acme/widget.git"))
 
 
 class TestAntiDuplicate:
@@ -421,3 +423,97 @@ class TestGitLab:
             "gitlab.example.com", "group/sub/widget", verbose=False
         )
         fake_gitlab.assert_called_once_with("gitlab.example.com", "group/sub/widget", verbose=False)
+
+
+class TestBitbucket:
+    @pytest.fixture(autouse=True)
+    def clean_relay_env(self, monkeypatch):
+        """A stray RELAY_CONFIG / RELAY_TRUSTED_GITLAB_HOSTS on the host machine
+        must not leak into the assertions."""
+        from relay import config
+
+        monkeypatch.delenv("RELAY_CONFIG", raising=False)
+        monkeypatch.delenv("RELAY_TRUSTED_GITLAB_HOSTS", raising=False)
+        config._RAW_CACHE.clear()
+
+    @pytest.fixture
+    def fake_bitbucket(self):
+        with mock.patch("relay.pr.BitbucketClient") as client_cls:
+            client_cls.return_value.find_open_pull.return_value = None
+            client_cls.return_value.open_pull.return_value = {
+                "id": 77,
+                "links": {
+                    "html": {"href": "https://bitbucket.org/acme/widget/pull-requests/77"}
+                },
+            }
+            yield client_cls
+
+    def test_routes_https_bitbucket_remote_to_bitbucket(self, fake_bitbucket, capsys):
+        git = FakeGit(remote="https://bitbucket.org/acme/widget.git")
+        assert run_pr(git=git) == 0
+        fake_bitbucket.assert_called_once_with("acme", "widget", verbose=False)
+        out = capsys.readouterr().out
+        assert "PR #77" in out
+        assert "bitbucket.org/acme/widget/pull-requests/77" in out
+
+    def test_routes_ssh_bitbucket_remote(self, fake_bitbucket):
+        git = FakeGit(remote="git@bitbucket.org:acme/widget.git")
+        run_pr(git=git)
+        fake_bitbucket.assert_called_once_with("acme", "widget", verbose=False)
+
+    def test_sends_bitbucket_payload(self, fake_bitbucket):
+        run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"))
+        fake_bitbucket.return_value.open_pull.assert_called_once_with(
+            title="feat: add login", source_branch="feat/login",
+            destination_branch="main", description=mock.ANY, draft=False
+        )
+
+    def test_bitbucket_draft_forwarded(self, fake_bitbucket):
+        run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"), draft=True)
+        args = fake_bitbucket.return_value.open_pull.call_args.kwargs
+        assert args["draft"] is True
+
+    def test_custom_bitbucket_base_forwarded(self, fake_bitbucket):
+        run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"), base="develop")
+        args = fake_bitbucket.return_value.open_pull.call_args.kwargs
+        assert args["destination_branch"] == "develop"
+
+    def test_existing_bitbucket_pr_skips_creation(self, fake_bitbucket, capsys):
+        fake_bitbucket.return_value.find_open_pull.return_value = {
+            "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/9"}}
+        }
+        assert run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git")) == 0
+        fake_bitbucket.return_value.open_pull.assert_not_called()
+        assert "PR already exists: https://bitbucket.org/acme/widget/pull-requests/9" in capsys.readouterr().out
+
+    def test_existing_bitbucket_pr_opens_browser(self, fake_bitbucket):
+        fake_bitbucket.return_value.find_open_pull.return_value = {
+            "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/9"}}
+        }
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"), open_browser=True)
+        browser.assert_called_once_with("https://bitbucket.org/acme/widget/pull-requests/9")
+
+    def test_bitbucket_duplicate_post_safety_net(self, fake_bitbucket, capsys):
+        find = fake_bitbucket.return_value.find_open_pull
+        find.side_effect = [None, {"links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/7"}}}]
+        fake_bitbucket.return_value.open_pull.side_effect = BitbucketDuplicateError(
+            "already exists", status=400, body="already exists"
+        )
+        assert run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git")) == 0
+        assert find.call_count == 2
+
+    def test_bitbucket_400_returns_nonzero(self, fake_bitbucket, capsys):
+        fake_bitbucket.return_value.open_pull.side_effect = BitbucketError(
+            "Bitbucket API error 400: Invalid source branch", status=400,
+            payload={}, detail="Invalid source branch"
+        )
+        assert run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git")) == 1
+        assert "Cannot open PR: Invalid source branch" in capsys.readouterr().out
+
+    def test_bitbucket_500_propagates(self, fake_bitbucket):
+        fake_bitbucket.return_value.open_pull.side_effect = BitbucketError(
+            "Bitbucket API error 500: boom", status=500, payload=None, detail="boom"
+        )
+        with pytest.raises(BitbucketError):
+            run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"))

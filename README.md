@@ -39,10 +39,10 @@ Relay collapses this into a single workflow while keeping the developer in contr
 
 - **Solo mode** — stage all, generate message, commit, push to the current branch.
 - **Team mode** — stage all, generate message, create & checkout a new branch (e.g. `feat/<feature>`), push that branch.
-- **Instant Pull Requests** — open a GitHub Pull Request directly from your terminal using zero-dependency REST API integration (`relay pr`, incl. draft PRs via `--draft`).
+- **Instant Pull Requests** — open a GitHub / GitLab / Bitbucket Cloud PR directly from your terminal using zero-dependency REST API integration (`relay pr`, incl. draft PRs via `--draft`).
 - **Team default-branch safety** — team mode refuses to commit to a configured protected branch (default `main`/`master`), with an explicit `--allow-protected` escape hatch; solo mode keeps its commit-anywhere convention.
 - **AI-powered Conventional Commits** — reads `git diff --cached`, sends it to an LLM, validates the response as a Conventional Commit.
-- **Pluggable AI providers** — **Gemini API** (default) and local **Ollama**, both behind a common interface.
+- **Pluggable AI providers** — **Gemini** (default), **Ollama**, **OpenAI**, **Anthropic**, **Mistral**, **Groq**, and **xAI**, all behind a common interface.
 - **Human-in-the-loop fallback** — on AI failure (rate limit, timeout, offline, garbage output), falls back to a manual terminal prompt **without exiting the workflow**.
 - **Zero-config & safe** — works out of the box via environment variables, optionally overridden with a TOML config file; `--dry-run`, `--yes`, and an explicit confirm step.
 - **Respect your staging** — `--staged` commits only what you already staged instead of `git add .`.
@@ -110,16 +110,19 @@ scoop install relay/relay
 
 ## Security
 
-- **Secrets are environment-only.** `GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`,
-  and `GITLAB_TOKEN` are read from the environment and never written to disk or
-  logged. Relay never sends your diff, commit messages, or file names anywhere
-  except the AI provider you explicitly configure.
+- **Secrets are environment-only.** `GEMINI_API_KEY`, `OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`,
+  `GITHUB_TOKEN`/`GH_TOKEN`, `GITLAB_TOKEN`, and `BITBUCKET_TOKEN` are read
+  from the environment and never written to disk or logged. Relay never sends
+  your diff, commit messages, or file names anywhere except the AI provider you
+  explicitly configure.
 - **Forge hosts are explicitly trusted.** `relay pr` derives the forge host
   from your `origin` remote — data a malicious repository can control — so it
-  only ever sends `GITLAB_TOKEN` to `gitlab.com` unless you explicitly add a
-  self-hosted GitLab host to `RELAY_TRUSTED_GITLAB_HOSTS` (or
-  `trusted_gitlab_hosts` in the `[relay]` config table). Untrusted hosts are
-  refused before any token is read or sent. Only trust instances you own.
+  only ever sends a forge token to `github.com` or `bitbucket.org` by default,
+  and to `gitlab.com` or a self-hosted GitLab host you explicitly add to
+  `RELAY_TRUSTED_GITLAB_HOSTS` (or `trusted_gitlab_hosts` in the `[relay]`
+  config table). Untrusted hosts are refused before any token is read or sent.
+  Only trust instances you own.
 - **No shell injection surface.** Every `git` invocation passes arguments as a
   list (`shell=True` is never used), so filenames with spaces or special
   characters cannot be injected into a shell.
@@ -221,11 +224,23 @@ Environment variables (always win over the config file):
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Gemini API key (**required** when provider is `gemini`) | — |
+| `OPENAI_API_KEY` | OpenAI (or OpenAI-compatible) API key (**required** when provider is `openai`) | — |
+| `ANTHROPIC_API_KEY` | Anthropic API key (**required** when provider is `anthropic`) | — |
+| `MISTRAL_API_KEY` | Mistral API key (**required** when provider is `mistral`) | — |
+| `GROQ_API_KEY` | Groq API key (**required** when provider is `groq`) | — |
+| `XAI_API_KEY` | xAI API key (**required** when provider is `xai`) | — |
 | `GITHUB_TOKEN` | GitHub Personal Access Token (for `relay pr`) | — |
+| `GITLAB_TOKEN` | GitLab token, incl. self-hosted instances (for `relay pr`) | — |
+| `BITBUCKET_TOKEN` | Bitbucket Cloud App Password as `username:app_password` (for `relay pr`) | — |
 | `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash` |
 | `OLLAMA_BASE_URL` | Ollama server endpoint | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Ollama model id | `qwen2.5-coder:7b` |
-| `RELAY_AI_PROVIDER` | Default provider: `gemini` \| `ollama` | `gemini` |
+| `OPENAI_MODEL` / `OPENAI_BASE_URL` | OpenAI-compatible model / endpoint (also llama.cpp, vLLM) | `gpt-4o-mini` / `https://api.openai.com/v1` |
+| `ANTHROPIC_MODEL` / `ANTHROPIC_BASE_URL` | Anthropic model / endpoint | `claude-3-5-haiku-latest` / `https://api.anthropic.com/v1` |
+| `MISTRAL_MODEL` / `MISTRAL_BASE_URL` | Mistral model / endpoint | `mistral-small-latest` / `https://api.mistral.ai/v1` |
+| `GROQ_MODEL` / `GROQ_BASE_URL` | Groq model / endpoint | `llama-3.3-70b-versatile` / `https://api.groq.com/openai/v1` |
+| `XAI_MODEL` / `XAI_BASE_URL` | xAI model / endpoint | `grok-beta` / `https://api.x.ai/v1` |
+| `RELAY_AI_PROVIDER` | Default provider: `gemini` \| `ollama` \| `openai` \| `anthropic` \| `mistral` \| `groq` \| `xai` | `gemini` |
 | `RELAY_AI_TIMEOUT` | Seconds to wait for the AI response (clamped to 120 max) | `30` |
 | `RELAY_MAX_DIFF_LINES` | Line cap on the staged diff sent to the LLM | `120` |
 | `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `<type>/<feature>` |
@@ -234,8 +249,9 @@ Environment variables (always win over the config file):
 | `RELAY_CONFIG` | Override the TOML config file path | see below |
 
 The `--provider` flag overrides `RELAY_AI_PROVIDER`; `--timeout` overrides
-`RELAY_AI_TIMEOUT`. **Secrets** (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`)
-are only ever read from the environment — never from a file.
+`RELAY_AI_TIMEOUT`. **Secrets** (`*_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`,
+`GITLAB_TOKEN`, `BITBUCKET_TOKEN`) are only ever read from the environment —
+never from a file.
 
 ### Config file (optional)
 
