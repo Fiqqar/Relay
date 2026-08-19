@@ -20,6 +20,7 @@ from .config import (
     DEFAULT_OLLAMA_BASE_URL,
     anthropic_api_key,
     gemini_api_key,
+    mistral_api_key,
     ollama_base_url,
     openai_api_key,
     protected_branches,
@@ -171,9 +172,18 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         reachable, detail = _ollama_reachable(base)
         checks[6].status = "ok" if reachable else "warn"
         checks[6].detail = detail
+    elif chosen == "mistral":
+        checks[5].detail = "Mistral API"
+        key = mistral_api_key()
+        if key:
+            checks[6].status = "ok"
+            checks[6].detail = "MISTRAL_API_KEY is set"
+        else:
+            checks[6].status = "fail"
+            checks[6].detail = "MISTRAL_API_KEY is not set; see `relay --help`"
     else:
         checks[6].status = "warn"
-        checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic)"
+        checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic|mistral)"
 
     # Forge token for `relay pr`. Missing is a warning, not a failure, since
     # `relay pr` is an optional part of the workflow.

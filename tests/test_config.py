@@ -29,6 +29,8 @@ def clear_relay_env(monkeypatch):
         "OPENAI_BASE_URL",
         "ANTHROPIC_MODEL",
         "ANTHROPIC_BASE_URL",
+        "MISTRAL_MODEL",
+        "MISTRAL_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -131,16 +133,28 @@ def test_anthropic_settings_defaults_then_env(monkeypatch):
     assert config.anthropic_base_url() == "https://gateway.local/v1"
 
 
+def test_mistral_settings_defaults_then_env(monkeypatch):
+    assert config.mistral_model() == config.DEFAULT_MISTRAL_MODEL
+    assert config.mistral_base_url() == config.DEFAULT_MISTRAL_BASE_URL
+    monkeypatch.setenv("MISTRAL_MODEL", "mistral-large-latest")
+    monkeypatch.setenv("MISTRAL_BASE_URL", "https://gateway.local/v1")
+    assert config.mistral_model() == "mistral-large-latest"
+    assert config.mistral_base_url() == "https://gateway.local/v1"
+
+
 def test_api_keys_are_env_only(monkeypatch, tmp_path):
     _write_toml(monkeypatch, tmp_path, """
         [relay]
         openai_api_key = "leaked"
         anthropic_api_key = "leaked"
+        mistral_api_key = "leaked"
     """)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     assert config.openai_api_key() is None
     assert config.anthropic_api_key() is None
+    assert config.mistral_api_key() is None
 
 
 def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch, capsys):

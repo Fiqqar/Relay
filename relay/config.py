@@ -45,6 +45,8 @@ DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
 DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
+DEFAULT_MISTRAL_MODEL = "mistral-small-latest"
+DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 DEFAULT_BRANCH_TEMPLATE = "<type>/<feature>"
 
 # Branches the default-branch safety rule refuses to touch, when neither the
@@ -75,6 +77,8 @@ _CFG_KEYS = {
     "OPENAI_BASE_URL": "openai_base_url",
     "ANTHROPIC_MODEL": "anthropic_model",
     "ANTHROPIC_BASE_URL": "anthropic_base_url",
+    "MISTRAL_MODEL": "mistral_model",
+    "MISTRAL_BASE_URL": "mistral_base_url",
     "RELAY_BRANCH_TEMPLATE": "branch_template",
     "RELAY_AI_TIMEOUT": "ai_timeout",
     "RELAY_MAX_DIFF_LINES": "max_diff_lines",
@@ -88,6 +92,7 @@ _ENV_ONLY = {
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
+    "MISTRAL_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
 }
@@ -246,6 +251,19 @@ def anthropic_model() -> str:
 
 def anthropic_base_url() -> str:
     return str(_resolve("ANTHROPIC_BASE_URL", "anthropic_base_url", DEFAULT_ANTHROPIC_BASE_URL))
+
+
+def mistral_api_key() -> str | None:
+    return os.environ.get("MISTRAL_API_KEY")
+
+
+def mistral_model() -> str:
+    return str(_resolve("MISTRAL_MODEL", "mistral_model", DEFAULT_MISTRAL_MODEL))
+
+
+def mistral_base_url() -> str:
+    """Base URL for the Mistral API (OpenAI-compatible ``/chat/completions``)."""
+    return str(_resolve("MISTRAL_BASE_URL", "mistral_base_url", DEFAULT_MISTRAL_BASE_URL))
 
 
 def branch_template() -> str:

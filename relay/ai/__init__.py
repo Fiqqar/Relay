@@ -7,6 +7,7 @@ from ..errors import ConfigError
 from .anthropic import AnthropicProvider
 from .base import AIManager
 from .gemini import GeminiProvider
+from .mistral import MistralProvider
 from .ollama import OllamaProvider
 from .openai import OpenAIProvider
 
@@ -15,6 +16,7 @@ _PROVIDERS = {
     "ollama": OllamaProvider,
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
+    "mistral": MistralProvider,
 }
 
 PROVIDER_NAMES = tuple(sorted(_PROVIDERS))
@@ -43,6 +45,7 @@ __all__ = [
     "PROVIDER_NAMES",
     "AnthropicProvider",
     "GeminiProvider",
+    "MistralProvider",
     "OllamaProvider",
     "OpenAIProvider",
     "build_provider",
