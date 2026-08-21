@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-21
+
+### Added
+- Mistral, Groq, and xAI providers — each a drop-in `relay/ai/` subclass
+  of the OpenAI-compatible provider (`MISTRAL_API_KEY`, `GROQ_API_KEY`,
+  `XAI_API_KEY`; overridable `*_MODEL` / `*_BASE_URL`; registered in
+  `_PROVIDERS`).
+- Bitbucket Cloud pull-request client for `relay pr` (`BITBUCKET_TOKEN` as
+  `username:app_password`; routing in `relay/pr.py`, client in
+  `relay/bitbucket.py`).
+- Per-mode provider default in config (`[ai] default = "ollama"` in
+  `config.toml`, lower precedence than `RELAY_AI_PROVIDER` and
+  `[relay] provider`).
+- Provider matrix documentation (keys, base URLs, compat notes) in
+  `README.md` and `docs/ARCHITECTURE.md`.
+
 ### Security
 - `relay pr` now enforces a GitLab trust boundary. The host is derived from
   the `origin` remote — attacker-controllable data — so `GITLAB_TOKEN` is
@@ -280,7 +296,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Fiqqar/Relay/compare/v0.6.0...v0.7.0
 [0.5.8]: https://github.com/Fiqqar/Relay/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/Fiqqar/Relay/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/Fiqqar/Relay/compare/v0.5.5...v0.5.6
