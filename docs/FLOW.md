@@ -1,6 +1,6 @@
 # Relay — Logical Flow & State Machine
 
-> This document defines the step-by-step execution for **Solo** and **Team** modes, the **AI fallback mechanism**, and all edge cases.
+> This document defines the step-by-step execution for **Solo** and **Team** modes, the **AI fallback mechanism**, and all edge cases
 
 ---
 
