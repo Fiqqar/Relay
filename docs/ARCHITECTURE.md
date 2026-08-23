@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-Relay is a client-side CLI. It orchestrates three kinds of external systems: the **local Git repository**, an **LLM provider** (Gemini or Ollama), and the developer's **terminal** (for confirmation and fallback input). The core design goal is separation of concerns: Git mutation logic, AI communication, and user interaction are isolated behind interfaces so each is independently testable and replaceable.
+Relay is a client-side CLI. It orchestrates three kinds of external systems: the **local Git repository**, an **LLM provider** (Gemini or Ollama), and the developer's **terminal** (for confirmation and fallback input). The core design goal is separation of concerns: Git mutation logic, AI communication, and user interaction are isolated behind interfaces so each is independently testable and replaceable
 
 Relay is **zero-dependency by design**: everything uses the Python standard library (`argparse`, `subprocess`, `urllib`). Installing it is a single `pip install -e .`, and it works on fully offline machines.
 
