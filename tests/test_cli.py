@@ -350,6 +350,13 @@ def test_git_error_maps_to_exit_1(wired):
     assert main(["--solo"]) == 1
 
 
+def test_eof_error_maps_to_exit_1(wired, capsys):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = EOFError()
+    assert main(["--solo"]) == 1
+    assert "non-interactive environment" in capsys.readouterr().out
+
+
 def test_unexpected_exception_maps_to_exit_1(wired):
     _, orchestrator_cls = wired
     orchestrator_cls.return_value.run.side_effect = RuntimeError("bug")

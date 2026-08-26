@@ -383,6 +383,9 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\n[relay] aborted.")
         return 130
+    except EOFError:
+        print("[relay] non-interactive environment — cannot prompt for input (use --yes to skip confirmation).")
+        return 1
     except Exception as exc:  # noqa: BLE001 - last-resort guard, never traceback
         print(f"[relay] unexpected error: {exc}")
         return 1
