@@ -32,6 +32,7 @@ from .config import (
 from .git_manager import GitManager
 from .github import github_token
 from .gitlab import gitlab_token
+from .protected import is_protected
 
 _MARKS = {"ok": "PASS", "warn": "WARN", "fail": "FAIL", "skip": "SKIP"}
 
@@ -229,7 +230,7 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
     protected = protected_branches()
     current = git.current_branch() if git.is_repo() else ""
     checks[8].detail = ", ".join(protected) or "none"
-    if current and current in protected:
+    if current and is_protected(current, protected):
         checks[8].status = "warn"
         checks[8].detail = (
             f"{', '.join(protected)} — currently on protected branch '{current}'"

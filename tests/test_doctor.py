@@ -278,6 +278,14 @@ def test_doctor_warns_when_on_a_protected_branch(healthy_env, capsys):
     assert "WARN" in out
 
 
+def test_doctor_warns_case_insensitively_on_protected_branch(healthy_env, capsys):
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(branch="Main")):
+        assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "currently on protected branch 'Main'" in out
+    assert "WARN" in out
+
+
 def test_doctor_no_warning_when_off_protected_branch(healthy_env, capsys):
     with mock.patch("relay.doctor.GitManager", return_value=FakeGit(branch="feat/x")):
         run_doctor()
