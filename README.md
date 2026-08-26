@@ -286,6 +286,11 @@ The `[ai]` table adds a dedicated `default` knob for the default provider
 team can standardize on one provider without touching env vars or existing
 config).
 
+> **Security note:** Never point `RELAY_CONFIG` at a file inside an untrusted
+> repository. A malicious repo-local configuration could define settings such
+> as `trusted_gitlab_hosts` and expand the token trust boundary. Keep your
+> configuration files in your user profile or trusted directories.
+
 ---
 
 ## Example
