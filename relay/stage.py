@@ -85,8 +85,7 @@ def run_stage(
         raise GitError("not a git repository - run Relay from inside a work tree")
 
     if patch:
-        git.add_interactive()
-        return 0
+        return git.add_interactive()
 
     files = git.unstaged_changes()
     if not files:

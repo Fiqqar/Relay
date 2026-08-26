@@ -13,6 +13,7 @@ class FakeGit:
         self.files = list(files)
         self.staged = []
         self.add_interactive_calls = 0
+        self.interactive_returncode = 0
         self._is_repo = True
 
     def is_repo(self):
@@ -26,6 +27,7 @@ class FakeGit:
 
     def add_interactive(self):
         self.add_interactive_calls += 1
+        return self.interactive_returncode
 
 
 @pytest.fixture
@@ -92,9 +94,14 @@ def test_stage_cancel_changes_nothing(git, capsys):
 
 def test_stage_patch_mode_dispatches(git):
     git.add_interactive_calls = 0
-    with mock.patch.object(git, "add_interactive") as interactive:
+    with mock.patch.object(git, "add_interactive", return_value=0) as interactive:
         assert run_stage(git=git, patch=True) == 0
     interactive.assert_called_once_with()
+
+
+def test_stage_patch_mode_propagates_nonzero_exit_code(git):
+    git.interactive_returncode = 1
+    assert run_stage(git=git, patch=True) == 1
 
 
 def test_stage_nothing_to_do(git, capsys):

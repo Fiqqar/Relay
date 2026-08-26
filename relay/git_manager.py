@@ -261,7 +261,7 @@ class GitManager:
                 files.append(name)
         return files
 
-    def add_interactive(self) -> None:
+    def add_interactive(self) -> int:
         """Run git's own ``git add -p`` (patch mode) reading from the terminal.
 
         Relay delegates to the real interactive interface so the developer sees
@@ -269,7 +269,8 @@ class GitManager:
         stdin/stdout, so arrow keys and y/n/etc. behave exactly as in a normal
         terminal.
         """
-        subprocess.run(["git", "add", "-p"], cwd=self.cwd)
+        proc = subprocess.run(["git", "add", "-p"], cwd=self.cwd)
+        return proc.returncode
 
     def staged_diff(self) -> str:
         """Optimized staged diff for the AI: changed lines only (``--unified=0``).

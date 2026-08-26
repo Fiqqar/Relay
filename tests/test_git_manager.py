@@ -452,9 +452,14 @@ class TestStagingEdgePaths:
     def test_add_interactive_invokes_git_add_p(self, mock_run, git, make_proc):
         """Patch mode inherits the real terminal (no capture_output), so the
         only assertable contract is the argv list and the working directory."""
-        mock_run.return_value = make_proc()
-        git.add_interactive()
+        mock_run.return_value = make_proc(returncode=0)
+        assert git.add_interactive() == 0
         mock_run.assert_called_once_with(["git", "add", "-p"], cwd="/fake/repo")
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_add_interactive_returns_nonzero_exit_code(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=1)
+        assert git.add_interactive() == 1
 
 
 class TestUndoAndSquashGuards:
