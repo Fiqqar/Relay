@@ -55,14 +55,24 @@ class TestGitLabClient:
         headers = {k.lower(): v for k, v in request.headers.items()}
         assert headers["private-token"] == "glpat-test"
 
-    def test_draft_sets_draft_flag(self):
+    def test_draft_prefixes_title(self):
         with mock.patch("urllib.request.urlopen") as urlopen:
             urlopen.return_value.__enter__.return_value = fake_http({})
             make_client().open_merge_request(
-                title="t", source_branch="b", draft=True
+                title="feat: add login", source_branch="b", draft=True
             )
         body = json.loads(urlopen.call_args.args[0].data.decode("utf-8"))
-        assert body["draft"] is True
+        assert body["title"] == "Draft: feat: add login"
+        assert "draft" not in body
+
+    def test_draft_does_not_double_prefix_title(self):
+        with mock.patch("urllib.request.urlopen") as urlopen:
+            urlopen.return_value.__enter__.return_value = fake_http({})
+            make_client().open_merge_request(
+                title="Draft: feat: add login", source_branch="b", draft=True
+            )
+        body = json.loads(urlopen.call_args.args[0].data.decode("utf-8"))
+        assert body["title"] == "Draft: feat: add login"
 
     def test_find_open_mr_returns_first_opened(self):
         mrs = [{"iid": 1}, {"iid": 2}]

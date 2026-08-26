@@ -181,14 +181,13 @@ class GitLabClient:
     ) -> dict:
         """Open a merge request and return the created resource as a dict."""
         token = self._require_token()
-        payload: dict[str, str | bool] = {
+        mr_title = f"Draft: {title}" if draft and not title.lower().startswith("draft:") else title
+        payload: dict[str, str] = {
             "source_branch": source_branch,
             "target_branch": target_branch,
-            "title": title,
+            "title": mr_title,
             "description": description,
         }
-        if draft:
-            payload["draft"] = True
         request = urllib.request.Request(
             self.mrs_url,
             data=json.dumps(payload).encode("utf-8"),
