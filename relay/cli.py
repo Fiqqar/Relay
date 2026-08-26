@@ -320,7 +320,11 @@ def main(argv: list[str] | None = None) -> int:
         # `relay amend` reuses the solo workflow but rewrites the last commit
         # instead of creating a new one; it never pushes.
         if getattr(args, "command", None) == "amend":
-            ai = build_provider(args.provider, timeout=args.timeout)
+            try:
+                ai = build_provider(args.provider, timeout=args.timeout)
+            except ConfigError as exc:
+                print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+                ai = None
             orchestrator = Orchestrator(
                 mode="amend",
                 feature=None,

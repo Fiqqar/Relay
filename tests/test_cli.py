@@ -237,6 +237,16 @@ class TestAmendSubcommand:
             orchestrator_cls.return_value.run.side_effect = UserAbort("aborted")
             assert main(["amend"]) == 130
 
+    def test_main_amend_no_key_falls_back_to_manual(self):
+        """A missing API key must not abort amend: degrade to provider=None
+        so the Orchestrator's manual-input fallback takes over (H-14)."""
+        with mock.patch(
+            "relay.cli.build_provider", side_effect=ConfigError("no key")
+        ), mock.patch("relay.cli.Orchestrator") as orchestrator_cls:
+            orchestrator_cls.return_value.run.return_value = 0
+            assert main(["amend"]) == 0
+        assert orchestrator_cls.call_args.kwargs["provider"] is None
+
 
 @pytest.fixture
 def wired():
