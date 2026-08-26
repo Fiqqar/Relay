@@ -15,6 +15,7 @@ Title resolution order (first match wins):
 """
 from __future__ import annotations
 
+import urllib.parse
 import webbrowser
 
 from .bitbucket import BitbucketClient, BitbucketError
@@ -27,6 +28,18 @@ from .github import DuplicatePullRequestError, GitHubClient, GitHubError
 from .gitlab import DuplicateMergeRequestError, GitLabClient, GitLabError
 
 _PR_TITLE_MAX = 200
+
+
+def _safe_open_browser(url: str) -> bool:
+    """Open *url* in the default browser only if its scheme is http or https."""
+    if not url:
+        return False
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme.lower() in ("http", "https"):
+        webbrowser.open(url)
+        return True
+    print(f"[relay] refusing to open non-http(s) URL in browser: {url}")
+    return False
 
 
 def _host_web_base(host: str, owner: str, repo: str) -> str:
@@ -72,7 +85,7 @@ def _exit_existing_pr_host(
     url = _existing_url(host, owner, repo, existing)
     print(f"[relay] PR already exists: {url}")
     if open_browser:
-        webbrowser.open(url)
+        _safe_open_browser(url)
     return 0
 
 
@@ -145,7 +158,7 @@ def _run_github(
     url = created.get("html_url") or _pr_web_url("github.com", owner, repo, number)
     print(f"[relay] opened PR #{number}: {url}")
     if open_browser:
-        webbrowser.open(url)
+        _safe_open_browser(url)
     return 0
 
 
@@ -185,7 +198,7 @@ def _run_bitbucket(
     )
     print(f"[relay] opened PR #{number}: {url}")
     if open_browser:
-        webbrowser.open(url)
+        _safe_open_browser(url)
     return 0
 
 
@@ -226,7 +239,7 @@ def _run_gitlab(
     url = created.get("web_url") or _pr_web_url(host, owner, repo, number)
     print(f"[relay] opened MR #{number}: {url}")
     if open_browser:
-        webbrowser.open(url)
+        _safe_open_browser(url)
     return 0
 
 

@@ -292,6 +292,43 @@ class TestOpenBrowser:
             run_pr(git=FakeGit())
         browser.assert_not_called()
 
+    def test_refuses_file_scheme_url(self, fake_client, capsys):
+        fake_client.return_value.open_pull.return_value = {
+            "number": 12,
+            "html_url": "file:///etc/passwd",
+        }
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            assert run_pr(git=FakeGit(), open_browser=True) == 0
+        browser.assert_not_called()
+        assert "refusing to open non-http(s) URL" in capsys.readouterr().out
+
+    def test_refuses_javascript_scheme_url(self, fake_client, capsys):
+        fake_client.return_value.open_pull.return_value = {
+            "number": 12,
+            "html_url": "javascript:alert(1)",
+        }
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            assert run_pr(git=FakeGit(), open_browser=True) == 0
+        browser.assert_not_called()
+        assert "refusing to open non-http(s) URL" in capsys.readouterr().out
+
+    def test_safe_open_browser_helper_unit(self):
+        from relay.pr import _safe_open_browser
+
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            assert _safe_open_browser("https://example.com") is True
+            browser.assert_called_once_with("https://example.com")
+
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            assert _safe_open_browser("http://example.com") is True
+            browser.assert_called_once_with("http://example.com")
+
+        with mock.patch("relay.pr.webbrowser.open") as browser:
+            assert _safe_open_browser("file:///tmp/malicious") is False
+            assert _safe_open_browser("") is False
+            assert _safe_open_browser("ssh://git@github.com") is False
+            browser.assert_not_called()
+
 
 class TestGitLab:
     @pytest.fixture(autouse=True)
