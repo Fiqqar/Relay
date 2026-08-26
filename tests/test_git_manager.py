@@ -347,6 +347,14 @@ class TestParseRemoteUrl:
         with pytest.raises(ValueError, match="cannot extract host"):
             parse_remote("https:///owner/repo.git")
 
+    def test_parse_remote_rejects_path_traversal(self):
+        with pytest.raises(ValueError, match="path traversal"):
+            parse_remote("https://github.com/a/b/../../evil/x.git")
+        with pytest.raises(ValueError, match="path traversal"):
+            parse_remote("git@github.com:a/../b.git")
+        with pytest.raises(ValueError, match="path traversal"):
+            parse_remote("https://github.com/./repo.git")
+
 
 class TestRemoteHelpers:
     @mock.patch("relay.git_manager.subprocess.run")

@@ -118,7 +118,9 @@ class GitHubClient:
 
     @property
     def pulls_url(self) -> str:
-        return f"{API_BASE}/repos/{self.owner}/{self.repo}/pulls"
+        owner = urllib.parse.quote(self.owner, safe="")
+        repo = urllib.parse.quote(self.repo, safe="")
+        return f"{API_BASE}/repos/{owner}/{repo}/pulls"
 
     def _require_token(self) -> str:
         if not self.token:

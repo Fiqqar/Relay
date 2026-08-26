@@ -48,6 +48,12 @@ class TestPullsUrl:
             "https://api.bitbucket.org/2.0/repositories/acme/widget/pullrequests"
         )
 
+    def test_url_quotes_special_characters(self):
+        client = BitbucketClient("owner with space", "repo/slash", token="user:pass")
+        assert client.pulls_url == (
+            "https://api.bitbucket.org/2.0/repositories/owner%20with%20space/repo%2Fslash/pullrequests"
+        )
+
 
 class TestAuth:
     def test_requires_token(self):

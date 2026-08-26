@@ -134,7 +134,9 @@ class BitbucketClient:
 
     @property
     def pulls_url(self) -> str:
-        return f"{self.api_base}/repositories/{self.owner}/{self.repo}/pullrequests"
+        owner = urllib.parse.quote(self.owner, safe="")
+        repo = urllib.parse.quote(self.repo, safe="")
+        return f"{self.api_base}/repositories/{owner}/{repo}/pullrequests"
 
     def _require_token(self) -> str:
         if not self.token:

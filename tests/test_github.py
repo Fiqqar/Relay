@@ -40,6 +40,11 @@ class TestPullsUrl:
             "https://api.github.com/repos/acme/widget/pulls"
         )
 
+    def test_pulls_url_quotes_special_characters(self):
+        assert GitHubClient("owner with space", "repo/slash").pulls_url == (
+            "https://api.github.com/repos/owner%20with%20space/repo%2Fslash/pulls"
+        )
+
 
 class TestFindOpenPr:
     @mock.patch("relay.github.urllib.request.urlopen")
