@@ -62,7 +62,11 @@ def _detect_shell() -> str:
         name = shell.rsplit("/", 1)[-1]
         if name in ("bash", "zsh", "fish"):
             return name
-    if os.name == "nt" and os.environ.get("PROMPT"):
+    if os.name == "nt" and (
+        os.environ.get("PROMPT")
+        or os.environ.get("COMSPEC")
+        or os.environ.get("ComSpec")
+    ):
         return "powershell"
     return "bash"
 

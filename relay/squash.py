@@ -103,9 +103,10 @@ def run_squash(
             base = git.root_commit()
             squash_all = True
         else:
+            hint = f" (try --count {total})" if total >= 2 else ""
             raise GitError(
                 f"not enough history to squash {count} commit(s); "
-                f"only {total} on HEAD (try --count {total})"
+                f"only {total} on HEAD{hint}"
             )
 
     subjects = git.log_between(base, tip)

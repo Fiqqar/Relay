@@ -173,6 +173,15 @@ def test_squash_not_enough_history_raises(git):
     assert git.commit_messages == []
 
 
+def test_squash_insufficient_history_single_commit_no_misleading_hint(git):
+    git._count = 1
+    git._depth = 0
+    with pytest.raises(GitError) as exc_info:
+        run_squash(git=git, count=2, yes=True)
+    assert "try --count 1" not in str(exc_info.value)
+    assert "only 1 on HEAD" in str(exc_info.value)
+
+
 def test_squash_entire_history_amends_the_root(git):
     """Regression: squashing ALL commits (`--count N` == total history) used to
     fail because `HEAD~N` points past the root commit. It must fold the whole

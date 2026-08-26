@@ -400,9 +400,18 @@ class TestDetectShell:
         expected = "powershell" if os.name == "nt" else "bash"
         assert _detect_shell() == expected
 
+    def test_windows_comspec_on_windows(self, monkeypatch):
+        monkeypatch.delenv("SHELL", raising=False)
+        monkeypatch.delenv("PROMPT", raising=False)
+        monkeypatch.setenv("COMSPEC", r"C:\Windows\system32\cmd.exe")
+        expected = "powershell" if os.name == "nt" else "bash"
+        assert _detect_shell() == expected
+
     def test_defaults_to_bash(self, monkeypatch):
         monkeypatch.delenv("SHELL", raising=False)
         monkeypatch.delenv("PROMPT", raising=False)
+        monkeypatch.delenv("COMSPEC", raising=False)
+        monkeypatch.delenv("ComSpec", raising=False)
         assert _detect_shell() == "bash"
 
 

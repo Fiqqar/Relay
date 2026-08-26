@@ -242,10 +242,9 @@ class Orchestrator:
             # manual input — the fallback is a first-class mode, not an error.
             print("[relay] no AI provider configured; entering manual input.")
             return self._manual_input()
-        attempts = 0
+        user_retries = 0
         transient_tries = 0
         while True:
-            attempts += 1
             try:
                 raw = self.ai.generate(diff, stat, branch)
                 message = sanitize_ai_message(raw)
@@ -276,7 +275,8 @@ class Orchestrator:
                 return message
             if action == "edit":
                 return self._manual_input()
-            if action == "retry" and attempts < 3:
+            if action == "retry" and user_retries < 3:
+                user_retries += 1
                 print("[relay] regenerating...")
                 continue
             raise UserAbort("workflow aborted by user")

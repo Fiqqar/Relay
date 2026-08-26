@@ -226,6 +226,22 @@ def test_retry_ai_regenerates_before_accept(mock_input, git):
     git.commit.assert_called_once_with("fix(api): add login", no_verify=False)
 
 
+@mock.patch("relay.orchestrator.time.sleep")
+@mock.patch("builtins.input", side_effect=["r", "a"])
+def test_user_retry_after_transient_retries_does_not_abort_early(mock_input, mock_sleep, git):
+    from relay.errors import AIError
+
+    ai = FlakyAI([
+        AIError("gemini", "rate_limited", "slow down"),
+        AIError("gemini", "rate_limited", "slow down"),
+        "feat(api): first try",
+        "feat(api): second try",
+    ])
+    code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    git.commit.assert_called_once_with("feat(api): second try", no_verify=False)
+
+
 @mock.patch("builtins.input", return_value="x")
 def test_unknown_confirm_choice_aborts(mock_input, git):
     ai = StubAI(responses=["feat: ok"])
