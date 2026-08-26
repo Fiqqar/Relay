@@ -449,6 +449,29 @@ class TestStagingEdgePaths:
         assert git.unstaged_changes() == ["new.txt", "app.py"]
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstaged_changes_handles_renames_and_quotes(self, mock_run, git, make_proc):
+        stdout = (
+            "RM old.py -> new.py\n"
+            '?? "file with spaces.txt"\n'
+            'RM "old space.txt" -> "new space.txt"\n'
+        )
+        mock_run.return_value = make_proc(stdout=stdout)
+        assert git.unstaged_changes() == [
+            "new.py",
+            "file with spaces.txt",
+            "new space.txt",
+        ]
+
+    def test_clean_porcelain_path_helper(self):
+        from relay.git_manager import _clean_porcelain_path
+
+        assert _clean_porcelain_path("plain.py") == "plain.py"
+        assert _clean_porcelain_path('"quoted with space.py"') == "quoted with space.py"
+        assert _clean_porcelain_path("old.py -> new.py") == "new.py"
+        assert _clean_porcelain_path('"old name.py" -> "new name.py"') == "new name.py"
+        assert _clean_porcelain_path(r'"path\"with\"quote.py"') == 'path"with"quote.py'
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_add_interactive_invokes_git_add_p(self, mock_run, git, make_proc):
         """Patch mode inherits the real terminal (no capture_output), so the
         only assertable contract is the argv list and the working directory."""

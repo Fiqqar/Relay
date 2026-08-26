@@ -83,6 +83,21 @@ def parse_remote_url(url: str) -> tuple[str, str]:
     return owner, repo
 
 
+def _clean_porcelain_path(raw: str) -> str:
+    """Parse and unquote a path string from ``git status --porcelain``.
+
+    Renames in porcelain v1 appear as ``old -> new`` (or ``"old" -> "new"``).
+    Extract the destination path (``new``) and strip surrounding quotes.
+    """
+    raw = raw.strip()
+    if " -> " in raw:
+        _, raw = raw.split(" -> ", 1)
+        raw = raw.strip()
+    if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
+        raw = raw[1:-1].replace(r'\"', '"').replace(r"\\", "\\")
+    return raw
+
+
 class GitManager:
     def __init__(self, cwd: str | None = None, verbose: bool = False):
         self.cwd = cwd
@@ -253,12 +268,15 @@ class GitManager:
         out = self._run("status", "--porcelain").stdout
         files = []
         for line in out.splitlines():
+            if not line or len(line) < 3:
+                continue
             prefix, name = line[:2], line[3:]
+            cleaned = _clean_porcelain_path(name)
             if prefix == "??":
-                files.append(name)
+                files.append(cleaned)
                 continue
             if prefix[1] != " ":
-                files.append(name)
+                files.append(cleaned)
         return files
 
     def add_interactive(self) -> int:
