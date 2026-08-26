@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-26
+
+### Security
+- Validate URL scheme (`http`/`https` only) before `webbrowser.open()` in `relay pr`, rejecting `file://` or protocol-handler URIs (S1).
+- Reject path traversal (`.` / `..`) in `parse_remote()` and URL-encode `owner` and `repo` path segments in GitHub and Bitbucket API URLs (S2).
+- URL-encode model name in Google Generative Language (Gemini) REST API endpoint path (S3).
+- Added security note in `README.md` against pointing `RELAY_CONFIG` to untrusted repositories (S4).
+
+### Fixed
+- Catch `ConfigError` in `relay amend` dispatch to fall back gracefully to manual input when no AI API key is configured (Bug 1).
+- Use `Draft: ` title prefix for GitLab draft merge requests instead of non-standard body parameter (Bug 2).
+- Guard `find_open_pr()` in `GitHubClient` against non-list JSON responses (Bug 3).
+- Propagate exit code from `git add -p` in `relay stage --patch` (Bug 4).
+- Correctly extract destination path for rename entries (`old -> new`) and unquote paths in `git status --porcelain` (Bug 5).
+- Use case-insensitive matching for protected branch check in `relay doctor` (Bug 6).
+- Explicitly catch `EOFError` in `cli.py` to give actionable guidance in non-interactive / CI environments (Bug 7).
+- Support `COMSPEC`/`ComSpec` in Windows shell detection, omit misleading `--count 1` hint in squash error, and decouple user confirmation retry counter from transient AI retry backoff (Bug 8).
+
 ## [0.7.0] - 2026-08-21
 
 ### Added
@@ -296,7 +314,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/Fiqqar/Relay/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Fiqqar/Relay/compare/v0.6.0...v0.7.0
 [0.5.8]: https://github.com/Fiqqar/Relay/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/Fiqqar/Relay/compare/v0.5.6...v0.5.7
