@@ -65,6 +65,14 @@ class TestGemini:
         assert headers["content-type"] == "application/json"
         assert "gemini-2.5-flash" in request.full_url
 
+    def test_model_name_with_slashes_is_url_quoted(self, sample_diff, sample_stat):
+        provider = GeminiProvider(api_key="test-key", model="models/gemini-custom/v1", timeout=5)
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(GEMINI_SUCCESS)
+            provider.generate_commit_message(sample_diff, sample_stat, "main")
+        request = mock_urlopen.call_args.args[0]
+        assert "models%2Fgemini-custom%2Fv1:generateContent" in request.full_url
+
     def test_http_429_maps_to_rate_limited_aierror(self):
         http_error = urllib.error.HTTPError(
             "https://example.com", 429, "Too Many Requests", {}, None

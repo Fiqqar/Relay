@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from ..config import ai_timeout, gemini_api_key, gemini_model
@@ -54,8 +55,9 @@ class GeminiProvider(AIManager):
         else:
             headers["X-Goog-Api-Key"] = self.api_key
 
+        quoted_model = urllib.parse.quote(self.model, safe="")
         request = urllib.request.Request(
-            _ENDPOINT.format(model=self.model),
+            _ENDPOINT.format(model=quoted_model),
             data=json.dumps(payload).encode("utf-8"),
             headers=headers,
             method="POST",
