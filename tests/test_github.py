@@ -66,6 +66,12 @@ class TestFindOpenPr:
         assert client.find_open_pr(head="feat/login") is None
 
     @mock.patch("relay.github.urllib.request.urlopen")
+    def test_returns_none_when_response_is_dict(self, mock_urlopen):
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b'{"message": "error"}'
+        client = GitHubClient("acme", "widget", token="t")
+        assert client.find_open_pr(head="feat/login") is None
+
+    @mock.patch("relay.github.urllib.request.urlopen")
     def test_owner_head_uses_client_owner_by_default(self, mock_urlopen):
         mock_urlopen.return_value.__enter__.return_value.read.return_value = b"[]"
         client = GitHubClient("acme", "widget", token="t")

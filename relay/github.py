@@ -176,7 +176,7 @@ class GitHubClient:
             method="GET",
         )
         prs = self._request(request)
-        return prs[0] if prs else None
+        return prs[0] if isinstance(prs, list) and prs else None
 
     def open_pull(
         self,
