@@ -144,8 +144,14 @@ def _powershell(script: str) -> str:
     return proc.stdout.strip()
 
 
+def _escape_ps_single(s: str) -> str:
+    """Escape a string for a PowerShell single-quoted literal ('' = ')."""
+    return s.replace("'", "''")
+
+
 def update_path_windows(scripts: Path, yes: bool) -> bool:
     target = str(scripts)
+    target_esc = _escape_ps_single(target)
     user_path = _powershell(
         "[Environment]::GetEnvironmentVariable('Path','User')"
     )
@@ -162,7 +168,7 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
             return True
     script = (
         f"[Environment]::SetEnvironmentVariable('Path', "
-        f"[Environment]::GetEnvironmentVariable('Path','User') + ';{target}', 'User')"
+        f"[Environment]::GetEnvironmentVariable('Path','User') + ';{target_esc}', 'User')"
     )
     if _powershell(script) == "" and not user_path:
         _warn("could not update user PATH (PowerShell unavailable or denied).")
@@ -173,8 +179,14 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
     return True
 
 
+def _escape_sh_double(s: str) -> str:
+    """Escape for a double-quoted POSIX shell string (\" \\ $ `)."""
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")
+
+
 def update_path_unix(scripts: Path, yes: bool) -> bool:
     target = str(scripts)
+    target_esc = _escape_sh_double(target)
     home = Path.home()
     profiles = ["~/.bashrc", "~/.zshrc", "~/.profile"]
     candidates = []
@@ -185,7 +197,7 @@ def update_path_unix(scripts: Path, yes: bool) -> bool:
     if not candidates:
         candidates.append(home / ".profile")
 
-    line = f'export PATH="{target}:$PATH"'
+    line = f'export PATH="{target_esc}:$PATH"'
     for profile in candidates:
         text = profile.read_text(encoding="utf-8", errors="replace")
         if line in text:
