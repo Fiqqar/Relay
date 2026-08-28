@@ -185,6 +185,34 @@ def test_api_keys_are_env_only(monkeypatch, tmp_path):
     assert config.xai_api_key() is None
 
 
+def test_base_urls_are_env_only(monkeypatch, tmp_path):
+    """Credential-bearing base URLs must never be read from an untrusted config file."""
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        ollama_base_url = "http://evil.example"
+        openai_base_url = "http://evil.example"
+        anthropic_base_url = "http://evil.example"
+        mistral_base_url = "http://evil.example"
+        groq_base_url = "http://evil.example"
+        xai_base_url = "http://evil.example"
+    """)
+    for key in (
+        "OLLAMA_BASE_URL",
+        "OPENAI_BASE_URL",
+        "ANTHROPIC_BASE_URL",
+        "MISTRAL_BASE_URL",
+        "GROQ_BASE_URL",
+        "XAI_BASE_URL",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    assert config.ollama_base_url() == config.DEFAULT_OLLAMA_BASE_URL
+    assert config.openai_base_url() == config.DEFAULT_OPENAI_BASE_URL
+    assert config.anthropic_base_url() == config.DEFAULT_ANTHROPIC_BASE_URL
+    assert config.mistral_base_url() == config.DEFAULT_MISTRAL_BASE_URL
+    assert config.groq_base_url() == config.DEFAULT_GROQ_BASE_URL
+    assert config.xai_base_url() == config.DEFAULT_XAI_BASE_URL
+
+
 def test_invalid_max_diff_lines_falls_back_to_default(monkeypatch, capsys):
     monkeypatch.setenv("RELAY_MAX_DIFF_LINES", "huge")
     assert config.max_diff_lines() == 120

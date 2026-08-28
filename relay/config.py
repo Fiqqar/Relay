@@ -75,18 +75,12 @@ DEFAULT_MAX_DIFF_LINES = 120
 _CFG_KEYS = {
     "RELAY_AI_PROVIDER": "provider",
     "GEMINI_MODEL": "gemini_model",
-    "OLLAMA_BASE_URL": "ollama_base_url",
     "OLLAMA_MODEL": "ollama_model",
     "OPENAI_MODEL": "openai_model",
-    "OPENAI_BASE_URL": "openai_base_url",
     "ANTHROPIC_MODEL": "anthropic_model",
-    "ANTHROPIC_BASE_URL": "anthropic_base_url",
     "MISTRAL_MODEL": "mistral_model",
-    "MISTRAL_BASE_URL": "mistral_base_url",
     "GROQ_MODEL": "groq_model",
-    "GROQ_BASE_URL": "groq_base_url",
     "XAI_MODEL": "xai_model",
-    "XAI_BASE_URL": "xai_base_url",
     "RELAY_BRANCH_TEMPLATE": "branch_template",
     "RELAY_AI_TIMEOUT": "ai_timeout",
     "RELAY_MAX_DIFF_LINES": "max_diff_lines",
@@ -96,6 +90,8 @@ _CFG_KEYS = {
 # Secret env vars that must never be resolved from the config file.
 # ``provider`` is not secret but follows the same env-first rule so the file can
 # stay free of credentials; these are excluded from _CFG_KEYS' file fallback.
+# AI base URLs are also env-only: a config file that can be pointed at an
+# untrusted repo must not be able to redirect credential-bearing requests.
 _ENV_ONLY = {
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
@@ -105,6 +101,12 @@ _ENV_ONLY = {
     "XAI_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
+    "OLLAMA_BASE_URL",
+    "OPENAI_BASE_URL",
+    "ANTHROPIC_BASE_URL",
+    "MISTRAL_BASE_URL",
+    "GROQ_BASE_URL",
+    "XAI_BASE_URL",
 }
 
 # Parsed config-file cache: {(path, mtime_ns, size): document}. Invalidated by
