@@ -626,6 +626,19 @@ class TestDiffTruncation:
         prompt = AIManager.build_prompt("+small\n", "S", "main", max_lines=120)
         assert "truncated" not in prompt
 
+    def test_byte_cap_truncates_huge_line(self):
+        huge = "a" * (600 * 1024)  # 600 KiB single line
+        result, was_truncated = truncate_diff(huge, max_lines=120, max_bytes=512 * 1024)
+        assert was_truncated is True
+        assert len(result.encode("utf-8")) <= 512 * 1024 + 100  # + notice
+        assert "truncated" in result
+
+    def test_byte_cap_after_line_cap(self):
+        big = "\n".join("a" * 1000 for _ in range(2000))  # many lines
+        result, was_truncated = truncate_diff(big, max_lines=120, max_bytes=10 * 1024)
+        assert was_truncated is True
+        assert len(result.encode("utf-8")) <= 10 * 1024 + 200
+
 
 class TestTimeoutCaps:
     def test_gemini_timeout_clamped_to_120_seconds_max(self):

@@ -22,6 +22,10 @@ from ..errors import AIError
 # multi-megabyte blob in memory.
 MAX_RESPONSE_BYTES = 1024 * 1024  # 1 MiB
 
+# Byte budget for the diff sent to the LLM. Even if line-count is within cap,
+# a single line (e.g. minified file) could be huge.
+MAX_DIFF_BYTES = 512 * 1024  # 512 KiB
+
 
 def read_limited_response(response, provider: str) -> bytes:
     """Read the HTTP body, rejecting anything larger than ``MAX_RESPONSE_BYTES``.
@@ -56,23 +60,43 @@ SYSTEM_PROMPT = (
 )
 
 
-def truncate_diff(diff: str, max_lines: int | None = None):
-    """Cap a staged diff to ``max_lines`` lines, preserving its head.
+def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None = None):
+    """Cap a staged diff to ``max_lines`` lines and ``max_bytes`` bytes.
 
     Large diffs are the single biggest latency driver for LLM commit messages.
     We keep the first ``max_lines`` lines (the most representative hunk) and
     append a one-line notice; the concise ``--stat`` summary is passed to the
-    provider separately and is never truncated.
+    provider separately and is never truncated. A byte cap prevents a single
+    huge line from blowing the token budget.
 
     Returns ``(truncated_diff, was_truncated)``.
     """
     cap = max_lines if max_lines is not None else max_diff_lines()
+    byte_cap = max_bytes if max_bytes is not None else MAX_DIFF_BYTES
     lines = diff.splitlines()
-    if len(lines) <= cap:
+    was_truncated = False
+    if len(lines) > cap:
+        lines = lines[:cap]
+        lines.append(f"... [{len(diff.splitlines()) - cap} more diff lines truncated]")
+        was_truncated = True
+        diff = "\n".join(lines)
+    # Byte budget: slice the UTF-8 payload if still too large
+    encoded = diff.encode("utf-8")
+    if len(encoded) > byte_cap:
+        # Truncate bytes and decode safely; append notice if not already truncated
+        truncated_bytes = encoded[:byte_cap]
+        diff = truncated_bytes.decode("utf-8", errors="ignore")
+        # Ensure we don't cut in the middle of the truncation notice
+        if not was_truncated:
+            diff += f"\n... [diff truncated to {byte_cap} bytes]"
+        was_truncated = True
+    elif was_truncated:
+        # diff already rebuilt from lines
+        pass
+    else:
+        # no line truncation and no byte overflow
         return diff, False
-    kept = lines[:cap]
-    kept.append(f"... [{len(lines) - cap} more diff lines truncated]")
-    return "\n".join(kept), True
+    return diff, was_truncated
 
 
 class AIManager(ABC):
