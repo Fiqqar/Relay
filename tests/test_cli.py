@@ -260,7 +260,8 @@ def wired():
 
 def test_main_solo_wires_orchestrator(wired):
     build_provider, orchestrator_cls = wired
-    assert main(["--solo", "--yes", "--no-push"]) == 0
+    with mock.patch("relay.cli.branch_template", return_value="<type>/<feature>"):
+        assert main(["--solo", "--yes", "--no-push"]) == 0
     orchestrator_cls.assert_called_once_with(
         mode="solo",
         feature=None,
@@ -272,8 +273,16 @@ def test_main_solo_wires_orchestrator(wired):
         dry_run=False,
         verbose=False,
         allow_protected=False,
+        branch_template="<type>/<feature>",
     )
     orchestrator_cls.return_value.run.assert_called_once_with()
+
+
+def test_main_wires_branch_template_from_config(wired, monkeypatch):
+    build_provider, orchestrator_cls = wired
+    with mock.patch("relay.cli.branch_template", return_value="release/<feature>"):
+        main(["--team", "payments"])
+    assert orchestrator_cls.call_args.kwargs["branch_template"] == "release/<feature>"
 
 
 def test_main_team_with_feature(wired):

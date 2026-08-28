@@ -17,7 +17,7 @@ import sys
 from . import __version__
 from .ai import PROVIDER_NAMES, AIManager, build_provider
 from .completions import generate as generate_completions
-from .config import pr_open_browser
+from .config import branch_template, pr_open_browser
 from .doctor import run_doctor
 from .errors import ConfigError, RelayError, UserAbort
 from .man import MAN_PAGE_TEMPLATE
@@ -370,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             verbose=args.verbose,
             allow_protected=args.allow_protected,
+            branch_template=branch_template(),
         )
         code = orchestrator.run()
         _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
