@@ -456,7 +456,7 @@ class GitManager:
     def is_ancestor(self, ancestor: str, descendant: str) -> bool:
         """True when ``ancestor`` is reachable from ``descendant``."""
         return self._run(
-            "merge-base", "--is-ancestor", ancestor, descendant, check=False
+            "merge-base", "--is-ancestor", "--", ancestor, descendant, check=False
         ).returncode == 0
 
     def reset_soft(self, target: str = "HEAD~1") -> None:
