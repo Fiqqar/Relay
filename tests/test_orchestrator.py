@@ -513,6 +513,30 @@ def test_dry_run_staged_only_uses_staged_diff(mock_input, git):
     git.head_diff.assert_not_called()
 
 
+# ---- TOCTOU: index must not change between AI and commit --------------------
+
+
+@mock.patch("builtins.input", side_effect=["fix: toctou", ""])
+def test_toctou_raises_when_index_changed(mock_input, git):
+    ai = StubAI(responses=["feat: toctou"])
+    git.write_tree.side_effect = ["tree-before", "tree-after"]  # differs
+    with mock.patch("relay.orchestrator.validate_conventional", return_value=(True, "")):
+        with mock.patch("relay.orchestrator.sanitize_ai_message", return_value="feat: toctou"):
+            with pytest.raises(GitError, match="staged changes changed"):
+                make_orchestrator(git, provider=ai, yes=True).run()
+    git.commit.assert_not_called()
+
+
+def test_toctou_passes_when_index_unchanged(git):
+    ai = StubAI(responses=["feat: stable"])
+    git.write_tree.return_value = "same-tree"
+    with mock.patch("relay.orchestrator.validate_conventional", return_value=(True, "")):
+        with mock.patch("relay.orchestrator.sanitize_ai_message", return_value="feat: stable"):
+            code = make_orchestrator(git, provider=ai, yes=True).run()
+    assert code == 0
+    git.commit.assert_called_once()
+
+
 # ---- --staged: respect the developer's own staging ----------------------------
 
 

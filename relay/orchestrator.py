@@ -90,6 +90,14 @@ class Orchestrator:
             print(f"[relay] nothing to {label}: staged diff is empty.")
             return 0
 
+        # TOCTOU guard: capture index tree before AI / confirmation
+        tree_before: str | None = None
+        if not self.dry_run:
+            try:
+                tree_before = self.git.write_tree()
+            except GitError:
+                tree_before = None
+
         branch = self.git.current_branch()
 
         # GENERATE (with built-in fallback to manual input). The message is
@@ -109,6 +117,15 @@ class Orchestrator:
         # AMEND (mode only): rewrite the last commit instead of adding a new
         # one. Never pushes — amending a pushed commit is a history rewrite.
         if self.mode == "amend":
+            if tree_before is not None:
+                try:
+                    tree_after = self.git.write_tree()
+                except GitError:
+                    tree_after = ""
+                if tree_after != tree_before:
+                    raise GitError(
+                        "staged changes changed while Relay was running; review the index and retry"
+                    )
             return self._run_amend(message, branch)
 
         # Resolve the team-mode branch name BEFORE any mutation so --dry-run
@@ -140,6 +157,17 @@ class Orchestrator:
             assert_branch_allowed(
                 team_branch, self.protected_branches, force=force
             )
+
+        # TOCTOU: ensure the index is the same one the AI approved
+        if tree_before is not None:
+            try:
+                tree_after = self.git.write_tree()
+            except GitError:
+                tree_after = ""
+            if tree_after != tree_before:
+                raise GitError(
+                    "staged changes changed while Relay was running; review the index and retry"
+                )
 
         # BRANCH (team mode only): create & check out the feature branch.
         if self.mode == "team":
