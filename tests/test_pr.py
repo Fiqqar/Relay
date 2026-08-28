@@ -183,6 +183,13 @@ class TestRunPr:
         with pytest.raises(RelayError):
             run_pr(git=FakeGit(remote="git@myforge.example.com:acme/widget.git"))
 
+    def test_invalid_base_branch_rejected(self, fake_client):
+        with pytest.raises(RelayError, match="invalid base branch"):
+            run_pr(git=FakeGit(), base="--upload-pack=evil")
+        with pytest.raises(RelayError, match="invalid base branch"):
+            run_pr(git=FakeGit(), base="..evil")
+        fake_client.return_value.open_pull.assert_not_called()
+
 
 class TestAntiDuplicate:
     def test_queries_open_prs_for_head_branch(self, fake_client):

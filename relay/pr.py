@@ -303,6 +303,9 @@ def run_pr(
             f"run `git push -u origin {head}` first"
         )
 
+    if not base or base.startswith("-") or ".." in base or base.startswith("."):
+        raise RelayError(f"invalid base branch name {base!r} (use --base <branch>, e.g. --base main)")
+
     # Refresh the remote base so the body reflects commits the host actually
     # knows about, not a stale local branch. A failed fetch is fine —
     # log_between() then falls back to the local base ref.
