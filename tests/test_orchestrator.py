@@ -38,8 +38,12 @@ def git():
     g.has_remote.return_value = True
     g.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
     g.staged_stat.return_value = " app.py | 1 +\n"
+    g.head_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
+    g.head_stat.return_value = " app.py | 1 +\n"
     g.current_branch.return_value = "main"
     g.staged_diff_binary_only.return_value = False
+    g.head_diff_binary_only.return_value = False
+    g.write_tree.return_value = "abc123"
     return g
 
 
@@ -482,6 +486,31 @@ def test_dry_run_reports_plan_without_mutating(mock_input, git):
     git.commit.assert_not_called()
     git.push.assert_not_called()
     git.create_branch.assert_not_called()
+    git.stage_all.assert_not_called()
+
+
+@mock.patch("builtins.input", side_effect=["fix: dry run staged", ""])
+def test_dry_run_does_not_stage_and_uses_head_diff(mock_input, git):
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    git.head_diff.return_value = "diff --git a/app.py b/app.py\n+new\n"
+    git.head_stat.return_value = " app.py | 1 +"
+    git.head_diff_binary_only.return_value = False
+    code = make_orchestrator(git, provider=ai, dry_run=True, staged_only=False).run()
+    assert code == 0
+    git.stage_all.assert_not_called()
+    git.head_diff.assert_called_once()
+    git.head_stat.assert_called_once()
+    git.staged_diff.assert_not_called()
+
+
+@mock.patch("builtins.input", side_effect=["fix: dry run staged only", ""])
+def test_dry_run_staged_only_uses_staged_diff(mock_input, git):
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, dry_run=True, staged_only=True).run()
+    assert code == 0
+    git.stage_all.assert_not_called()
+    git.staged_diff.assert_called_once()
+    git.head_diff.assert_not_called()
 
 
 # ---- --staged: respect the developer's own staging ----------------------------

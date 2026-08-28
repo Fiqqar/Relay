@@ -306,6 +306,48 @@ class GitManager:
         """Short diffstat of staged changes (context for the AI prompt)."""
         return self._run("diff", "--cached", "--stat").stdout
 
+    def head_diff(self) -> str:
+        """Diff of HEAD vs working tree + index (what `git add .` would stage).
+
+        Used for `--dry-run` preview so the index is never mutated. When HEAD
+        does not exist yet (empty repo), falls back to the staged + unstaged diff.
+        """
+        proc = self._run("diff", "HEAD", "--unified=0", check=False)
+        if proc.returncode == 0:
+            return proc.stdout
+        # Empty repo or ambiguous HEAD: combine staged and unstaged
+        staged = self._run("diff", "--cached", "--unified=0", check=False).stdout
+        unstaged = self._run("diff", "--unified=0", check=False).stdout
+        return (staged + unstaged).strip()
+
+    def head_stat(self) -> str:
+        """Stat of HEAD vs working tree + index."""
+        proc = self._run("diff", "HEAD", "--stat", check=False)
+        if proc.returncode == 0:
+            return proc.stdout
+        staged = self._run("diff", "--cached", "--stat", check=False).stdout
+        unstaged = self._run("diff", "--stat", check=False).stdout
+        return (staged + unstaged).strip()
+
+    def head_diff_binary_only(self) -> bool:
+        """True when the HEAD diff consists only of binary entries."""
+        proc = self._run("diff", "HEAD", "--numstat", check=False)
+        if proc.returncode == 0:
+            out = proc.stdout
+        else:
+            out = (
+                self._run("diff", "--cached", "--numstat", check=False).stdout
+                + self._run("diff", "--numstat", check=False).stdout
+            )
+        lines = [line for line in out.splitlines() if line.strip()]
+        if not lines:
+            return False
+        return all(line.startswith("-\t-\t") for line in lines)
+
+    def write_tree(self) -> str:
+        """SHA of the current index tree (via `git write-tree`)."""
+        return self._run("write-tree").stdout.strip()
+
     def staged_diff_binary_only(self) -> bool:
         """True when the staged diff consists only of binary entries.
 

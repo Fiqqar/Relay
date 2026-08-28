@@ -67,11 +67,24 @@ class Orchestrator:
 
         # --staged: honor the developer's own staging instead of `git add .`.
         # Skip only the staging step — the diff is still read from the index.
-        if not self.staged_only:
-            self.git.stage_all()
+        # --dry-run must never mutate the index: skip `git add .` and preview
+        # via HEAD diff instead.
+        if self.dry_run:
+            if self.staged_only:
+                diff = self.git.staged_diff()
+                stat = self.git.staged_stat()
+                is_binary = self.git.staged_diff_binary_only()
+            else:
+                diff = self.git.head_diff()
+                stat = self.git.head_stat()
+                is_binary = self.git.head_diff_binary_only()
+        else:
+            if not self.staged_only:
+                self.git.stage_all()
+            diff = self.git.staged_diff()
+            stat = self.git.staged_stat()
+            is_binary = self.git.staged_diff_binary_only()
 
-        diff = self.git.staged_diff()
-        stat = self.git.staged_stat()
         if not diff.strip():
             label = "amend" if self.mode == "amend" else "commit"
             print(f"[relay] nothing to {label}: staged diff is empty.")
@@ -84,7 +97,7 @@ class Orchestrator:
         # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
         # A binary-only staged diff skips the AI entirely: it has no readable
         # content to summarize, so guessing would produce a misleading message.
-        if self.git.staged_diff_binary_only():
+        if is_binary:
             print(
                 "[relay] staged changes are binary-only; an AI cannot derive a "
                 "commit message from them."

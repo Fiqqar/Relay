@@ -24,8 +24,12 @@ def git():
     g.has_remote.return_value = True
     g.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
     g.staged_stat.return_value = " app.py | 1 +\n"
+    g.head_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
+    g.head_stat.return_value = " app.py | 1 +\n"
     g.current_branch.return_value = "main"
     g.staged_diff_binary_only.return_value = False
+    g.head_diff_binary_only.return_value = False
+    g.write_tree.return_value = "abc123"
     return g
 
 
