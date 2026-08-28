@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.7.2` are shipped and closed; `0.8.0`+ are planned.
+through `0.7.3` are shipped and closed; `0.8.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.7.2` are shipped and closed; `0.8.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.7.2`)
+## Shipped history (`0.1.0` → `0.7.3`)
 
 ### v0.1.0 — MVP
 
@@ -300,6 +300,17 @@ the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 - [x] Release workflow SHA-pinned and `dist/` cleaned
 
 **Exit:** 13 audit findings fixed, tests 793 green, coverage 94%. ✅
+
+### v0.7.3 — Supply-chain & SSRF hardening
+
+- [x] Pin `ci.yml` actions to SHA (`checkout`/`setup-python`)
+- [x] Enforce `https` for public AI base URLs (allow `http` only for `localhost`)
+- [x] Harden remaining `merge-base --is-ancestor --` with `--`
+- [x] Sanitize `cli.py` verbose/unexpected error output
+- [x] Escape `install.py` PowerShell/POSIX paths
+- [x] Harden Bitbucket `q` escaping and `stage` filename sanitization
+
+**Exit:** 6 fresh findings fixed, no regressions. ✅
 
 ---
 

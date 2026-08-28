@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-08-28
+
+### Security
+- Pin CI workflow actions (`actions/checkout`, `actions/setup-python`) to commit SHAs (H1).
+- Enforce `https://` for public AI base URLs — `http://` only allowed for `localhost`/loopback (Ollama, local llama.cpp) — to prevent cleartext API-key exfiltration (H2).
+- Harden remaining Git rev parsing (`merge-base --is-ancestor --`) with `--` separator (M1).
+- Sanitize `--verbose` and unexpected-error output for ANSI/log injection (M2).
+- Escape PowerShell/POSIX paths in `install.py` to prevent quote injection via username (M3).
+- Escape Bitbucket `q` query and sanitize `relay stage` filenames for ANSI (M4).
+
 ## [0.7.2] - 2026-08-28
 
 ### Security
@@ -332,7 +342,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/Fiqqar/Relay/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/Fiqqar/Relay/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Fiqqar/Relay/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Fiqqar/Relay/compare/v0.6.0...v0.7.0
