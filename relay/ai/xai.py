@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from ..config import ai_timeout, xai_api_key, xai_base_url, xai_model
 from ..errors import ConfigError
+from ..telemetry import _is_valid_ai_base_url
 from .openai import OpenAIProvider
 
 
@@ -33,4 +34,8 @@ class XaiProvider(OpenAIProvider):
             )
         self.model = model or xai_model()
         self.base_url = (base_url or xai_base_url()).rstrip("/")
+        if not _is_valid_ai_base_url(self.base_url):
+            raise ConfigError(
+                f"invalid AI base URL {self.base_url!r} (use https:// for public hosts, http:// only for localhost; see `relay --help`)"
+            )
         self.timeout = ai_timeout(timeout)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from ..config import ai_timeout, groq_api_key, groq_base_url, groq_model
 from ..errors import ConfigError
+from ..telemetry import _is_valid_ai_base_url
 from .openai import OpenAIProvider
 
 
@@ -33,4 +34,8 @@ class GroqProvider(OpenAIProvider):
             )
         self.model = model or groq_model()
         self.base_url = (base_url or groq_base_url()).rstrip("/")
+        if not _is_valid_ai_base_url(self.base_url):
+            raise ConfigError(
+                f"invalid AI base URL {self.base_url!r} (use https:// for public hosts, http:// only for localhost; see `relay --help`)"
+            )
         self.timeout = ai_timeout(timeout)

@@ -111,6 +111,39 @@ def _is_https(url: str) -> bool:
     return not _is_local_or_private_host(host)
 
 
+def _is_valid_ai_base_url(url: str) -> bool:
+    """True for an AI base URL that is safe to send a key to.
+
+    Public hosts must be ``https://`` and not private/link-local. ``http://``
+    is only allowed for ``localhost`` / loopback (Ollama and local
+    llama.cpp/vLLM). Private IPs (10.x, 192.168.x, etc) are rejected even over
+    https to avoid SSRF to internal metadata services.
+    """
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return False
+    host = parts.hostname
+    if host is None:
+        return False
+    # Loopback/localhost may use http (local model servers)
+    bare = host.rstrip(".").lower()
+    if bare == "localhost" or bare.endswith(".localhost"):
+        return True
+    try:
+        ip = ipaddress.ip_address(bare)
+        if ip.version == 6 and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        if ip.is_loopback:
+            return True
+        # Any other private/link-local/multicast is rejected
+        if ip.is_private or ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved:
+            return False
+    except ValueError:
+        pass
+    # Public host: require https
+    return parts.scheme == "https"
+
+
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Reject redirects to non-https or private hosts."""
 

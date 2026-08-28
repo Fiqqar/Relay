@@ -375,7 +375,7 @@ class TestXai:
     def test_missing_api_key_raises_config_error(self):
         with mock.patch("relay.ai.xai.xai_api_key", return_value=None):
             with pytest.raises(ConfigError, match="XAI_API_KEY"):
-                XaiProvider(model="m", base_url="http://x/v1")
+                XaiProvider(model="m", base_url="https://x/v1")
 
     def test_http_429_maps_to_rate_limited_aierror(self):
         with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
@@ -436,7 +436,7 @@ class TestGroq:
     def test_missing_api_key_raises_config_error(self):
         with mock.patch("relay.ai.groq.groq_api_key", return_value=None):
             with pytest.raises(ConfigError, match="GROQ_API_KEY"):
-                GroqProvider(model="m", base_url="http://x/v1")
+                GroqProvider(model="m", base_url="https://x/v1")
 
     def test_http_429_maps_to_rate_limited_aierror(self):
         with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
@@ -504,7 +504,7 @@ class TestMistral:
     def test_missing_api_key_raises_config_error(self):
         with mock.patch("relay.ai.mistral.mistral_api_key", return_value=None):
             with pytest.raises(ConfigError, match="MISTRAL_API_KEY"):
-                MistralProvider(model="m", base_url="http://x/v1")
+                MistralProvider(model="m", base_url="https://x/v1")
 
     def test_http_429_maps_to_rate_limited_aierror(self):
         with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
@@ -555,11 +555,11 @@ class TestResponseLimit:
         [
             lambda: GeminiProvider(api_key="k", model="m", timeout=5),
             lambda: OllamaProvider(model="m", timeout=5),
-            lambda: OpenAIProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
-            lambda: AnthropicProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
-            lambda: MistralProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
-            lambda: GroqProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
-            lambda: XaiProvider(api_key="k", model="m", base_url="http://x/v1", timeout=5),
+            lambda: OpenAIProvider(api_key="k", model="m", base_url="https://x/v1", timeout=5),
+            lambda: AnthropicProvider(api_key="k", model="m", base_url="https://x/v1", timeout=5),
+            lambda: MistralProvider(api_key="k", model="m", base_url="https://x/v1", timeout=5),
+            lambda: GroqProvider(api_key="k", model="m", base_url="https://x/v1", timeout=5),
+            lambda: XaiProvider(api_key="k", model="m", base_url="https://x/v1", timeout=5),
         ],
     )
     def test_oversized_response_is_rejected(self, make_provider):
@@ -658,23 +658,23 @@ class TestTimeoutCaps:
         assert OllamaProvider(model="m", timeout=45).timeout == 45
 
     def test_openai_timeout_clamped_to_120_seconds_max(self):
-        p = OpenAIProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        p = OpenAIProvider(api_key="k", model="m", base_url="https://x/v1", timeout=999)
         assert p.timeout == 120
 
     def test_anthropic_timeout_clamped_to_120_seconds_max(self):
-        p = AnthropicProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        p = AnthropicProvider(api_key="k", model="m", base_url="https://x/v1", timeout=999)
         assert p.timeout == 120
 
     def test_mistral_timeout_clamped_to_120_seconds_max(self):
-        p = MistralProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        p = MistralProvider(api_key="k", model="m", base_url="https://x/v1", timeout=999)
         assert p.timeout == 120
 
     def test_groq_timeout_clamped_to_120_seconds_max(self):
-        p = GroqProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        p = GroqProvider(api_key="k", model="m", base_url="https://x/v1", timeout=999)
         assert p.timeout == 120
 
     def test_xai_timeout_clamped_to_120_seconds_max(self):
-        p = XaiProvider(api_key="k", model="m", base_url="http://x/v1", timeout=999)
+        p = XaiProvider(api_key="k", model="m", base_url="https://x/v1", timeout=999)
         assert p.timeout == 120
 
 
@@ -682,27 +682,27 @@ class TestMissingApiKey:
     def test_openai_requires_key(self):
         with mock.patch("relay.ai.openai.openai_api_key", return_value=None):
             with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
-                OpenAIProvider(base_url="http://x/v1")
+                OpenAIProvider(base_url="https://x/v1")
 
     def test_anthropic_requires_key(self):
         with mock.patch("relay.ai.anthropic.anthropic_api_key", return_value=None):
             with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY"):
-                AnthropicProvider(base_url="http://x/v1")
+                AnthropicProvider(base_url="https://x/v1")
 
     def test_mistral_requires_key(self):
         with mock.patch("relay.ai.mistral.mistral_api_key", return_value=None):
             with pytest.raises(ConfigError, match="MISTRAL_API_KEY"):
-                MistralProvider(base_url="http://x/v1")
+                MistralProvider(base_url="https://x/v1")
 
     def test_groq_requires_key(self):
         with mock.patch("relay.ai.groq.groq_api_key", return_value=None):
             with pytest.raises(ConfigError, match="GROQ_API_KEY"):
-                GroqProvider(base_url="http://x/v1")
+                GroqProvider(base_url="https://x/v1")
 
     def test_xai_requires_key(self):
         with mock.patch("relay.ai.xai.xai_api_key", return_value=None):
             with pytest.raises(ConfigError, match="XAI_API_KEY"):
-                XaiProvider(base_url="http://x/v1")
+                XaiProvider(base_url="https://x/v1")
 
 
 class TestBuildProvider:

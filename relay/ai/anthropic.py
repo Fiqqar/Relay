@@ -17,6 +17,7 @@ from ..config import (
     anthropic_model,
 )
 from ..errors import AIError, ConfigError
+from ..telemetry import _is_valid_ai_base_url
 from .base import AIManager, read_limited_response
 
 
@@ -34,6 +35,10 @@ class AnthropicProvider(AIManager):
             )
         self.model = model or anthropic_model()
         self.base_url = (base_url or anthropic_base_url()).rstrip("/")
+        if not _is_valid_ai_base_url(self.base_url):
+            raise ConfigError(
+                f"invalid AI base URL {self.base_url!r} (use https:// for public hosts, http:// only for localhost; see `relay --help`)"
+            )
         self.timeout = ai_timeout(timeout)
 
     def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:

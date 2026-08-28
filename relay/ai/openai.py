@@ -14,6 +14,7 @@ import urllib.request
 
 from ..config import ai_timeout, openai_api_key, openai_base_url, openai_model
 from ..errors import AIError, ConfigError
+from ..telemetry import _is_valid_ai_base_url
 from .base import AIManager, read_limited_response
 
 
@@ -33,6 +34,10 @@ class OpenAIProvider(AIManager):
         # The API base already includes the /v1 prefix by default, and llama.cpp
         # exposes /v1 too, so /chat/completions is appended verbatim.
         self.base_url = (base_url or openai_base_url()).rstrip("/")
+        if not _is_valid_ai_base_url(self.base_url):
+            raise ConfigError(
+                f"invalid AI base URL {self.base_url!r} (use https:// for public hosts, http:// only for localhost; see `relay --help`)"
+            )
         self.timeout = ai_timeout(timeout)
 
     def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:

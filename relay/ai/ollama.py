@@ -13,7 +13,8 @@ import urllib.error
 import urllib.request
 
 from ..config import ai_timeout, ollama_base_url, ollama_model
-from ..errors import AIError
+from ..errors import AIError, ConfigError
+from ..telemetry import _is_valid_ai_base_url
 from .base import AIManager, read_limited_response
 
 
@@ -22,6 +23,10 @@ class OllamaProvider(AIManager):
 
     def __init__(self, base_url: str | None = None, model: str | None = None, timeout: int | None = None):
         self.base_url = (base_url or ollama_base_url()).rstrip("/")
+        if not _is_valid_ai_base_url(self.base_url):
+            raise ConfigError(
+                f"invalid AI base URL {self.base_url!r} (use https:// for public hosts, http:// only for localhost; see `relay --help`)"
+            )
         self.model = model or ollama_model()
         # Same timeout policy as Gemini: a realistic window by default with a
         # safety clamp, so a slow local model still falls back to manual input.
