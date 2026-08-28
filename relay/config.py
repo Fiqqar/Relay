@@ -408,21 +408,17 @@ def trusted_gitlab_hosts() -> list[str]:
 
     ``gitlab.com`` is always trusted; any other host (a self-hosted instance)
     must be opted in explicitly via the ``RELAY_TRUSTED_GITLAB_HOSTS`` env var
-    (comma/space separated) or the ``trusted_gitlab_hosts`` list in the
-    ``[relay]`` config table. The allowlist is additive on purpose: forgetting
-    to repeat ``gitlab.com`` can never accidentally break the common case, and
-    ``gitlab.com`` cannot be disabled by a mis-set env var. This is the trust
+    (comma/space separated). The allowlist is additive: forgetting to repeat
+    ``gitlab.com`` can never break the canonical host. This is the trust
     boundary that stops a malicious ``origin`` remote from redirecting
-    GITLAB_TOKEN to an attacker's host.
+    GITLAB_TOKEN to an attacker's host. Config-file `trusted_gitlab_hosts` is
+    intentionally ignored (env-only) so an untrusted repo-local config cannot
+    expand the credential destination.
     """
     extra: list[str] = []
     env_raw = os.environ.get("RELAY_TRUSTED_GITLAB_HOSTS")
     if env_raw is not None and env_raw.strip():
         extra = _split_branch_list(env_raw)
-    else:
-        file_hosts = _load_config().get("trusted_gitlab_hosts")
-        if isinstance(file_hosts, list) and file_hosts:
-            extra = [str(h) for h in file_hosts]
     return _normalize_hosts([*DEFAULT_TRUSTED_GITLAB_HOSTS, *extra])
 
 

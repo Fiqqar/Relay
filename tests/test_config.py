@@ -344,16 +344,14 @@ def test_trusted_gitlab_hosts_env_lowercases_and_dedupes(monkeypatch):
     assert config.trusted_gitlab_hosts() == ["gitlab.com", "gitlab.example.com"]
 
 
-def test_trusted_gitlab_hosts_read_from_config_file(monkeypatch, tmp_path):
+def test_trusted_gitlab_hosts_config_file_is_ignored(monkeypatch, tmp_path):
+    """Config-file `trusted_gitlab_hosts` is ignored (env-only) so an untrusted
+    repo-local config cannot expand credential destinations."""
     _write_toml(monkeypatch, tmp_path, """
         [relay]
         trusted_gitlab_hosts = ["gitlab.internal.example", "gitlab.example.com"]
     """)
-    assert config.trusted_gitlab_hosts() == [
-        "gitlab.com",
-        "gitlab.internal.example",
-        "gitlab.example.com",
-    ]
+    assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
 def test_trusted_gitlab_hosts_env_beats_file(monkeypatch, tmp_path):

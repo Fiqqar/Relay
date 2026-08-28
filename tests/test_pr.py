@@ -449,9 +449,10 @@ class TestGitLab:
             "gitlab.example.com", "group/sub/widget", verbose=False
         )
 
-    def test_self_hosted_gitlab_allowed_when_config_trusted(
+    def test_self_hosted_gitlab_config_file_is_ignored(
         self, fake_gitlab, monkeypatch, tmp_path
     ):
+        """Config-file trusted hosts must be ignored (env-only)."""
         from relay import config
 
         p = tmp_path / "config.toml"
@@ -462,11 +463,9 @@ class TestGitLab:
         monkeypatch.setenv("RELAY_CONFIG", str(p))
         config._RAW_CACHE.clear()
         git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
-        assert run_pr(git=git) == 0
-        fake_gitlab.assert_called_once_with(
-            "gitlab.example.com", "group/sub/widget", verbose=False
-        )
-        fake_gitlab.assert_called_once_with("gitlab.example.com", "group/sub/widget", verbose=False)
+        with pytest.raises(RelayError, match="RELAY_TRUSTED_GITLAB_HOSTS"):
+            run_pr(git=git)
+        fake_gitlab.assert_not_called()
 
 
 class TestBitbucket:
