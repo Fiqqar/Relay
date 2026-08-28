@@ -77,6 +77,13 @@ mypy relay
   `bash e2e_test.sh` (macOS/Linux) or `powershell -ExecutionPolicy Bypass -File e2e_test.ps1` (Windows).
 - Report concisely: what changed, why, and the verification results.
 
+### 8. Dogfooding — commit via Relay itself (split & push straight)
+
+- Every logical change **must be committed and pushed with `relay` itself** (`relay --solo --yes` for `main`, `relay --team <feat> --yes` for feature) — not `git commit`. This self-tests the workflow on the repo that builds the tool.
+- **Split & push straight:** one `relay` run = one Conventional Commit = one `git push` immediately after verification (rule #2). Don't batch multiple fixes into one push; don't hold commits locally.
+- If AI is offline/rate-limited, `relay` falls back to manual input — still use it (type the Conventional subject + body, blank line to finish). Never bypass with `git commit -m`.
+- This proves the change survives the real preflight → stage → AI/manual → confirm → commit → push path, not just `pytest`.
+
 ## Common mistakes (checklist)
 
 - [ ] Commit subject > 72 characters / not imperative
@@ -86,3 +93,5 @@ mypy relay
 - [ ] Added a runtime dependency without discussion
 - [ ] Reformatted files untouched by the task
 - [ ] Pushed before tests/lint/mypy are green
+- [ ] Committed with `git commit` instead of `relay --solo/--team --yes` (not dogfooded)
+- [ ] Batched multiple `relay` commits locally instead of push-straight per change
