@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-28
+
+### Security
+- Prevent Git option injection via branch/ref names in `git push`/`fetch`/`checkout`/`branch -D`/`ls-remote` by inserting `--` separator and using `git switch --` (HIGH-1).
+- Make AI base URLs (`OLLAMA_BASE_URL`, `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL`, `MISTRAL_BASE_URL`, `GROQ_BASE_URL`, `XAI_BASE_URL`) env-only so a repo-local `RELAY_CONFIG` cannot redirect credential-bearing requests (HIGH-2).
+- Enforce GitLab trusted-host allowlist as env-only (`RELAY_TRUSTED_GITLAB_HOSTS`) — config-file `trusted_gitlab_hosts` is now ignored to prevent credential exfiltration (MEDIUM-7).
+- Validate `relay pr --base` and reject option-like values (`--upload-pack`, `..`) before `git fetch` (MEDIUM-6).
+- Sanitize ANSI/control sequences from remote error text before terminal output to prevent log injection (LOW-11).
+- Telemetry redirects now validate each destination is public `https://` (LOW-10).
+
+### Fixed
+- `relay --dry-run` no longer mutates the index (`git add .`) — previews via `git diff HEAD` (MEDIUM-4).
+- Add TOCTOU guard: capture `git write-tree` before AI and verify index unchanged before commit (MEDIUM-5).
+- Add byte budget (`512 KiB`) to diff truncation alongside line cap to handle huge single lines (MEDIUM-8).
+- Wire configured `branch_template` (`RELAY_BRANCH_TEMPLATE` / `[relay] branch_template`) into `Orchestrator` — `release/<feature>` now works (MEDIUM-9).
+- Pin release workflow actions to commit SHAs and scope `contents: write` to job (HIGH-3).
+- Clean `dist/` before `python -m build` to avoid stale artifacts in releases (LOW-12).
+
 ## [0.7.1] - 2026-08-26
 
 ### Security
@@ -314,7 +332,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/Fiqqar/Relay/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Fiqqar/Relay/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Fiqqar/Relay/compare/v0.6.0...v0.7.0
 [0.5.8]: https://github.com/Fiqqar/Relay/compare/v0.5.7...v0.5.8
