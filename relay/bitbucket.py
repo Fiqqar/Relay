@@ -196,8 +196,9 @@ class BitbucketClient:
         failed request, exactly like ``open_pull``.
         """
         token = self._require_token()
+        escaped = source_branch.replace("\\", "\\\\").replace('"', '\\"')
         query = urllib.parse.urlencode(
-            {"q": f'source.branch.name="{source_branch}" AND state="OPEN"'}
+            {"q": f'source.branch.name="{escaped}" AND state="OPEN"'}
         )
         request = urllib.request.Request(
             f"{self.pulls_url}?{query}",

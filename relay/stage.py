@@ -13,7 +13,7 @@ was staged (like ``--staged``).
 """
 from __future__ import annotations
 
-from .errors import GitError
+from .errors import GitError, sanitize_terminal
 from .git_manager import GitManager
 
 
@@ -94,7 +94,7 @@ def run_stage(
 
     print("[relay] unstaged / untracked files:")
     for i, name in enumerate(files, start=1):
-        print(f"    {i:>3}. {name}")
+        print(f"    {i:>3}. {sanitize_terminal(name)}")
 
     selection = _input("Select files to stage (e.g. '1,2', '3-5', 'all', 'none'): ")
     picked = _parse_selection(selection, len(files))
@@ -103,7 +103,8 @@ def run_stage(
         return 0
     paths = [files[i - 1] for i in picked]
     git.stage_files(*paths)
-    print(f"[relay] staged {len(paths)} file(s): {', '.join(paths)}")
+    safe = ", ".join(sanitize_terminal(p) for p in paths)
+    print(f"[relay] staged {len(paths)} file(s): {safe}")
     return 0
 
 
