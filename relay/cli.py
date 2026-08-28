@@ -19,7 +19,7 @@ from .ai import PROVIDER_NAMES, AIManager, build_provider
 from .completions import generate as generate_completions
 from .config import branch_template, pr_open_browser
 from .doctor import run_doctor
-from .errors import ConfigError, RelayError, UserAbort
+from .errors import ConfigError, RelayError, UserAbort, sanitize_terminal
 from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
@@ -257,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             return run_doctor(provider=args.provider, verbose=args.verbose)
         except Exception as exc:  # noqa: BLE001 - doctor must never traceback
-            print(f"[relay doctor] error: {exc}")
+            print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
             return 1
 
     # `relay completions` prints a generated shell script to stdout and exits.
@@ -377,13 +377,13 @@ def main(argv: list[str] | None = None) -> int:
         return code
     except UserAbort as exc:
         # 130 is the conventional "interrupted by user" exit code (matches Ctrl-C).
-        print(f"[relay] {exc}")
+        print(f"[relay] {sanitize_terminal(str(exc))}")
         return 130
     except RelayError as exc:
-        print(f"[relay] error: {exc}")
+        print(f"[relay] error: {sanitize_terminal(str(exc))}")
         stderr = getattr(exc, "stderr", None)
         if args.verbose and stderr:
-            print(stderr)
+            print(sanitize_terminal(stderr))
         return 1
     except KeyboardInterrupt:
         print("\n[relay] aborted.")
@@ -392,7 +392,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[relay] non-interactive environment — cannot prompt for input (use --yes to skip confirmation).")
         return 1
     except Exception as exc:  # noqa: BLE001 - last-resort guard, never traceback
-        print(f"[relay] unexpected error: {exc}")
+        print(f"[relay] unexpected error: {sanitize_terminal(str(exc))}")
         return 1
 
 
