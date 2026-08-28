@@ -111,6 +111,15 @@ def _is_https(url: str) -> bool:
     return not _is_local_or_private_host(host)
 
 
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects to non-https or private hosts."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _is_https(newurl):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _send_payload(payload: dict) -> None:
     """Post the JSON payload once, best-effort; swallow every failure."""
     url = _collect_url()
@@ -123,7 +132,8 @@ def _send_payload(payload: dict) -> None:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=3):
+        opener = urllib.request.build_opener(_SafeRedirectHandler)
+        with opener.open(request, timeout=3):
             pass
     except Exception:  # noqa: BLE001 - telemetry must never interfere
         pass

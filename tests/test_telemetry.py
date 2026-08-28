@@ -177,27 +177,44 @@ class TestStateFile:
 class TestSendPayload:
     def test_posts_json_payload_over_https(self, monkeypatch):
         monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
-        with mock.patch("urllib.request.urlopen") as urlopen:
+        mock_opener = mock.Mock()
+        mock_opener.open.return_value.__enter__ = mock.Mock(return_value=mock.Mock())
+        mock_opener.open.return_value.__exit__ = mock.Mock(return_value=False)
+        with mock.patch("urllib.request.build_opener", return_value=mock_opener) as build:
             telemetry._send_payload({"event": "relay_run", "ok": True, "mode": "solo"})
-        urlopen.assert_called_once()
-        request = urlopen.call_args.args[0]
+        build.assert_called_once()
+        request = mock_opener.open.call_args.args[0]
         assert request.full_url == "https://t.example/collect"
         assert request.method == "POST"
-        assert urlopen.call_args.kwargs["timeout"] == 3
+        assert mock_opener.open.call_args.kwargs["timeout"] == 3
         assert json.loads(request.data) == {"event": "relay_run", "ok": True, "mode": "solo"}
 
     def test_swallows_network_failure(self, monkeypatch):
         monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
-        with mock.patch("urllib.request.urlopen", side_effect=RuntimeError("unreachable")):
+        mock_opener = mock.Mock()
+        mock_opener.open.side_effect = RuntimeError("unreachable")
+        with mock.patch("urllib.request.build_opener", return_value=mock_opener):
             telemetry._send_payload({"event": "relay_run", "ok": True})  # never raises
 
     def test_swallows_http_error(self, monkeypatch):
         monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
-        with mock.patch(
-            "urllib.request.urlopen",
-            side_effect=urllib.error.HTTPError("https://t.example", 500, "boom", {}, None),
-        ):
+        mock_opener = mock.Mock()
+        mock_opener.open.side_effect = urllib.error.HTTPError(
+            "https://t.example", 500, "boom", {}, None
+        )
+        with mock.patch("urllib.request.build_opener", return_value=mock_opener):
             telemetry._send_payload({"event": "relay_run", "ok": True})  # never raises
+
+    def test_redirect_to_private_host_is_blocked(self, monkeypatch):
+        monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
+        handler = telemetry._SafeRedirectHandler()
+        assert handler.redirect_request(None, None, 302, "msg", {}, "http://127.0.0.1/evil") is None
+        assert handler.redirect_request(None, None, 302, "msg", {}, "https://127.0.0.1/evil") is None
+        assert handler.redirect_request(None, None, 302, "msg", {}, "http://t.example/other") is None
+        # public https redirect is allowed (returns a Request or not None)
+        # We only verify it doesn't return None for a public https URL
+        # Use a dummy request to see it passes _is_https
+        assert telemetry._is_https("https://t.example/other") is True
 
 
 def test_parser_telemetry_defaults_status():
