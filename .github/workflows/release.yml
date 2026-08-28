@@ -25,6 +25,9 @@ jobs:
           pip install -e ".[dev]"
           pytest -q
 
+      - name: Clean dist
+        run: rm -rf dist build *.egg-info
+
       - name: Build sdist + wheel
         run: python -m build
 
