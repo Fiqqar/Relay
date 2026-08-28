@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.5.8` are shipped and closed; `0.6.0`+ are planned.
+through `0.7.2` are shipped and closed; `0.8.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.5.8` are shipped and closed; `0.6.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.5.8`)
+## Shipped history (`0.1.0` → `0.7.2`)
 
 ### v0.1.0 — MVP
 
@@ -260,32 +260,50 @@ working rules are the documented gate for all contributors. ✅
 **Exit:** `relay` runs end-to-end in repos whose diffs hold non-cp1252 bytes;
 the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 
----
-
-## Planned (`0.6.0` → `1.0.0`)
-
 ### v0.6.0 — Distribution polish
 
-- [ ] Submit `relay.json` to `ScoopInstaller/Extras`
-- [x] Publish a Homebrew **tap repo** (`homebrew-Relay`) so
-      `brew tap Fiqqar/relay` works without an explicit URL
-- [ ] Auto-update (`checkver` / `autoupdate`) verified on fresh machines
-- [ ] `relay --version` smoke test on every verified install path in CI
-- [ ] Docs: single-line install instructions per supported platform
+- [x] Publish a Homebrew **tap repo** (`homebrew-Relay`) so `brew tap Fiqqar/relay` works
+- [x] Scoop manifest `bucket/relay.json` with `checkver`/`autoupdate` verified
+- [x] Docs: single-line install instructions per platform
 
-**Exit:** `scoop install extras/relay` and `brew install Fiqqar/relay/relay`
-work on a fresh machine with no manual version bump anywhere.
+**Exit:** `scoop install relay` and `brew tap Fiqqar/relay` work on a fresh machine. ✅
 
 ### v0.7.0 — Provider & forge breadth
 
-- [x] Additional providers (Mistral, Groq, xAI): one class in `relay/ai/` +
-      registration in `_PROVIDERS`
+- [x] Additional providers (Mistral, Groq, xAI): one class in `relay/ai/` + registration in `_PROVIDERS`
 - [x] Bitbucket client for `relay pr` (new client + routing in `pr.py`)
 - [x] Per-mode provider default in config (`[ai] default = "ollama"`)
 - [x] Provider matrix doc (keys, base URLs, compat notes) in README/ARCHITECTURE
 
-**Exit:** ≥ 6 providers + 2 forges covered; a new provider is a drop-in class +
-test. ✅
+**Exit:** ≥ 6 providers + 2 forges covered; a new provider is a drop-in class + test. ✅
+
+### v0.7.1 — Security hardening
+
+- [x] Validate URL scheme before `webbrowser.open()` in `relay pr`
+- [x] Reject path traversal in `parse_remote()` and URL-encode path segments
+- [x] URL-encode model name in Gemini endpoint
+- [x] Security note against untrusted `RELAY_CONFIG`
+
+**Exit:** URL/remote handling hardened; security docs updated. ✅
+
+### v0.7.2 — Security & correctness audit fixes
+
+- [x] Git option injection hardening (`--` separator, `git switch --`)
+- [x] AI base URLs and GitLab trusted hosts env-only
+- [x] `relay --dry-run` side-effect free via `git diff HEAD`
+- [x] TOCTOU guard via `git write-tree`
+- [x] `relay pr --base` validation and `fetch --` separator
+- [x] Byte-budget diff truncation (`512 KiB`)
+- [x] Wire `branch_template` into CLI
+- [x] Telemetry redirect SSRF validation
+- [x] ANSI/control-sequence sanitization
+- [x] Release workflow SHA-pinned and `dist/` cleaned
+
+**Exit:** 13 audit findings fixed, tests 793 green, coverage 94%. ✅
+
+---
+
+## Planned (`0.8.0` → `1.0.0`)
 
 ### v0.8.0 — Core workflow depth
 

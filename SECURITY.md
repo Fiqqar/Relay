@@ -53,8 +53,8 @@ previous release. Older releases are not patched.
 
 | Version | Supported |
 | --- | --- |
-| latest (v0.5.x) | ✅ |
-| previous minor (v0.4.x) | ⚠️ critical fixes only |
+| latest (v0.7.x) | ✅ |
+| previous minor (v0.6.x) | ⚠️ critical fixes only |
 | older | ❌ |
 
 ## Verification

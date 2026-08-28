@@ -405,7 +405,11 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - **v0.3** — release pipeline: publish sdist/wheels to GitHub Releases on a tag (`git tag v0.3.0 && git push origin v0.3.0`); Homebrew / Scoop packaging. ✅ shipped
 - **v0.4** — DX layer: telemetry opt-in, man pages (`man relay`), shell completions (bash/zsh/fish/PowerShell), `relay undo`, `relay squash`, `relay stage` (incl. `git add -p`), OpenAI / Anthropic / llama.cpp providers, GitLab MR creation. ✅ shipped
 - **v0.5** — team default-branch safety: protected-branch rules (`[team.protected]`, `RELAY_PROTECTED_BRANCHES`), team-mode refusal with `--allow-protected`/`--yes` escape hatch, doctor reporting. ✅ shipped
-- **v0.6 – v0.9** — distribution polish (Scoop Extras, Homebrew tap), provider/forge breadth, core workflow depth (hunk-level AI messages, multi-repo, custom hooks), then GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
+- **v0.6** — distribution polish (Scoop Extras submission prep, Homebrew tap `Fiqqar/relay`). ✅ shipped
+- **v0.7.0** — provider & forge breadth (Mistral/Groq/xAI, Bitbucket). ✅ shipped
+- **v0.7.1** — security hardening (URL scheme, path traversal, model URL encode). ✅ shipped
+- **v0.7.2** — security & correctness audit fixes (git injection hardening, env-only base URLs, dry-run TOCTOU, byte-budget truncation, etc.). ✅ shipped
+- **v0.8 – v0.9** — core workflow depth (hunk-level AI messages, multi-repo, custom hooks), then GA hardening. *(planned — see [Roadmap](docs/ROADMAP.md))*
 - **v1.0** — GA: CLI surface freeze, ≥90% coverage gate, NFR-7 error-message audit, docs + packaging finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
 
 ## Documentation
