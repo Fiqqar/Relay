@@ -21,7 +21,7 @@ from .commit import (
 )
 from .config import DEFAULT_BRANCH_TEMPLATE
 from .config import protected_branches as get_protected_branches
-from .errors import AIError, GitError, UserAbort
+from .errors import AIError, GitError, UserAbort, sanitize_terminal
 from .git_manager import GitManager
 from .prompt import CONFIRM_PROMPT, interpret_choice
 from .protected import assert_branch_allowed, is_protected
@@ -225,9 +225,10 @@ class Orchestrator:
         try:
             self.git.push(branch, set_upstream=self.mode == "team")
         except GitError as exc:
-            print(f"[relay] committed, but push failed:\n{exc.stderr or exc}")
+            safe = sanitize_terminal(exc.stderr or str(exc))
+            print(f"[relay] committed, but push failed:\n{safe}")
             upstream = "-u " if self.mode == "team" else ""
-            print(f"[relay] retry with: git push {upstream}origin {branch}")
+            print(f"[relay] retry with: git push {upstream}origin {sanitize_terminal(branch)}")
             return 1
 
         print(f"[relay] done: pushed to '{branch}'")

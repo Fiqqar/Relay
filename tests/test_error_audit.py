@@ -143,3 +143,12 @@ def test_audit_actually_scans_sites():
     assert len(sites) >= 10
     names = {name for _, _, name, _ in sites}
     assert {"ConfigError", "GitError", "ProtectedBranchError", "RelayError"} <= names
+
+
+def test_sanitize_terminal_strips_ansi():
+    from relay.errors import sanitize_terminal
+
+    assert sanitize_terminal("\x1b[31mred\x1b[0m") == "red"
+    assert "\x1b" not in sanitize_terminal("\x1b]0;title\x07hello")
+    assert sanitize_terminal("normal") == "normal"
+    assert "\x1b" not in sanitize_terminal("\x1b[2J\x1b[H exploit")

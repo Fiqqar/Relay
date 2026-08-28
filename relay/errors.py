@@ -3,6 +3,7 @@
 Every exception in the app inherits from RelayError so the CLI layer has a
 single place to turn failures into actionable messages and process exit codes.
 """
+import re as _re
 
 
 class RelayError(Exception):
@@ -41,3 +42,15 @@ class UserAbort(RelayError):
 class ProtectedBranchError(RelayError):
     """The workflow was refused because it targets a protected branch
     (default-branch safety). Maps to exit 1 like any other workflow error."""
+
+
+# ANSI escape stripping for terminal output (log injection hardening)
+_ANSI_RE = _re.compile(r"\x1b(?:\].*?\x07|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+
+def sanitize_terminal(text: str) -> str:
+    """Strip ANSI/control sequences from external text before printing."""
+    # Also strip other control chars that could affect terminal
+    text = _ANSI_RE.sub("", text)
+    # Remove remaining C0 control chars except newline/tab
+    return "".join(ch for ch in text if ch == "\n" or ch == "\t" or ord(ch) >= 32)

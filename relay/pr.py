@@ -22,7 +22,7 @@ from .bitbucket import BitbucketClient, BitbucketError
 from .bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
 from .commit import sanitize_ai_message
 from .config import trusted_gitlab_hosts
-from .errors import RelayError
+from .errors import RelayError, sanitize_terminal
 from .git_manager import GitManager, parse_remote
 from .github import DuplicatePullRequestError, GitHubClient, GitHubError
 from .gitlab import DuplicateMergeRequestError, GitLabClient, GitLabError
@@ -83,7 +83,7 @@ def _exit_existing_pr_host(
 ) -> int:
     """Report an existing PR/MR (or the best URL we can build) and stop gracefully."""
     url = _existing_url(host, owner, repo, existing)
-    print(f"[relay] PR already exists: {url}")
+    print(f"[relay] PR already exists: {sanitize_terminal(url)}")
     if open_browser:
         _safe_open_browser(url)
     return 0
@@ -151,12 +151,12 @@ def _run_github(
         return _exit_existing_pr_host("github.com", owner, repo, existing, open_browser)
     except GitHubError as exc:
         if exc.status == 422:
-            print(f"[relay] Cannot open PR: {exc.reason}")
+            print(f"[relay] Cannot open PR: {sanitize_terminal(exc.reason)}")
             return 1
         raise
     number = created.get("number")
     url = created.get("html_url") or _pr_web_url("github.com", owner, repo, number)
-    print(f"[relay] opened PR #{number}: {url}")
+    print(f"[relay] opened PR #{number}: {sanitize_terminal(str(url))}")
     if open_browser:
         _safe_open_browser(url)
     return 0
@@ -189,14 +189,14 @@ def _run_bitbucket(
         return _exit_existing_pr_host("bitbucket.org", owner, repo, existing, open_browser)
     except BitbucketError as exc:
         if exc.status in (400, 409):
-            print(f"[relay] Cannot open PR: {exc.reason}")
+            print(f"[relay] Cannot open PR: {sanitize_terminal(exc.reason)}")
             return 1
         raise
     number = created.get("id")
     url = (created.get("links") or {}).get("html", {}).get("href") or _pr_web_url(
         "bitbucket.org", owner, repo, number
     )
-    print(f"[relay] opened PR #{number}: {url}")
+    print(f"[relay] opened PR #{number}: {sanitize_terminal(str(url))}")
     if open_browser:
         _safe_open_browser(url)
     return 0
@@ -232,12 +232,12 @@ def _run_gitlab(
         return _exit_existing_pr_host(host, owner, repo, existing, open_browser)
     except GitLabError as exc:
         if exc.status in (400, 409):
-            print(f"[relay] Cannot open MR: {exc.reason}")
+            print(f"[relay] Cannot open MR: {sanitize_terminal(exc.reason)}")
             return 1
         raise
     number = created.get("iid")
     url = created.get("web_url") or _pr_web_url(host, owner, repo, number)
-    print(f"[relay] opened MR #{number}: {url}")
+    print(f"[relay] opened MR #{number}: {sanitize_terminal(str(url))}")
     if open_browser:
         _safe_open_browser(url)
     return 0
