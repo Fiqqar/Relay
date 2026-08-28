@@ -207,7 +207,7 @@ class GitManager:
         False instead of raising.
         """
         proc = self._run(
-            "ls-remote", "--exit-code", "--heads", remote, branch, check=False
+            "ls-remote", "--exit-code", "--heads", remote, "--", branch, check=False
         )
         return proc.returncode == 0
 
@@ -342,22 +342,22 @@ class GitManager:
 
     def create_branch(self, name: str) -> None:
         """Create and check out a new branch (`git checkout -b`)."""
-        self._run("checkout", "-b", name)
+        self._run("checkout", "-b", name, "--")
 
     def checkout(self, branch: str) -> None:
-        """Check out an existing branch (`git checkout <branch>`)."""
-        self._run("checkout", branch)
+        """Check out an existing branch (`git switch -- <branch>`)."""
+        self._run("switch", "--", branch)
 
     def delete_branch(self, name: str, force: bool = True) -> None:
         """Delete a branch. Force-deletes by default (`-D`) so an unmerged
         orphan branch can be cleaned up; the branch must not be checked out."""
-        self._run("branch", "-D" if force else "-d", name)
+        self._run("branch", "-D" if force else "-d", "--", name)
 
     def push(self, branch: str, set_upstream: bool = False) -> None:
         cmd = ["push"]
         if set_upstream:
             cmd.append("-u")
-        cmd += ["origin", branch]
+        cmd += ["origin", "--", branch]
         self._run(*cmd)
 
     def fetch(self, remote: str = "origin", ref: str = "", check: bool = True) -> None:
@@ -370,7 +370,7 @@ class GitManager:
         """
         cmd = ["fetch", remote]
         if ref:
-            cmd.append(ref)
+            cmd += ["--", ref]
         self._run(*cmd, check=check)
 
     # ---- Undo helpers ---------------------------------------------------------

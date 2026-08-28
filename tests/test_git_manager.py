@@ -95,7 +95,7 @@ class TestRun:
         with pytest.raises(GitError) as exc_info:
             git.push("main")
         assert "timed out after 60" in str(exc_info.value)
-        assert exc_info.value.command == "git push origin main"
+        assert exc_info.value.command == "git push origin -- main"
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_missing_git_binary_raises_clear_git_error(self, mock_run, git, make_proc):
@@ -228,43 +228,43 @@ class TestMutations:
     def test_create_branch(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.create_branch("status/payments")
-        assert mock_run.call_args.args[0] == ["git", "checkout", "-b", "status/payments"]
+        assert mock_run.call_args.args[0] == ["git", "checkout", "-b", "status/payments", "--"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_checkout(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.checkout("main")
-        assert mock_run.call_args.args[0] == ["git", "checkout", "main"]
+        assert mock_run.call_args.args[0] == ["git", "switch", "--", "main"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_delete_branch_force_by_default(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.delete_branch("orphan/feat")
-        assert mock_run.call_args.args[0] == ["git", "branch", "-D", "orphan/feat"]
+        assert mock_run.call_args.args[0] == ["git", "branch", "-D", "--", "orphan/feat"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_delete_branch_safe_flag(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.delete_branch("feat/x", force=False)
-        assert mock_run.call_args.args[0] == ["git", "branch", "-d", "feat/x"]
+        assert mock_run.call_args.args[0] == ["git", "branch", "-d", "--", "feat/x"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_push_without_upstream(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.push("main")
-        assert mock_run.call_args.args[0] == ["git", "push", "origin", "main"]
+        assert mock_run.call_args.args[0] == ["git", "push", "origin", "--", "main"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_push_with_upstream(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.push("status/payments", set_upstream=True)
-        assert mock_run.call_args.args[0] == ["git", "push", "-u", "origin", "status/payments"]
+        assert mock_run.call_args.args[0] == ["git", "push", "-u", "origin", "--", "status/payments"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_fetch_remote_and_ref(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.fetch("origin", "main")
-        assert mock_run.call_args.args[0] == ["git", "fetch", "origin", "main"]
+        assert mock_run.call_args.args[0] == ["git", "fetch", "origin", "--", "main"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_fetch_defaults_to_origin_no_ref(self, mock_run, git, make_proc):
@@ -282,6 +282,38 @@ class TestMutations:
         mock_run.return_value = make_proc(returncode=128, stderr="couldn't resolve host")
         with pytest.raises(GitError):
             git.fetch("origin", "main")
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_push_uses_separator_for_option_like_branch(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.push("--all")
+        assert mock_run.call_args.args[0] == ["git", "push", "origin", "--", "--all"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_fetch_uses_separator_for_option_like_ref(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.fetch("origin", "--upload-pack=evil")
+        assert mock_run.call_args.args[0] == ["git", "fetch", "origin", "--", "--upload-pack=evil"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_remote_has_branch_uses_separator(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(returncode=0)
+        assert git.remote_has_branch("--all") is True
+        assert mock_run.call_args.args[0] == [
+            "git", "ls-remote", "--exit-code", "--heads", "origin", "--", "--all",
+        ]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_checkout_uses_switch_with_separator(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.checkout("--all")
+        assert mock_run.call_args.args[0] == ["git", "switch", "--", "--all"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_delete_branch_uses_separator(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.delete_branch("--all")
+        assert mock_run.call_args.args[0] == ["git", "branch", "-D", "--", "--all"]
 
 
 class TestParseRemoteUrl:
