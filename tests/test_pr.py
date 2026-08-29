@@ -560,3 +560,50 @@ class TestBitbucket:
         )
         with pytest.raises(BitbucketError):
             run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"))
+
+
+# ---- coverage: pr helpers (moved from test_coverage_95) ---------------------
+
+def test_safe_open_browser_rejects():
+    from relay.pr import _safe_open_browser
+    assert _safe_open_browser("") is False
+    assert _safe_open_browser("file:///etc/passwd") is False
+    assert _safe_open_browser("ftp://example.com") is False
+
+
+def test_host_web_base():
+    from relay.pr import _host_web_base
+    assert _host_web_base("github.com", "o", "r") == "https://github.com/o/r/pulls"
+    assert _host_web_base("bitbucket.org", "o", "r") == "https://bitbucket.org/o/r/pull-requests"
+    assert _host_web_base("gitlab.example.com", "o", "r") == "https://gitlab.example.com/o/r/-/merge_requests"
+
+
+def test_pr_web_url():
+    from relay.pr import _pr_web_url
+    assert _pr_web_url("github.com", "o", "r", 42) == "https://github.com/o/r/pull/42"
+    assert _pr_web_url("bitbucket.org", "o", "r", 5) == "https://bitbucket.org/o/r/pull-requests/5"
+    assert _pr_web_url("gitlab.com", "o", "r", 7) == "https://gitlab.com/o/r/-/merge_requests/7"
+
+
+def test_existing_url_none():
+    from relay.pr import _existing_url
+    assert _existing_url("github.com", "o", "r", None) == "https://github.com/o/r/pulls"
+
+
+def test_existing_url_with_links():
+    from relay.pr import _existing_url
+    existing = {"links": {"html": {"href": "https://bitbucket.org/o/r/pull-requests/9"}}}
+    assert _existing_url("bitbucket.org", "o", "r", existing) == "https://bitbucket.org/o/r/pull-requests/9"
+    existing2 = {"html_url": "https://github.com/o/r/pull/1"}
+    assert _existing_url("github.com", "o", "r", existing2) == "https://github.com/o/r/pull/1"
+    existing3 = {"number": 10}
+    assert _existing_url("github.com", "o", "r", existing3) == "https://github.com/o/r/pull/10"
+    existing4 = {"iid": 3}
+    assert _existing_url("gitlab.com", "o", "r", existing4) == "https://gitlab.com/o/r/-/merge_requests/3"
+
+
+def test_safe_open_browser_allows_https():
+    from relay.pr import _safe_open_browser
+    with mock.patch("relay.pr.webbrowser.open", return_value=True) as wb:
+        assert _safe_open_browser("https://github.com/o/r/pull/1") is True
+        wb.assert_called_once()

@@ -322,3 +322,115 @@ def test_main_doctor_failure_is_not_fatal(capsys):
     with mock.patch("relay.cli.run_doctor", side_effect=RuntimeError("boom")):
         assert main(["doctor"]) == 1
     assert "error: boom" in capsys.readouterr().out
+
+
+# ---- coverage: missing branches (moved from test_coverage_95) ----------------
+
+def test_ollama_reachable_parse_exception():
+    with mock.patch("relay.doctor.urllib.parse.urlparse", side_effect=ValueError("bad")):
+        ok, detail = _ollama_reachable("http://localhost:11434")
+        assert ok is False
+        assert "cannot parse URL" in detail
+
+
+def test_ollama_reachable_empty_host():
+    ok, detail = _ollama_reachable("http://")
+    assert ok is False
+    assert "cannot parse URL" in detail
+
+
+def test_ollama_reachable_https_default_port():
+    with mock.patch("relay.doctor.socket.create_connection") as conn:
+        ok, _ = _ollama_reachable("https://myhost/path")
+        assert ok is True
+        conn.assert_called_once_with(("myhost", 443), timeout=1)
+
+
+def test_doctor_mistral_key_set():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="mistral"), \
+         mock.patch("relay.doctor.mistral_api_key", return_value="test-key"), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 0
+
+
+def test_doctor_mistral_missing_key():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="mistral"), \
+         mock.patch("relay.doctor.mistral_api_key", return_value=None), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 1
+
+
+def test_doctor_groq_key_set():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="groq"), \
+         mock.patch("relay.doctor.groq_api_key", return_value="k"), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 0
+
+
+def test_doctor_groq_missing():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="groq"), \
+         mock.patch("relay.doctor.groq_api_key", return_value=None), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 1
+
+
+def test_doctor_xai_key_set():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="xai"), \
+         mock.patch("relay.doctor.xai_api_key", return_value="k"), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 0
+
+
+def test_doctor_xai_missing():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="xai"), \
+         mock.patch("relay.doctor.xai_api_key", return_value=None), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 1
+
+
+def test_doctor_unknown_provider_warns_extra():
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
+         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
+         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
+         mock.patch("relay.doctor.provider_from_env", return_value="unknown_xyz"), \
+         mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+        assert run_doctor() == 0

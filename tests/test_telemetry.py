@@ -244,6 +244,72 @@ class TestCliTelemetry:
         assert telemetry.is_enabled() is False
         assert "telemetry" in capsys.readouterr().out
 
+
+# ---- coverage: missing branches (moved from test_coverage_95) ----------------
+
+def test_is_local_or_private_host_localhost():
+    assert telemetry._is_local_or_private_host("localhost") is True
+    assert telemetry._is_local_or_private_host("foo.localhost") is True
+    assert telemetry._is_local_or_private_host("example.com") is False
+
+
+def test_is_local_private_ip():
+    assert telemetry._is_local_or_private_host("127.0.0.1") is True
+    assert telemetry._is_local_or_private_host("10.0.0.1") is True
+    assert telemetry._is_local_or_private_host("192.168.1.1") is True
+    assert telemetry._is_local_or_private_host("8.8.8.8") is False
+
+
+def test_is_https_rejects_private():
+    assert telemetry._is_https("http://example.com") is False
+    assert telemetry._is_https("https://127.0.0.1/collect") is False
+    assert telemetry._is_https("https://example.com/collect") is True
+    assert telemetry._is_https("https://localhost/collect") is False
+    assert telemetry._is_https("not-a-url") is False
+    assert telemetry._is_https("https://") is False
+
+
+def test_is_valid_ai_base_url():
+    assert telemetry._is_valid_ai_base_url("https://api.openai.com/v1") is True
+    assert telemetry._is_valid_ai_base_url("http://localhost:11434") is True
+    assert telemetry._is_valid_ai_base_url("http://127.0.0.1:11434") is True
+    assert telemetry._is_valid_ai_base_url("http://10.0.0.1/v1") is False
+    assert telemetry._is_valid_ai_base_url("http://example.com/v1") is False
+    assert telemetry._is_valid_ai_base_url("https://10.0.0.1/v1") is False
+    assert telemetry._is_valid_ai_base_url("ftp://example.com") is False
+    assert telemetry._is_valid_ai_base_url("https://") is False
+    assert telemetry._is_valid_ai_base_url("https://example.com") is True
+    assert telemetry._is_valid_ai_base_url("http://[::1]:11434") is True
+
+
+def test_safe_redirect_handler_rejects_private():
+    h = telemetry._SafeRedirectHandler()
+    assert h.redirect_request(None, None, 302, "", {}, "https://127.0.0.1/") is None
+    assert h.redirect_request(None, None, 302, "", {}, "http://example.com") is None
+
+
+def test_send_payload_no_url(monkeypatch):
+    monkeypatch.setenv("RELAY_TELEMETRY_URL", "")
+    telemetry._send_payload({"event": "test"})
+
+
+def test_send_payload_invalid_url(monkeypatch):
+    monkeypatch.setenv("RELAY_TELEMETRY_URL", "http://example.com")
+    telemetry._send_payload({"event": "test"})
+
+
+def test_report_without_url(monkeypatch):
+    monkeypatch.setenv("RELAY_TELEMETRY", "1")
+    monkeypatch.setenv("RELAY_TELEMETRY_URL", "")
+    telemetry.report(mode="solo", provider="gemini", ok=True)
+
+
+def test_report_with_private_url(monkeypatch, capsys):
+    monkeypatch.setenv("RELAY_TELEMETRY", "1")
+    monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://127.0.0.1/collect")
+    telemetry.report(mode="solo", provider="gemini", ok=True)
+    assert "warning" in capsys.readouterr().err.lower()
+
     def test_main_reports_after_workflow(self):
         with mock.patch("relay.cli.build_provider"), mock.patch(
             "relay.cli.Orchestrator"

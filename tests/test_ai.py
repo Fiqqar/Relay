@@ -780,3 +780,50 @@ class TestGenerateWrapper:
         with pytest.raises(AIError) as exc_info:
             provider.generate("d", "s", "b")
         assert exc_info.value is original
+
+
+# ---- coverage: ollama missing branches (moved from test_coverage_95) ---------
+
+def test_ollama_invalid_base_url():
+    with pytest.raises(Exception) as exc:
+        OllamaProvider(base_url="http://10.0.0.1:11434")
+    assert "invalid AI base URL" in str(exc.value)
+
+
+def test_ollama_http_error():
+    provider = OllamaProvider(base_url="http://localhost:11434", model="m", timeout=5)
+    err = urllib.error.HTTPError("http://localhost:11434/api/generate", 500, "boom", {}, None)
+    with mock.patch("urllib.request.urlopen", side_effect=err):
+        with pytest.raises(Exception) as exc:
+            provider.generate_commit_message("diff", "stat", "main")
+        assert "500" in str(exc.value) or "unavailable" in str(exc.value).lower()
+        assert exc.value.kind == "unavailable"
+
+
+def test_ollama_urlerror_timeout():
+    provider = OllamaProvider(base_url="http://localhost:11434", model="m", timeout=5)
+    url_err = urllib.error.URLError(TimeoutError("timed out"))
+    with mock.patch("urllib.request.urlopen", side_effect=url_err):
+        with pytest.raises(Exception) as exc:
+            provider.generate_commit_message("diff", "stat", "main")
+        assert "timeout" in str(exc.value).lower()
+
+
+def test_ollama_bad_response_error_field():
+    provider = OllamaProvider(base_url="http://localhost:11434", model="m", timeout=5)
+    fake_resp = mock.MagicMock()
+    fake_resp.read.return_value = json.dumps({"error": "model not found"}).encode()
+    fake_resp.__enter__ = lambda s: s
+    fake_resp.__exit__ = lambda *a: False
+    with mock.patch("urllib.request.urlopen", return_value=fake_resp):
+        with pytest.raises(Exception) as exc:
+            provider.generate_commit_message("diff", "stat", "main")
+        assert "bad_response" in str(exc.value).lower() or "model not found" in str(exc.value)
+
+
+def test_ollama_connection_error():
+    provider = OllamaProvider(base_url="http://localhost:11434", model="m", timeout=5)
+    with mock.patch("urllib.request.urlopen", side_effect=ConnectionError("refused")):
+        with pytest.raises(Exception) as exc:
+            provider.generate_commit_message("diff", "stat", "main")
+        assert "unavailable" in str(exc.value).lower() or "connection" in str(exc.value).lower()

@@ -604,3 +604,89 @@ class TestUndoAndSquashGuards:
         mock_run.return_value = make_proc()
         git.reset_soft("HEAD~3")
         assert mock_run.call_args.args[0] == ["git", "reset", "--soft", "HEAD~3"]
+
+
+# ---- coverage: empty-repo head_diff / binary paths ------------------------
+
+class FakeRun:
+    def __init__(self, stdout="", returncode=0):
+        self.stdout = stdout
+        self.returncode = returncode
+        self.stderr = ""
+
+
+def test_head_diff_empty_repo_fallback(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--unified=0"):
+            return FakeRun("", returncode=128)
+        if args == ("diff", "--cached", "--unified=0"):
+            return FakeRun("cached diff\n")
+        if args == ("diff", "--unified=0"):
+            return FakeRun("unstaged diff\n")
+        return FakeRun("")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git.head_diff() == "cached diff\nunstaged diff"
+
+
+def test_head_diff_empty_repo_both_empty(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--unified=0"):
+            return FakeRun("", returncode=128)
+        return FakeRun("")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git.head_diff() == ""
+
+
+def test_head_stat_empty_repo(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--stat"):
+            return FakeRun("", returncode=128)
+        if args == ("diff", "--cached", "--stat"):
+            return FakeRun(" 1 file | 1 +\n")
+        if args == ("diff", "--stat"):
+            return FakeRun(" 1 file | 1 +\n")
+        return FakeRun("")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert "1 file" in git.head_stat()
+
+
+def test_head_diff_binary_empty_repo(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--numstat"):
+            return FakeRun("", returncode=128)
+        if args == ("diff", "--cached", "--numstat"):
+            return FakeRun("-\t-\timg.png\n")
+        if args == ("diff", "--numstat"):
+            return FakeRun("10\t0\tfile.py\n")
+        return FakeRun("")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git.head_diff_binary_only() is False
+
+
+def test_head_diff_binary_all_binary_empty_repo(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--numstat"):
+            return FakeRun("", returncode=128)
+        if args == ("diff", "--cached", "--numstat"):
+            return FakeRun("-\t-\timg.png\n")
+        if args == ("diff", "--numstat"):
+            return FakeRun("-\t-\tb.png\n")
+        return FakeRun("")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git.head_diff_binary_only() is True
+
+
+def test_head_diff_binary_empty_no_lines(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--numstat"):
+            return FakeRun("", returncode=0)
+        return FakeRun("\n")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git.head_diff_binary_only() is False
+
+
+def test_unstaged_changes_short_line(git):
+    with mock.patch.object(git, "_run", return_value=FakeRun("ab\n?? file.py\n")):
+        files = git.unstaged_changes()
+        assert "file.py" in files
+        assert len(files) == 1
