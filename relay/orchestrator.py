@@ -73,17 +73,17 @@ class Orchestrator:
             if self.staged_only:
                 diff = self.git.staged_diff()
                 stat = self.git.staged_stat()
-                is_binary = self.git.staged_diff_binary_only()
+                is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
             else:
                 diff = self.git.head_diff()
                 stat = self.git.head_stat()
-                is_binary = self.git.head_diff_binary_only()
+                is_binary = "Binary files" in diff and self.git.head_diff_binary_only()
         else:
             if not self.staged_only:
                 self.git.stage_all()
             diff = self.git.staged_diff()
             stat = self.git.staged_stat()
-            is_binary = self.git.staged_diff_binary_only()
+            is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
 
         if not diff.strip():
             label = "amend" if self.mode == "amend" else "commit"

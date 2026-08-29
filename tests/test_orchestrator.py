@@ -630,6 +630,7 @@ def test_binary_only_staged_diff_skips_ai_and_uses_manual_message(mock_input, gi
     """An AI cannot summarize a diff it cannot read (binary files); the run
     must go straight to manual input and never call the provider."""
     ai = StubAI(responses=["feat: must never be used"])
+    git.staged_diff.return_value = "Binary files a/foo.png and b/foo.png differ\n"
     git.staged_diff_binary_only.return_value = True
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
