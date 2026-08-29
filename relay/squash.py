@@ -38,9 +38,10 @@ def _confirm(message: str, yes: bool) -> str:
     if action == "accept":
         return message
     if action == "edit":
-        raise UserAbort(
-            "manual message editing is not supported by squash; pass --message"
-        )
+        new = input("New commit message (blank to abort): ").strip()
+        if not new:
+            raise UserAbort("workflow aborted by user")
+        return new
     raise UserAbort("workflow aborted by user")
 
 
