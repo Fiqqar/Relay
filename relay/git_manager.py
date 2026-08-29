@@ -320,7 +320,8 @@ class GitManager:
         # Empty repo or ambiguous HEAD: combine staged and unstaged
         staged = self._run("diff", "--cached", "--unified=0", check=False).stdout
         unstaged = self._run("diff", "--unified=0", check=False).stdout
-        return (staged + unstaged).strip()
+        sep = "\n" if staged and unstaged and not staged.endswith("\n") else ""
+        return (staged + sep + unstaged).strip()
 
     def head_stat(self) -> str:
         """Stat of HEAD vs working tree + index."""
@@ -329,7 +330,8 @@ class GitManager:
             return proc.stdout
         staged = self._run("diff", "--cached", "--stat", check=False).stdout
         unstaged = self._run("diff", "--stat", check=False).stdout
-        return (staged + unstaged).strip()
+        sep = "\n" if staged and unstaged and not staged.endswith("\n") else ""
+        return (staged + sep + unstaged).strip()
 
     def head_diff_binary_only(self) -> bool:
         """True when the HEAD diff consists only of binary entries."""
@@ -337,10 +339,10 @@ class GitManager:
         if proc.returncode == 0:
             out = proc.stdout
         else:
-            out = (
-                self._run("diff", "--cached", "--numstat", check=False).stdout
-                + self._run("diff", "--numstat", check=False).stdout
-            )
+            a = self._run("diff", "--cached", "--numstat", check=False).stdout
+            b = self._run("diff", "--numstat", check=False).stdout
+            sep = "\n" if a and b and not a.endswith("\n") else ""
+            out = a + sep + b
         lines = [line for line in out.splitlines() if line.strip()]
         if not lines:
             return False
