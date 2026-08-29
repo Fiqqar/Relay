@@ -125,9 +125,9 @@ def _is_valid_ai_base_url(url: str) -> bool:
     host = parts.hostname
     if host is None:
         return False
-    # Loopback/localhost may use http (local model servers)
+    # Loopback/localhost may use http (local model servers) — exact host only
     bare = host.rstrip(".").lower()
-    if bare == "localhost" or bare.endswith(".localhost"):
+    if bare == "localhost":
         return True
     try:
         ip = ipaddress.ip_address(bare)
