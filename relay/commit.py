@@ -29,10 +29,15 @@ def sanitize_ai_message(raw: str) -> str:
     wrapping the answer in a ```code fence``` and adding preamble/blank lines.
     """
     text = raw.strip()
-    # Strip a markdown code fence if the model wrapped its answer in one.
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
+    # Extract content between fences if present, handling language tag and extra trailing text.
+    if "```" in text:
+        m = re.search(r"```[a-zA-Z]*\s*\n?(.*?)```", text, re.DOTALL)
+        if m:
+            text = m.group(1).strip()
+        else:
+            # Fallback: strip opening fence only
+            text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+            text = re.sub(r"\s*```.*$", "", text, flags=re.DOTALL)
     # Keep only the first non-empty line.
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     return lines[0] if lines else ""
