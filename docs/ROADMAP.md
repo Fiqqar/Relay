@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.7.3` are shipped and closed; `0.8.0`+ are planned.
+through `0.7.4` are shipped and closed; `0.8.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.7.3` are shipped and closed; `0.8.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.7.3`)
+## Shipped history (`0.1.0` → `0.7.4`)
 
 ### v0.1.0 — MVP
 
@@ -311,6 +311,22 @@ the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 - [x] Harden Bitbucket `q` escaping and `stage` filename sanitization
 
 **Exit:** 6 fresh findings fixed, no regressions. ✅
+
+### v0.7.4 — Audit fixes (P2-P5)
+
+- [x] `git switch -c -- <branch>` for team branch creation (P2-1)
+- [x] Halve transient retry delay 6s → 3s (P2-2)
+- [x] `relay squash` edit now prompts for new message (P2-3)
+- [x] `relay doctor` IPv6 bracketed host handling (P3-1)
+- [x] Percent-encoded traversal rejection in `parse_remote` (P3-2)
+- [x] Restrict `http` to exact `localhost`/loopback for AI base URLs (P3-3)
+- [x] Empty-repo `head_diff` newline separation (P4-1)
+- [x] Robust fence extraction in `sanitize_ai_message` (P4-2)
+- [x] Normalize Windows PATH duplicate check (P4-3)
+- [x] Skip binary `numstat` probe unless `Binary files` in diff (P5-1)
+- [x] `truncate_diff` ascii fast-path + cached count (P5-2)
+
+**Exit:** 11 findings fixed across P2-P5, 793 tests green, coverage 92%. ✅
 
 ---
 

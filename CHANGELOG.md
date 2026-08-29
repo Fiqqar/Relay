@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-08-29
+
+### Fixed
+- Use `git switch -c -- <branch>` for team branch creation to correctly guard branch names starting with dash (P2-1).
+- Halve transient AI retry delay (6s → 3s) to reduce UI freeze (P2-2).
+- Allow `edit` in `relay squash` confirmation to prompt for a new message instead of aborting (P2-3).
+- Fix `relay doctor` Ollama probe for bracketed IPv6 literals via `urllib.parse` (P3-1).
+- Reject percent-encoded path traversal (`%2e`, `%2E`) in remote URL parsing (P3-2).
+- Restrict `http://` for AI base URLs to exact `localhost`/loopback only, wild-card `*.localhost` now requires `https` (P3-3).
+- Fix empty-repo `head_diff`/`head_stat` concatenation to separate staged+unstaged with newline (P4-1).
+- Robustly extract commit message from fenced code blocks with trailing text (P4-2).
+- Normalize Windows PATH duplicate check for trailing backslashes (P4-3).
+- Skip binary-only `git diff --numstat` check unless diff contains `Binary files` marker — saves ~100 ms in text-only repos (P5-1).
+- Optimize `truncate_diff` with ascii fast-path and cached line count (P5-2).
+
 ## [0.7.3] - 2026-08-28
 
 ### Security
@@ -342,7 +357,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/Fiqqar/Relay/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/Fiqqar/Relay/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/Fiqqar/Relay/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Fiqqar/Relay/compare/v0.7.0...v0.7.1
