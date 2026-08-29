@@ -383,8 +383,8 @@ class GitManager:
         self._run(*cmd, input_text=message)
 
     def create_branch(self, name: str) -> None:
-        """Create and check out a new branch (`git checkout -b`)."""
-        self._run("checkout", "-b", name, "--")
+        """Create and check out a new branch (`git switch -c`)."""
+        self._run("switch", "-c", "--", name)
 
     def checkout(self, branch: str) -> None:
         """Check out an existing branch (`git switch -- <branch>`)."""
