@@ -13,6 +13,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import urllib.parse
 from dataclasses import dataclass
 
 from . import __version__
@@ -70,13 +71,15 @@ def _git_status(git: GitManager) -> tuple[bool, str]:
 def _ollama_reachable(url: str) -> tuple[bool, str]:
     """Best-effort TCP probe of the Ollama endpoint (1s timeout, never blocks)."""
     try:
-        host = url.split("://", 1)[1].split("/", 1)[0]
-        port = 80
-        if ":" in host:
-            host, _, port_s = host.rpartition(":")
-            port = int(port_s)
-    except (IndexError, ValueError):
-        return False, f"cannot parse URL: {url}"
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname or ""
+        if not host:
+            return False, f"cannot parse URL: {url}"
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        # Strip brackets for IPv6 literals for socket API
+        host = host.strip("[]")
+    except (IndexError, ValueError) as exc:
+        return False, f"cannot parse URL: {url} ({exc})"
     try:
         with socket.create_connection((host, port), timeout=1):
             return True, f"reachable at {url}"
