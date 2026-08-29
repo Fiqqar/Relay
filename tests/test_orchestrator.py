@@ -136,7 +136,7 @@ def test_rate_limited_is_retried_twice_before_fallback(mock_input, mock_sleep, g
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     assert len(ai.generate_calls) == 3  # 2 retries, then manual fallback
-    assert mock_sleep.call_args_list == [mock.call(2), mock.call(4)]
+    assert mock_sleep.call_args_list == [mock.call(1), mock.call(2)]
     git.commit.assert_called_once_with("fix: after retries", no_verify=False)
 
 
@@ -163,7 +163,7 @@ def test_api_error_is_retried_twice_before_fallback(mock_input, mock_sleep, git)
     with pytest.raises(UserAbort):  # empty manual input aborts
         make_orchestrator(git, provider=ai).run()
     assert len(ai.generate_calls) == 3  # 2 retries, then manual fallback
-    assert mock_sleep.call_args_list == [mock.call(2), mock.call(4)]
+    assert mock_sleep.call_args_list == [mock.call(1), mock.call(2)]
 
 
 @mock.patch("relay.orchestrator.time.sleep")

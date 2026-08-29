@@ -298,11 +298,11 @@ class Orchestrator:
                     return self._manual_input()
                 print(f"[relay] AI message: {message}")
             except AIError as exc:
-                # Transient failures (429 / 5xx) get 2 retries with backoff.
+                # Transient failures (429 / 5xx) get 2 retries with short backoff.
                 if exc.kind in {"rate_limited", "api_error"} and transient_tries < 2:
                     transient_tries += 1
                     print(f"[relay] AI {exc}; retrying ({transient_tries}/2)...")
-                    time.sleep(2 * transient_tries)
+                    time.sleep(1 * transient_tries)
                     continue
                 # THE FALLBACK: catch any AI exception, ask the user for the
                 # message with plain input(), and continue the workflow.
