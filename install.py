@@ -157,7 +157,7 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
     )
 
     entries = [p for p in user_path.split(";") if p]
-    if target.lower() in [p.lower().rstrip("\\") for p in entries]:
+    if target.lower().rstrip("\\") in [p.lower().rstrip("\\") for p in entries]:
         _ok(f"PATH already contains {target}")
         return True
 
