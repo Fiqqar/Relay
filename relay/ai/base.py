@@ -74,12 +74,16 @@ def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None
     cap = max_lines if max_lines is not None else max_diff_lines()
     byte_cap = max_bytes if max_bytes is not None else MAX_DIFF_BYTES
     lines = diff.splitlines()
+    orig_len = len(lines)
     was_truncated = False
-    if len(lines) > cap:
+    if orig_len > cap:
         lines = lines[:cap]
-        lines.append(f"... [{len(diff.splitlines()) - cap} more diff lines truncated]")
+        lines.append(f"... [{orig_len - cap} more diff lines truncated]")
         was_truncated = True
         diff = "\n".join(lines)
+    # Fast path: ascii diff smaller than byte cap needs no encode
+    if not was_truncated and len(diff) <= byte_cap and diff.isascii():
+        return diff, False
     # Byte budget: slice the UTF-8 payload if still too large
     encoded = diff.encode("utf-8")
     if len(encoded) > byte_cap:
