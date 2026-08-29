@@ -11,6 +11,7 @@ Design notes
 from __future__ import annotations
 
 import subprocess
+import urllib.parse
 
 from .errors import GitError
 
@@ -57,7 +58,8 @@ def parse_remote(url: str) -> tuple[str, str, str]:
         raise ValueError(f"cannot extract host from remote URL: {url}")
 
     parts = [part for part in path.strip("/").split("/") if part]
-    if any(part in (".", "..") for part in parts):
+    decoded = [urllib.parse.unquote(p) for p in parts]
+    if any(part in (".", "..") for part in decoded):
         raise ValueError(f"remote URL contains path traversal segments: {url}")
     if len(parts) < 2:
         raise ValueError(f"cannot extract owner/repo from remote URL: {url}")
