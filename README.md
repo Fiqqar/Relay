@@ -422,7 +422,7 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - [Architecture Decisions (ADR)](docs/ADR.md)
 - [Testing Strategy](docs/TESTING.md) — hermetic tests, 90% gate
 - [Threat Model & Supply-Chain](docs/THREAT_MODEL.md)
-- [Glossary (SMK-friendly)](docs/GLOSSARY.md)
+- [Glossary](docs/GLOSSARY.md)
 - [Working Rules](docs/WORKING_RULES.md) — mandatory for humans & AI
 - [Roadmap → v1.0.0](docs/ROADMAP.md)
 
