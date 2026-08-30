@@ -6,6 +6,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# SECURITY: This workflow has contents: write and must never gain a pull_request
+# trigger without re-reviewing the permissions block — it only runs on tag-push
+# / workflow_dispatch, never on fork PRs.
+
 permissions: {}
 
 jobs:
@@ -14,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -25,6 +31,9 @@ jobs:
           pip install -e ".[dev]"
           pytest -q
 
+      - name: Dependency vulnerability scan
+        run: pip install pip-audit && pip-audit --strict
+
       - name: Clean dist
         run: rm -rf dist build *.egg-info
 
@@ -35,6 +44,14 @@ jobs:
         run: |
           pip install --no-deps --force-reinstall dist/relay_cli-*.whl
           relay --version
+
+      - name: Generate SBOM
+        run: pip install cyclonedx-bom && cyclonedx-py environment -o dist/relay-sbom.cdx.json
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: "dist/*"
 
       - name: Create GitHub Release and upload artifacts
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
