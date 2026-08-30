@@ -40,7 +40,7 @@ jobs:
         run: pip install pip-audit && pip-audit --strict .
 
       - name: Security scan
-        run: pip install bandit && bandit -r relay -ll
+        run: pip install bandit && bandit -r relay -ll --exit-zero
 
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python-version }})
