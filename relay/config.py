@@ -422,6 +422,58 @@ def trusted_gitlab_hosts() -> list[str]:
     return _normalize_hosts([*DEFAULT_TRUSTED_GITLAB_HOSTS, *extra])
 
 
+def _load_hooks() -> dict:
+    """Parse the ``[hooks]`` tables from the config file (or {})."""
+    data = _load_raw().get("hooks")
+    return data if isinstance(data, dict) else {}
+
+
+def _parse_hook_command(raw) -> list[str] | None:
+    """Normalize a hook table into an argv list or None."""
+    # Supported shapes:
+    #   [hooks.pre_commit] command = ["./scripts/check.sh", "--strict"]
+    #   [hooks] pre_commit = ["echo", "hi"]  (direct list, compat)
+    if raw is None:
+        return None
+    if isinstance(raw, list):
+        # Direct list form: [hooks] pre_commit = ["echo", "hi"]
+        if not raw:
+            return None
+        return [str(x).strip() for x in raw if str(x).strip()]
+    if isinstance(raw, dict):
+        cmd = raw.get("command")
+        if cmd is None:
+            return None
+        if isinstance(cmd, list) and cmd:
+            return [str(x).strip() for x in cmd if str(x).strip()]
+        if isinstance(cmd, str) and cmd.strip():
+            # Single-string form splits on whitespace (compat), but argv is still a list
+            return [cmd.strip()]
+    return None
+
+
+def hook_pre_commit() -> list[str] | None:
+    """Argv for the pre-commit hook, or None when not configured."""
+    hooks = _load_hooks()
+    # Preferred: [hooks.pre_commit] table
+    raw = hooks.get("pre_commit")
+    parsed = _parse_hook_command(raw)
+    if parsed is not None:
+        return parsed
+    # Legacy fallback: [hooks] table may have been mis-nested; already covered
+    return None
+
+
+def hook_post_push() -> list[str] | None:
+    """Argv for the post-push hook, or None when not configured."""
+    hooks = _load_hooks()
+    raw = hooks.get("post_push")
+    parsed = _parse_hook_command(raw)
+    if parsed is not None:
+        return parsed
+    return None
+
+
 def _load_ignore() -> dict:
     """Parse the ``[relay.ignore]`` table from the config file (or {})."""
     relay_section = _load_raw().get("relay")

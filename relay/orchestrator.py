@@ -21,10 +21,13 @@ from .commit import (
     validate_conventional,
 )
 from .config import DEFAULT_BRANCH_TEMPLATE
+from .config import hook_post_push as get_post_push_hook
+from .config import hook_pre_commit as get_pre_commit_hook
 from .config import ignore_paths as get_ignore_paths
 from .config import protected_branches as get_protected_branches
 from .errors import AIError, GitError, UserAbort, sanitize_terminal
 from .git_manager import GitManager
+from .hooks import run_hook
 from .prompt import CONFIRM_PROMPT, interpret_choice
 from .protected import assert_branch_allowed, is_protected
 
@@ -56,6 +59,7 @@ class Orchestrator:
         self.staged_only = staged_only
         self.no_verify = no_verify
         self.dry_run = dry_run
+        self.verbose = verbose
         self.allow_protected = allow_protected
         self.protected_branches = protected_branches or get_protected_branches()
         self.branch_template = branch_template
@@ -168,6 +172,12 @@ class Orchestrator:
             target = team_branch if self.mode == "team" else branch
             print(f"[relay] dry-run (mode={self.mode}): commit & push to '{target}'")
             print(f"[relay]     message: {message}")
+            pre = get_pre_commit_hook()
+            if pre:
+                print(f"[relay]     hook pre_commit: {' '.join(pre)}")
+            post = get_post_push_hook()
+            if post:
+                print(f"[relay]     hook post_push: {' '.join(post)}")
             if self.mode == "team" and blocked and not force:
                 print(
                     f"[relay]     note: '{team_branch}' is a protected branch; "
@@ -196,6 +206,11 @@ class Orchestrator:
                 raise GitError(
                     "staged changes changed while Relay was running; review the index and retry"
                 )
+
+        # Custom pre_commit hook: runs before any git commit, argv-as-list.
+        pre_hook = get_pre_commit_hook()
+        if pre_hook:
+            run_hook(pre_hook, verbose=self.verbose)
 
         # BRANCH (team mode only): create & check out the feature branch.
         if self.mode == "team":
@@ -259,6 +274,18 @@ class Orchestrator:
             print(f"[relay] retry with: git push {upstream}origin {sanitize_terminal(branch)}")
             return 1
 
+        # Custom post_push hook: runs after a successful push, argv-as-list.
+        post_hook = get_post_push_hook()
+        if post_hook:
+            try:
+                run_hook(post_hook, verbose=self.verbose)
+            except GitError as exc:
+                # Post-push is best-effort: the commit is already pushed, so a
+                # hook failure is a warning, not a rollback.
+                print(f"[relay] post_push hook failed: {sanitize_terminal(str(exc))}")
+                if exc.stderr:
+                    print(sanitize_terminal(exc.stderr))
+
         print(f"[relay] done: pushed to '{branch}'")
         return 0
 
@@ -273,7 +300,13 @@ class Orchestrator:
         if self.dry_run:
             print(f"[relay] dry-run (mode=amend): amend last commit on '{branch}'")
             print(f"[relay]     message: {message}")
+            pre = get_pre_commit_hook()
+            if pre:
+                print(f"[relay]     hook pre_commit: {' '.join(pre)}")
             return 0
+        pre = get_pre_commit_hook()
+        if pre:
+            run_hook(pre, verbose=self.verbose)
         self.git.commit(message, amend=True)
         print(f"[relay] amended last commit on '{branch}'")
         if old_tip and self.git.is_ancestor(old_tip, f"origin/{branch}"):

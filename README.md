@@ -282,6 +282,12 @@ branches = ["main", "develop"]
 
 [relay.ignore]
 paths = ["dist/*", "package-lock.json"]
+
+[hooks.pre_commit]
+command = ["./scripts/check.sh", "--strict"]
+
+[hooks.post_push]
+command = ["echo", "pushed"]
 ```
 
 Keys mirror the non-secret env vars above. A missing/malformed file is ignored.
