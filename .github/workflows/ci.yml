@@ -37,7 +37,7 @@ jobs:
         run: mypy relay
 
       - name: Dependency vulnerability scan
-        run: pip install pip-audit && pip-audit --strict
+        run: pip install pip-audit && pip-audit --strict .
 
       - name: Security scan
         run: pip install bandit && bandit -r relay -ll
