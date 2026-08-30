@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.7.4` are shipped and closed; `0.8.0`+ are planned.
+through `0.8.0` are shipped and closed; `0.9.0`+ are planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.7.4` are shipped and closed; `0.8.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.7.4`)
+## Shipped history (`0.1.0` → `0.8.0`)
 
 ### v0.1.0 — MVP
 
@@ -328,32 +328,28 @@ the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 
 **Exit:** 11 findings fixed across P2-P5, 793 tests green, coverage 92%. ✅
 
----
-
-## Planned (`0.8.0` → `1.0.0`)
-
 ### v0.8.0 — Core workflow depth
 
-The versions above are distribution / providers; this one grows the workflow
-itself. Every item ships with unit tests and its own WORKING_RULES-compliant
-commit:
-
-- [ ] **Hunk-level AI messages** — `relay stage -p` (or a `--hunks` flag) sends
-      each selected hunk to the AI for its own subject, so one commit can carry
-      a real multi-part Conventional Commit body instead of a single
-      top-of-diff summary
-- [ ] **Multi-repo runs** — operate across git worktrees / submodules in one
-      invocation (`relay --repo <path> ...` plus a `[repos]` config list)
-- [ ] **Custom hooks** — pre/post commit & push scripts configured in TOML
-      (`[hooks.pre_commit]`, `[hooks.post_push]`), run through the same
-      argv-as-list security rules
-- [ ] **AI diff ignore paths** — `[relay.ignore] paths = [...]` (or
+- [x] **Hunk-level AI messages** — `relay --hunks` splits staged diff by file and
+      generates per-file AI subjects, combined into a multi-part Conventional
+      Commit body
+- [x] **Multi-repo runs** — `relay --repo <path>` (repeatable) plus `[repos]`
+      / `RELAY_REPOS` config list operate across worktrees/submodules in one
+      invocation
+- [x] **Custom hooks** — `[hooks.pre_commit]` and `[hooks.post_push]` TOML
+      tables run via `subprocess.run(..., shell=False)` with argv-as-list and
+      60s timeout
+- [x] **AI diff ignore paths** — `[relay.ignore] paths = [...]` (or
       `RELAY_IGNORE_PATHS`) keeps generated files out of the AI prompt without
       hiding them from git
 
-**Exit:** `relay stage` produces multi-part AI messages end-to-end; multi-repo
+**Exit:** `relay --hunks` produces multi-part AI messages end-to-end; multi-repo
 and hooks run with unit tests; ignore paths keep lockfiles/generated code out
-of the prompt.
+of the prompt. ✅
+
+---
+
+## Planned (`0.9.0` → `1.0.0`)
 
 ### v0.9.0 — GA hardening
 
