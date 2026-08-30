@@ -245,6 +245,7 @@ Environment variables (always win over the config file):
 | `RELAY_MAX_DIFF_LINES` | Line cap on the staged diff sent to the LLM | `120` |
 | `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `<type>/<feature>` |
 | `RELAY_PROTECTED_BRANCHES` | Comma-separated protected branches (team-mode safety; overrides the config file) | `main,master` |
+| `RELAY_IGNORE_PATHS` | Comma-separated globs hidden from AI prompt (e.g. `dist/*,*.lock`) | — |
 | `RELAY_PR_OPEN` | Auto-open `relay pr` URLs in the browser (`1/true/yes/on`) | off |
 | `RELAY_CONFIG` | Override the TOML config file path | see below |
 
@@ -278,6 +279,9 @@ default = "ollama"
 
 [team.protected]
 branches = ["main", "develop"]
+
+[relay.ignore]
+paths = ["dist/*", "package-lock.json"]
 ```
 
 Keys mirror the non-secret env vars above. A missing/malformed file is ignored.

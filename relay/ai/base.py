@@ -11,7 +11,10 @@ provider-independent.
 """
 from __future__ import annotations
 
+import fnmatch
+import os
 from abc import ABC, abstractmethod
+from pathlib import PurePath
 
 from ..config import max_diff_lines
 from ..errors import AIError
@@ -58,6 +61,76 @@ SYSTEM_PROMPT = (
     "    - output ONLY the single commit-message line.\n"
     "    - no markdown, no code fences, no quotes, no explanation.\n"
 )
+
+
+def _path_matches(path: str, patterns: list[str]) -> bool:
+    """True if ``path`` matches any glob in ``patterns`` (fnmatch + PurePath)."""
+    for pat in patterns:
+        pat = pat.strip()
+        if not pat:
+            continue
+        if fnmatch.fnmatch(path, pat) or fnmatch.fnmatch(os.path.basename(path), pat):
+            return True
+        try:
+            if PurePath(path).match(pat):
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def filter_ignored_diff(diff: str, patterns: list[str]) -> str:
+    """Remove file blocks whose path matches an ignore glob.
+
+    The filter applies only to the AI prompt; git still commits everything.
+    """
+    if not patterns or not diff.strip():
+        return diff
+    # Split on the git diff header; each block after the first delimiter is one file.
+    parts = diff.split("diff --git ")
+    kept: list[str] = []
+    # parts[0] is content before first header (usually empty)
+    if parts[0].strip():
+        kept.append(parts[0])
+    for part in parts[1:]:
+        first_line = part.splitlines()[0] if part else ""
+        path = ""
+        if " b/" in first_line:
+            path = first_line.split(" b/", 1)[1].strip()
+        elif first_line.startswith("a/"):
+            # Fallback for unusual header without b/ separator
+            path = first_line[2:].split()[0] if len(first_line) > 2 else ""
+        # Strip quotes that git may add for unusual paths
+        path = path.strip().strip('"')
+        if path and _path_matches(path, patterns):
+            continue
+        kept.append("diff --git " + part)
+    # Re-assemble; if original started with header, join without extra separator
+    if diff.startswith("diff --git "):
+        return "".join(kept)
+    return "".join(kept)
+
+
+def filter_ignored_stat(stat: str, patterns: list[str]) -> str:
+    """Remove stat lines whose file path matches an ignore glob."""
+    if not patterns or not stat.strip():
+        return stat
+    kept: list[str] = []
+    for line in stat.splitlines():
+        if not line.strip():
+            continue
+        # stat format: " path | 1 +-" or " path | Bin ..."
+        if "|" in line:
+            path = line.split("|", 1)[0].strip()
+        else:
+            path = line.strip().split()[0] if line.strip() else ""
+        path = path.strip().strip('"')
+        if path and _path_matches(path, patterns):
+            continue
+        kept.append(line)
+    if not kept:
+        return ""
+    return "\n".join(kept) + "\n"
 
 
 def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None = None):

@@ -422,6 +422,34 @@ def trusted_gitlab_hosts() -> list[str]:
     return _normalize_hosts([*DEFAULT_TRUSTED_GITLAB_HOSTS, *extra])
 
 
+def _load_ignore() -> dict:
+    """Parse the ``[relay.ignore]`` table from the config file (or {})."""
+    relay_section = _load_raw().get("relay")
+    if not isinstance(relay_section, dict):
+        return {}
+    ignore = relay_section.get("ignore")
+    return ignore if isinstance(ignore, dict) else {}
+
+
+def ignore_paths() -> list[str]:
+    """Glob patterns whose diffs are hidden from the AI prompt.
+
+    Resolution order: ``RELAY_IGNORE_PATHS`` env var (comma-separated globs)
+    > ``[relay.ignore] paths`` in config.toml
+    > the built-in default (no ignores).
+
+    The filter applies only to the LLM prompt; ``git commit`` still commits
+    whatever is staged. Env var example: ``RELAY_IGNORE_PATHS="*.lock,dist/*"``.
+    """
+    env_raw = os.environ.get("RELAY_IGNORE_PATHS")
+    if env_raw is not None and env_raw.strip():
+        return [p.strip() for p in env_raw.split(",") if p.strip()]
+    file_paths = _load_ignore().get("paths")
+    if isinstance(file_paths, list) and file_paths:
+        return [str(p).strip() for p in file_paths if str(p).strip()]
+    return []
+
+
 def protected_branches() -> list[str]:
     """Branch names the default-branch safety rule refuses to touch.
 

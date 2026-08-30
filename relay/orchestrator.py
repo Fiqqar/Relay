@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import time
 
+from .ai.base import filter_ignored_diff, filter_ignored_stat
 from .commit import (
     build_branch_name,
     extract_commit_type,
@@ -20,6 +21,7 @@ from .commit import (
     validate_conventional,
 )
 from .config import DEFAULT_BRANCH_TEMPLATE
+from .config import ignore_paths as get_ignore_paths
 from .config import protected_branches as get_protected_branches
 from .errors import AIError, GitError, UserAbort, sanitize_terminal
 from .git_manager import GitManager
@@ -90,6 +92,25 @@ class Orchestrator:
             print(f"[relay] nothing to {label}: staged diff is empty.")
             return 0
 
+        # AI diff ignore paths: keep generated files out of the prompt without
+        # hiding them from git. Env > file > default (no ignores).
+        ignore_patterns = get_ignore_paths()
+        diff_for_ai = filter_ignored_diff(diff, ignore_patterns)
+        stat_for_ai = filter_ignored_stat(stat, ignore_patterns)
+        if ignore_patterns and diff_for_ai.strip() != diff.strip():
+            print(f"[relay] filtered {len(ignore_patterns)} ignore pattern(s) from AI prompt")
+        if diff.strip() and not diff_for_ai.strip():
+            print(
+                "[relay] all staged changes match ignore patterns; "
+                "AI prompt is empty — using manual input."
+            )
+            is_binary = False
+            diff = ""
+            stat = ""
+        else:
+            diff = diff_for_ai
+            stat = stat_for_ai
+
         # TOCTOU guard: capture index tree before AI / confirmation
         tree_before: str | None = None
         if not self.dry_run:
@@ -105,7 +126,14 @@ class Orchestrator:
         # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
         # A binary-only staged diff skips the AI entirely: it has no readable
         # content to summarize, so guessing would produce a misleading message.
-        if is_binary:
+        # An all-ignored diff also skips the AI (empty prompt fallback).
+        if not diff.strip():
+            print(
+                "[relay] staged changes are binary-only or fully ignored; "
+                "an AI cannot derive a commit message from them."
+            )
+            message = self._manual_input()
+        elif is_binary:
             print(
                 "[relay] staged changes are binary-only; an AI cannot derive a "
                 "commit message from them."
