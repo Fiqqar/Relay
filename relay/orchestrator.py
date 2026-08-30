@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import time
 
-from .ai.base import filter_ignored_diff, filter_ignored_stat
+from .ai.base import filter_ignored_diff, filter_ignored_stat, split_diff_by_file
 from .commit import (
     build_branch_name,
     extract_commit_type,
@@ -46,6 +46,7 @@ class Orchestrator:
         no_verify: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
+        hunks: bool = False,
         allow_protected: bool = False,
         protected_branches: list[str] | None = None,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
@@ -60,6 +61,7 @@ class Orchestrator:
         self.no_verify = no_verify
         self.dry_run = dry_run
         self.verbose = verbose
+        self.hunks = hunks
         self.allow_protected = allow_protected
         self.protected_branches = protected_branches or get_protected_branches()
         self.branch_template = branch_template
@@ -339,7 +341,15 @@ class Orchestrator:
         user-approved message string. Transient failures (429 rate limits and
         5xx server errors) are retried twice with ~2s/4s backoff before the
         manual-input fallback kicks in.
+
+        When ``hunks`` is enabled and the diff spans multiple files, each file
+        block is sent to the AI separately so the final commit carries a
+        multi-part Conventional Commit body (one subject per hunk).
         """
+        if self.hunks:
+            blocks = split_diff_by_file(diff)
+            if len(blocks) > 1:
+                return self._obtain_hunks_message(blocks, branch)
         if self.ai is None:
             # No provider available (missing API key, etc.): skip straight to
             # manual input — the fallback is a first-class mode, not an error.
@@ -381,6 +391,61 @@ class Orchestrator:
             if action == "retry" and user_retries < 3:
                 user_retries += 1
                 print("[relay] regenerating...")
+                continue
+            raise UserAbort("workflow aborted by user")
+
+    def _obtain_hunks_message(self, blocks: list[tuple[str, str]], branch: str) -> str:
+        """Hunk-level AI: one AI call per file block, combined into a body."""
+        if self.ai is None:
+            print("[relay] no AI provider configured; entering manual input.")
+            return self._manual_input()
+        print(f"[relay] hunk-level: generating {len(blocks)} messages")
+        user_retries = 0
+        while True:
+            messages: list[str] = []
+            paths: list[str] = []
+            for path, block in blocks:
+                tries = 0
+                while True:
+                    try:
+                        raw = self.ai.generate(block, path, branch)
+                        msg = sanitize_ai_message(raw)
+                        valid, reason = validate_conventional(msg)
+                        if not valid:
+                            print(f"[relay] AI hunk {path or 'unknown'} rejected ({reason}); falling back to manual input.")
+                            return self._manual_input()
+                        messages.append(msg)
+                        paths.append(path)
+                        break
+                    except AIError as exc:
+                        if exc.kind in {"rate_limited", "api_error"} and tries < 2:
+                            tries += 1
+                            print(f"[relay] AI {exc}; retrying hunk {path or ''} ({tries}/2)...")
+                            time.sleep(1 * tries)
+                            continue
+                        print(f"[relay] AI unavailable for hunk {path or ''} ({exc}); falling back to manual input.")
+                        return self._manual_input()
+            subject = messages[0]
+            if len(messages) == 1:
+                combined = subject
+            else:
+                bullets = []
+                for msg, path in zip(messages[1:], paths[1:], strict=False):
+                    hint = f" ({path})" if path else ""
+                    bullets.append(f"- {msg}{hint}")
+                body = "\n".join(bullets)
+                combined = f"{subject}\n\n{body}"
+            print(f"[relay] AI hunk message: {combined}")
+            if self.yes:
+                return combined
+            action = interpret_choice(input(CONFIRM_PROMPT))
+            if action == "accept":
+                return combined
+            if action == "edit":
+                return self._manual_input()
+            if action == "retry" and user_retries < 3:
+                user_retries += 1
+                print("[relay] regenerating hunks...")
                 continue
             raise UserAbort("workflow aborted by user")
 

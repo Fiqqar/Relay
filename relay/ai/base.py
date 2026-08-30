@@ -133,6 +133,31 @@ def filter_ignored_stat(stat: str, patterns: list[str]) -> str:
     return "\n".join(kept) + "\n"
 
 
+def split_diff_by_file(diff: str) -> list[tuple[str, str]]:
+    """Split a ``git diff`` into per-file blocks.
+
+    Returns ``[(path, block), ...]`` where ``block`` is the full
+    ``diff --git`` section for that file (including its header). The path is
+    the ``b/`` side of the header, or ``""`` when it cannot be parsed.
+    """
+    if not diff.strip():
+        return []
+    if "diff --git " not in diff:
+        return [("", diff)]
+    parts = diff.split("diff --git ")
+    blocks: list[tuple[str, str]] = []
+    for part in parts[1:]:
+        block = "diff --git " + part
+        first_line = part.splitlines()[0] if part else ""
+        path = ""
+        if " b/" in first_line:
+            path = first_line.split(" b/", 1)[1].strip().strip('"')
+        elif first_line.startswith("a/"):
+            path = first_line[2:].split()[0].strip().strip('"') if len(first_line) > 2 else ""
+        blocks.append((path, block))
+    return blocks
+
+
 def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None = None):
     """Cap a staged diff to ``max_lines`` lines and ``max_bytes`` bytes.
 

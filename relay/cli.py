@@ -115,6 +115,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo", action="append", default=None, dest="repo",
                         metavar="PATH",
                         help="run on this repo path (repeatable; defaults to current dir; also [repos] in config / RELAY_REPOS)")
+    parser.add_argument("--hunks", action="store_true",
+                        help="generate multi-part AI message per file/hunk (hunk-level AI messages)")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -388,6 +390,7 @@ def main(argv: list[str] | None = None) -> int:
                 no_verify=args.no_verify,
                 dry_run=args.dry_run,
                 verbose=args.verbose,
+                hunks=getattr(args, "hunks", False),
                 allow_protected=args.allow_protected,
                 branch_template=branch_template(),
             )

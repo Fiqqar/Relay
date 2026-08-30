@@ -210,6 +210,8 @@ $ relay doctor
 | `--staged` | Commit only what is already staged (skip `git add .`). |
 | `--dry-run` | Show the plan and the generated message, change nothing. |
 | `--allow-protected` | Allow team mode to target a protected branch (default-branch safety override). |
+| `--hunks` | Generate multi-part AI message per file/hunk (hunk-level AI). |
+| `--repo PATH` | Run on this repo path (repeatable; also `[repos]` / `RELAY_REPOS`). |
 | `--verbose` | Print the git commands being run. |
 | `--version` | Print the version. |
 
