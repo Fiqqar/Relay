@@ -474,6 +474,36 @@ def hook_post_push() -> list[str] | None:
     return None
 
 
+def _load_repos() -> dict:
+    """Parse the ``[repos]`` table from the config file (or {})."""
+    data = _load_raw().get("repos")
+    return data if isinstance(data, dict) else {}
+
+
+def repos() -> list[str]:
+    """Repo paths for multi-repo runs.
+
+    Resolution order: ``RELAY_REPOS`` env var (comma-separated) > ``[repos]``
+    table in config.toml (``paths = [...]`` or ``repos = [...]``) > default
+    (empty, meaning the current directory).
+
+    The list is meant for ``relay --repo <path>`` without repeating the flag;
+    ``--repo`` on the CLI appends to (and wins over) this list, so a team can
+    standardize on a set of worktrees/submodules without touching every
+    invocation.
+    """
+    env_raw = os.environ.get("RELAY_REPOS")
+    if env_raw is not None and env_raw.strip():
+        return [p.strip() for p in env_raw.split(",") if p.strip()]
+    data = _load_repos()
+    # Supported keys: `paths` (preferred) or `repos` (compat)
+    for key in ("paths", "repos"):
+        raw = data.get(key)
+        if isinstance(raw, list) and raw:
+            return [str(p).strip() for p in raw if str(p).strip()]
+    return []
+
+
 def _load_ignore() -> dict:
     """Parse the ``[relay.ignore]`` table from the config file (or {})."""
     relay_section = _load_raw().get("relay")

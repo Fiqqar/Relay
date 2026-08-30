@@ -18,8 +18,10 @@ from . import __version__
 from .ai import PROVIDER_NAMES, AIManager, build_provider
 from .completions import generate as generate_completions
 from .config import branch_template, pr_open_browser
+from .config import repos as config_repos
 from .doctor import run_doctor
 from .errors import ConfigError, RelayError, UserAbort, sanitize_terminal
+from .git_manager import GitManager
 from .man import MAN_PAGE_TEMPLATE
 from .orchestrator import Orchestrator
 from .pr import run_pr
@@ -110,6 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="skip git pre-commit and commit-msg hooks")
     parser.add_argument("--allow-protected", action="store_true",
                         help="allow team mode to target a protected branch (default-branch safety override)")
+    parser.add_argument("--repo", action="append", default=None, dest="repo",
+                        metavar="PATH",
+                        help="run on this repo path (repeatable; defaults to current dir; also [repos] in config / RELAY_REPOS)")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -359,22 +364,51 @@ def main(argv: list[str] | None = None) -> int:
         except ConfigError as exc:
             print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
             ai_provider = None
-        orchestrator = Orchestrator(
-            mode=mode,
-            feature=feature,
-            provider=ai_provider,
-            yes=args.yes,
-            no_push=args.no_push,
-            staged_only=args.staged,
-            no_verify=args.no_verify,
-            dry_run=args.dry_run,
-            verbose=args.verbose,
-            allow_protected=args.allow_protected,
-            branch_template=branch_template(),
-        )
-        code = orchestrator.run()
-        _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
-        return code
+        # Multi-repo: --repo wins over [repos]/RELAY_REPOS, else current dir.
+        raw_repos: list[str | None]
+        if getattr(args, "repo", None):
+            raw_repos = list(args.repo)  # type: ignore[union-attr]
+        else:
+            cfg = config_repos()
+            raw_repos = cfg if cfg else [None]  # type: ignore[assignment]
+        codes: list[int] = []
+        for idx, repo_path in enumerate(raw_repos):
+            cwd = str(repo_path) if repo_path else None
+            if len(raw_repos) > 1 and cwd:
+                print(f"[relay] repo {idx + 1}/{len(raw_repos)}: {cwd}")
+            git = GitManager(cwd=cwd, verbose=args.verbose) if cwd else None
+            orchestrator = Orchestrator(
+                mode=mode,
+                feature=feature,
+                provider=ai_provider,
+                git=git,
+                yes=args.yes,
+                no_push=args.no_push,
+                staged_only=args.staged,
+                no_verify=args.no_verify,
+                dry_run=args.dry_run,
+                verbose=args.verbose,
+                allow_protected=args.allow_protected,
+                branch_template=branch_template(),
+            )
+            try:
+                code = orchestrator.run()
+            except (UserAbort, RelayError):
+                raise
+            except Exception:
+                raise
+            codes.append(code)
+            _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
+            if code != 0 and len(raw_repos) > 1:
+                print(f"[relay] repo {cwd or '.'}: exited {code}")
+        if len(codes) == 1:
+            return codes[0]
+        # Multi-repo: 130 propagates, else first non-zero as 1
+        if any(c == 130 for c in codes):
+            return 130
+        if any(c != 0 for c in codes):
+            return 1
+        return 0
     except UserAbort as exc:
         # 130 is the conventional "interrupted by user" exit code (matches Ctrl-C).
         print(f"[relay] {sanitize_terminal(str(exc))}")

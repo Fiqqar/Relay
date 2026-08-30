@@ -262,19 +262,20 @@ def test_main_solo_wires_orchestrator(wired):
     build_provider, orchestrator_cls = wired
     with mock.patch("relay.cli.branch_template", return_value="<type>/<feature>"):
         assert main(["--solo", "--yes", "--no-push"]) == 0
-    orchestrator_cls.assert_called_once_with(
-        mode="solo",
-        feature=None,
-        provider=build_provider.return_value,
-        yes=True,
-        no_push=True,
-        staged_only=False,
-        no_verify=False,
-        dry_run=False,
-        verbose=False,
-        allow_protected=False,
-        branch_template="<type>/<feature>",
-    )
+    # Multi-repo: git=None for single repo (cwd)
+    last = orchestrator_cls.call_args.kwargs
+    assert last["mode"] == "solo"
+    assert last["feature"] is None
+    assert last["provider"] is build_provider.return_value
+    assert last["yes"] is True
+    assert last["no_push"] is True
+    assert last["staged_only"] is False
+    assert last["no_verify"] is False
+    assert last["dry_run"] is False
+    assert last["verbose"] is False
+    assert last["allow_protected"] is False
+    assert last["branch_template"] == "<type>/<feature>"
+    assert last.get("git") is None
     orchestrator_cls.return_value.run.assert_called_once_with()
 
 

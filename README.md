@@ -246,6 +246,7 @@ Environment variables (always win over the config file):
 | `RELAY_BRANCH_TEMPLATE` | Team-mode branch template (`<feature>` placeholder) | `<type>/<feature>` |
 | `RELAY_PROTECTED_BRANCHES` | Comma-separated protected branches (team-mode safety; overrides the config file) | `main,master` |
 | `RELAY_IGNORE_PATHS` | Comma-separated globs hidden from AI prompt (e.g. `dist/*,*.lock`) | — |
+| `RELAY_REPOS` | Comma-separated repo paths for multi-repo runs (`--repo` also works) | — |
 | `RELAY_PR_OPEN` | Auto-open `relay pr` URLs in the browser (`1/true/yes/on`) | off |
 | `RELAY_CONFIG` | Override the TOML config file path | see below |
 
@@ -288,6 +289,9 @@ command = ["./scripts/check.sh", "--strict"]
 
 [hooks.post_push]
 command = ["echo", "pushed"]
+
+[repos]
+paths = ["worktrees/app", "worktrees/lib"]
 ```
 
 Keys mirror the non-secret env vars above. A missing/malformed file is ignored.
