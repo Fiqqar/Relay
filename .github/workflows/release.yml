@@ -32,7 +32,7 @@ jobs:
         run: pytest -q
 
       - name: Dependency vulnerability scan
-        run: pip install pip-audit && pip-audit --strict .
+        run: pip install "pip-audit>=2.7,<3" && pip-audit --strict .
 
       - name: Clean dist
         run: rm -rf dist build *.egg-info
@@ -48,7 +48,7 @@ jobs:
 
       - name: Generate SBOM (shipped artifact only)
         run: |
-          pip install cyclonedx-bom
+          pip install "cyclonedx-bom>=5.0,<8"
           python -m venv /tmp/sbom-env
           /tmp/sbom-env/bin/pip install --no-deps dist/relay_cli-*.whl
           cyclonedx-py environment /tmp/sbom-env -o dist/relay-sbom.cdx.json
