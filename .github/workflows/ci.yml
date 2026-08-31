@@ -76,8 +76,7 @@ jobs:
         run: relay --help
 
       - name: Clean dist
-        run: rm -rf dist build *.egg-info
-        shell: bash
+        run: python -c "import glob, shutil; [shutil.rmtree(p, ignore_errors=True) for p in glob.glob('*.egg-info') + ['dist', 'build']]"
 
       - name: sdist + wheel build
         run: python -m build
