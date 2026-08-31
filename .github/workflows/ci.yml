@@ -33,7 +33,7 @@ jobs:
         run: pip install "pip-audit>=2.7,<3" && pip-audit --strict .
 
       - name: Security scan
-        run: pip install "bandit>=1.7,<2" && bandit -r relay -ll -b .bandit-baseline.json
+        run: pip install "bandit>=1.7,<2" && bandit -r relay -ll
 
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python-version }})

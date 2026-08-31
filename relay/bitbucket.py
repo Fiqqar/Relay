@@ -166,7 +166,7 @@ class BitbucketClient:
         if self.verbose:
             print(f"[relay] bitbucket {request.get_method()} {request.full_url}")
         try:
-            with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:  # nosec B310
                 body = resp.read(MAX_RESPONSE_BYTES + 1)
                 if len(body) > MAX_RESPONSE_BYTES:
                     raise BitbucketError(

@@ -63,7 +63,7 @@ class GeminiProvider(AIManager):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:  # nosec B310
                 data = json.loads(
                     read_limited_response(response, self.provider_name).decode("utf-8")
                 )
