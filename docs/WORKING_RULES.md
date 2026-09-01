@@ -75,7 +75,7 @@ mypy relay
 - Run all checks from rule #2.
 - If you touched the solo fallback flow, also run the e2e:
   `bash e2e_test.sh` (macOS/Linux) or `powershell -ExecutionPolicy Bypass -File e2e_test.ps1` (Windows).
-- Report concisely: what changed, why, and the verification results.
+- Report concisely: what changed, why, and the verification results
 
 ### 8. Dogfooding — commit via Relay itself (split & push straight)
 
