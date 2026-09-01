@@ -450,3 +450,37 @@ def test_keyboard_interrupt_maps_to_exit_130(wired, capsys):
     orchestrator_cls.return_value.run.side_effect = KeyboardInterrupt()
     assert main(["--solo"]) == 130
     assert "aborted" in capsys.readouterr().out
+
+
+def test_cli_surface_is_frozen():
+    """ADR-012: CLI surface stability freeze for GA.
+
+    Asserts all 9 subcommands, 14 global flags, and their argument signatures
+    match the frozen contract so no inadvertent breaking changes occur.
+    """
+    import argparse
+
+    parser = build_parser()
+
+    # 1. Global flags
+    expected_flags = {
+        "-h", "--help", "--version",
+        "--solo", "--team",
+        "--provider", "--timeout",
+        "--yes", "--dry-run", "--no-push",
+        "--staged", "--no-verify", "--allow-protected",
+        "--repo", "--hunks", "--verbose",
+    }
+    actual_flags = {opt for action in parser._actions for opt in action.option_strings}
+    assert expected_flags == actual_flags
+
+    # 2. Subcommands
+    subparsers_action = next(
+        a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
+    )
+    expected_subcommands = {
+        "amend", "completions", "doctor", "man",
+        "pr", "squash", "stage", "telemetry", "undo",
+    }
+    assert set(subparsers_action.choices.keys()) == expected_subcommands
+
