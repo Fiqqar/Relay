@@ -378,7 +378,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Fiqqar/Relay/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Fiqqar/Relay/compare/v0.7.4...v0.8.0
 [0.7.4]: https://github.com/Fiqqar/Relay/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/Fiqqar/Relay/compare/v0.7.2...v0.7.3

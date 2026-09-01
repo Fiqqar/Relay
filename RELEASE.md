@@ -54,8 +54,8 @@ Wait for CI (`main`) to go green before tagging.
 ### 3. Tag and publish
 
 ```bash
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.9.0
+git push origin v0.9.0
 ```
 
 Pushing the `v*` tag triggers the **Release** workflow
@@ -71,8 +71,8 @@ Pushing the `v*` tag triggers the **Release** workflow
 The wheel is published at a predictable URL:
 
 ```bash
-pip install "https://github.com/Fiqqar/Relay/releases/download/v0.3.0/relay_cli-0.3.0-py3-none-any.whl"
-relay --version    # -> relay 0.3.0
+pip install "https://github.com/Fiqqar/Relay/releases/download/v0.9.0/relay_cli-0.9.0-py3-none-any.whl"
+relay --version    # -> relay 0.9.0
 relay doctor       # -> all checks resolve
 ```
 

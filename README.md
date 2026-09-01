@@ -426,10 +426,9 @@ Developers repeat a tedious, error-prone Git loop multiple times per day. Common
 - **v0.7.1** — security hardening (URL scheme, path traversal, model URL encode). ✅ shipped
 - **v0.7.2** — security & correctness audit fixes (git injection hardening, env-only base URLs, dry-run TOCTOU, byte-budget truncation, etc.). ✅ shipped
 - **v0.7.3** — supply-chain & SSRF hardening (CI SHA pinning, https base-URL validation, remaining git `--` separators, verbose sanitization, installer escaping). ✅ shipped
-- **v0.7.4** — audit fixes (git branch separator, retry backoff, squash edit, IPv6 probe, traversal decode, localhost http, diff concat, fence parse, PATH dedup, perf). ✅ shipped
 - **v0.8.0** — core workflow depth (hunk-level AI messages, multi-repo, custom hooks, AI diff ignore paths). ✅ shipped
-- **v0.9** — GA hardening (CLI freeze, NFR-7 audit, 90% coverage gate). *(planned — see [Roadmap](docs/ROADMAP.md))*
-- **v1.0** — GA: CLI surface freeze, ≥90% coverage gate, NFR-7 error-message audit, docs + packaging finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
+- **v0.9.0** — GA hardening (CLI surface freeze, ADR-012, NFR-1 performance timing harness, NFR-3 security audit gate, ≥90% branch coverage). ✅ shipped
+- **v1.0** — GA: stable APIs, public documentation, all channels finalized. *(planned — see [Roadmap](docs/ROADMAP.md))*
 
 ## Documentation
 

@@ -99,9 +99,9 @@ AC: Resolves message + branch name, prints plan, mutates nothing (`git add .` no
 > As Marcus, I run `relay pr --base main --draft --open` after pushing a feature branch.
 AC: Validates base ref, creates PR via forge REST (trusted host only), prints URL, opens browser only with `--open`/`--yes`/`RELAY_PR_OPEN=1`.
 
-## 7. Scope Boundaries (v0.8 → v1.0)
+## 7. Scope Boundaries (v0.9 → v1.0)
 
-Explicitly in scope next: hunk-level AI messages, multi-repo, custom hooks, AI ignore paths — see `docs/ROADMAP.md`.
+Explicitly in scope next: GA finalization, public documentation, and distribution channels — see `docs/ROADMAP.md`.
 Explicitly out of scope: GUI/TUI, remote model hosting, CI/CD pipeline orchestration, multi-user server.
 
 ## 8. Success Metrics
