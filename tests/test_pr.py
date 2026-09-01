@@ -57,6 +57,12 @@ class FakeGit:
     def staged_stat(self):
         return " 1 file changed\n"
 
+    def diff_range(self, base, head):
+        return "diff range output"
+
+    def stat_range(self, base, head):
+        return " 1 file changed\n"
+
     def fetch(self, remote, ref="", check=True):
         self.fetch_calls.append((remote, ref, check))
         return None
@@ -614,13 +620,16 @@ def test_derive_title_with_ai_provider():
 
     git = FakeGit()
     git.latest_commit_message = lambda: ""
-    git.staged_diff = lambda: "diff"
-    git.staged_stat = lambda: "stat"
-    git.current_branch = lambda: "main"
+    git.diff_range = lambda base, head: f"diff of {base}..{head}"
+    git.stat_range = lambda base, head: f"stat of {base}..{head}"
+    git.current_branch = lambda: "feat-branch"
     ai = mock.MagicMock()
     ai.generate.return_value = "feat: generated title"
-    title = _resolve_title(git, title=None, provider=ai)
+    title = _resolve_title(git, title=None, base="main", head="feat-branch", provider=ai)
     assert title == "feat: generated title"
+    ai.generate.assert_called_once_with(
+        "diff of origin/main..feat-branch", "stat of origin/main..feat-branch", "feat-branch"
+    )
 
 
 def test_build_body_empty():

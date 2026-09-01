@@ -90,7 +90,12 @@ def _exit_existing_pr_host(
 
 
 def _resolve_title(
-    git: GitManager, *, title: str | None, provider=None
+    git: GitManager,
+    *,
+    title: str | None,
+    base: str = "main",
+    head: str = "",
+    provider=None,
 ) -> str:
     """Pick the PR title; raises RelayError when none can be derived."""
     if title and title.strip():
@@ -99,8 +104,12 @@ def _resolve_title(
     if commit_msg:
         return commit_msg.splitlines()[0][:_PR_TITLE_MAX]
     if provider is not None:
+        target_head = head or git.current_branch()
+        remote_base = f"origin/{base}"
+        range_diff = git.diff_range(remote_base, target_head)
+        range_stat = git.stat_range(remote_base, target_head)
         subject = sanitize_ai_message(
-            provider.generate(git.staged_diff(), git.staged_stat(), git.current_branch())
+            provider.generate(range_diff, range_stat, target_head)
         )
         if subject:
             return subject[:_PR_TITLE_MAX]
@@ -311,7 +320,7 @@ def run_pr(
     # log_between() then falls back to the local base ref.
     git.fetch("origin", base, check=False)
 
-    pr_title = _resolve_title(git, title=title, provider=provider)
+    pr_title = _resolve_title(git, title=title, base=base, head=head, provider=provider)
     body = _build_body(git, base=base, head=head)
 
     if host == "github.com":
