@@ -11,6 +11,10 @@ One workflow. From a messy working tree to a clean, AI-authored **Conventional C
 git add .  →  generate commit message  →  git commit  →  git push  →  open PR
 ```
 
+<p align="center">
+  <img src="/assets/relay-demo.gif" alt="Relay Demo" width="100%" style="max-width: 800px; border-radius: 8px;">
+</p>
+
 Relay reads your staged diff, hands it to an LLM (local **Ollama** or **Gemini API**), and returns a standards-compliant Conventional Commit message. If the AI is down, rate-limited, or offline, Relay never blocks your flow — it drops you straight into a manual commit-message prompt in the same terminal, and continues the workflow from there.
 
 ---
