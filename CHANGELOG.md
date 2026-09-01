@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-01
+
+### Added
+- CLI surface freeze contract (ADR-012) and automated test (`tests/test_cli.py:test_cli_surface_is_frozen`) locking all 9 subcommands and 14 global flags.
+- Hermetic performance timing harness (`tests/test_performance.py`) continuously validating NFR-1 sub-500 ms overhead (<50 ms measured).
+- Security audit static AST gate (`tests/test_security_audit.py`) validating NFR-3: secrets strictly in `_ENV_ONLY`, subprocess `shell=False` policy, and endpoint SSRF/HTTPS protections.
+- Added `--hunks` and `--repo` shell completion support across Bash, Zsh, Fish, and PowerShell (`relay/completions.py`).
+- Added manual page documentation for all AI providers and new CLI flags in `relay man`.
+
+### Changed
+- Elevated test suite to 923 passed tests with ~96% branch coverage in CI.
+- Updated release pipeline to run pinned security scanners (`pip-audit`, `bandit`, `cyclonedx-bom`) and attest build provenance via Sigstore.
+
 ## [0.8.0] - 2026-08-30
 
 ### Added
