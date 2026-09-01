@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-01
+
+### Fixed
+- **AI diff splitting**: Anchored diff header splitting regex to start-of-line (`(?m)^diff --git `) in `filter_ignored_diff` and `split_diff_by_file`, preventing data leakage and phantom hunks when files contain embedded `diff --git ` strings.
+- **Team rollback on Ctrl+C**: Handled `KeyboardInterrupt` during `git commit` in team mode to safely delete empty orphan branches and restore original checkout.
+- **Multi-repo CLI merging**: Appended and deduplicated CLI `--repo` arguments with configured `[repos]` instead of completely overwriting.
+- **Multi-repo error isolation**: Isolated `RelayError` per repository in multi-repo runs so an error in one repo does not abort processing of subsequent repositories.
+- **Terminal sanitization**: Wrapped all raw `AIError` exception prints with `sanitize_terminal` in `orchestrator.py` to prevent ANSI escape sequence injection.
+- **Squash rollback reporting**: Accurately reported HEAD restoration status in `relay squash` error handling, distinguishing between successful rollback and failed reset.
+- **PR AI title derivation**: Used actual commit range diff (`origin/{base}..{head}`) instead of uncommitted staged diff when generating PR titles with AI fallback.
+- **Forge transient retry**: Added retry loop with exponential backoff for transient HTTP 429 and 5xx errors across GitHub, GitLab, and Bitbucket clients.
+- **Git argv safety**: Added `--` argument separator to `diff_range`, `stat_range`, and `log_between` in `GitManager`.
+
 ## [0.9.0] - 2026-09-01
 
 ### Added
@@ -378,7 +391,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/Fiqqar/Relay/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/Fiqqar/Relay/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Fiqqar/Relay/compare/v0.7.4...v0.8.0
 [0.7.4]: https://github.com/Fiqqar/Relay/compare/v0.7.3...v0.7.4
