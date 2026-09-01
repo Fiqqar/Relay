@@ -39,3 +39,34 @@ def test_secrets_are_strictly_env_only():
     # No secret key may appear in _CFG_KEYS (which maps env vars to config file keys)
     for secret in required_secrets:
         assert secret not in _CFG_KEYS, f"Secret {secret} must not be mapped to config file"
+
+
+def test_subprocess_never_uses_shell_true():
+    """ADR-002: All subprocess invocations must use argv lists and shell=False.
+
+    Scans every AST Call node in relay/ to ensure shell=True is never passed.
+    """
+    import ast
+
+    relay_root = _REPO_ROOT / "relay"
+    for py_file in relay_root.rglob("*.py"):
+        tree = ast.parse(py_file.read_text("utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func_name = ast.unparse(node.func)
+                if any(
+                    target in func_name
+                    for target in (
+                        "subprocess.run",
+                        "subprocess.Popen",
+                        "subprocess.check_call",
+                        "subprocess.check_output",
+                    )
+                ):
+                    for keyword in node.keywords:
+                        if keyword.arg == "shell":
+                            val = ast.unparse(keyword.value)
+                            assert val in ("False", "0", "None"), (
+                                f"Forbidden shell={val} found in {py_file.name}:{node.lineno}"
+                            )
+
