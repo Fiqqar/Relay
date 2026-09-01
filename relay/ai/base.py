@@ -105,9 +105,7 @@ def filter_ignored_diff(diff: str, patterns: list[str]) -> str:
         if path and _path_matches(path, patterns):
             continue
         kept.append("diff --git " + part)
-    # Re-assemble; if original started with header, join without extra separator
-    if diff.startswith("diff --git "):
-        return "".join(kept)
+    # Re-assemble kept diff blocks
     return "".join(kept)
 
 
