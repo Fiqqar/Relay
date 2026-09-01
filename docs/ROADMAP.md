@@ -1,7 +1,7 @@
 # Relay Roadmap
 
 Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.8.0` are shipped and closed; `0.9.0`+ are planned.
+through `0.9.0` are shipped and closed; `1.0.0` is planned.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.8.0` are shipped and closed; `0.9.0`+ are planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.8.0`)
+## Shipped history (`0.1.0` → `0.9.0`)
 
 ### v0.1.0 — MVP
 
@@ -347,21 +347,19 @@ the decode path is pinned by unit tests and the Windows e2e flow is green. ✅
 and hooks run with unit tests; ignore paths keep lockfiles/generated code out
 of the prompt. ✅
 
----
-
-## Planned (`0.9.0` → `1.0.0`)
-
 ### v0.9.0 — GA hardening
 
-- [ ] Freeze the CLI surface (subcommands/flags) — anything new needs a design note
-- [ ] NFR-7 audit complete: every failure message carries an actionable next
-      step (the `tests/test_error_audit.py` gate already runs in CI as of 0.5.x)
-- [ ] Coverage gate ≥ 90% branch in CI (raised from 85% in 0.5.x)
-- [ ] Security review: secrets env-only, never logged (NFR-3)
-- [ ] Performance pass (NFR-1): sub-500 ms CLI overhead excluding LLM latency
+- [x] Freeze the CLI surface (subcommands/flags) — ADR-012 and automated freeze test
+- [x] NFR-7 audit complete: every failure message carries an actionable next step (the `tests/test_error_audit.py` gate)
+- [x] Coverage gate ≥ 90% branch in CI (enforced with ~96% coverage)
+- [x] Security review & AST gate: secrets env-only, no `shell=True`, HTTPS SSRF validation (NFR-3)
+- [x] Performance pass (NFR-1): automated timing harness verifying <50 ms CLI overhead
 
-**Exit:** CI-green on 3 OS × 3 Python; coverage gate ≥ 90%; error-message audit
-results logged in the release notes.
+**Exit:** CI-green on 3 OS × 3 Python; coverage gate ≥ 90%; error-message and security audit verified. ✅
+
+---
+
+## Planned (`1.0.0`)
 
 ### v1.0.0 — GA
 
