@@ -636,3 +636,73 @@ def test_binary_only_staged_diff_skips_ai_and_uses_manual_message(mock_input, gi
     assert code == 0
     assert ai.generate_calls == []
     git.commit.assert_called_once_with("fix: binary asset update", no_verify=False)
+
+
+# ---- TOCTOU and hook edge cases ---------------------------------------------
+
+def test_toctou_index_change_raises_git_error(git):
+    from relay.errors import GitError
+
+    ai = StubAI(responses=["feat: toctou"])
+    git.write_tree.side_effect = ["tree_1", "tree_2"]
+    with pytest.raises(GitError) as exc_info:
+        make_orchestrator(git, provider=ai, yes=True).run()
+    assert "staged changes changed while Relay was running" in str(exc_info.value)
+
+
+def test_toctou_index_change_amend_raises_git_error(git):
+    from relay.errors import GitError
+
+    ai = StubAI(responses=["feat: toctou amend"])
+    git.write_tree.side_effect = ["tree_1", "tree_2"]
+    with pytest.raises(GitError) as exc_info:
+        make_orchestrator(git, provider=ai, mode="amend", yes=True).run()
+    assert "staged changes changed while Relay was running" in str(exc_info.value)
+
+
+def test_initial_write_tree_giterror_gracefully_degrades(git):
+    ai = StubAI(responses=["feat: degrade"])
+    git.write_tree.side_effect = GitError("git write-tree failed")
+    code = make_orchestrator(git, provider=ai, yes=True).run()
+    assert code == 0
+
+
+def test_dry_run_with_hooks_prints_hook_names(git, capsys, monkeypatch, tmp_path):
+    from relay import config
+    config._RAW_CACHE.clear()
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("""
+    [hooks.pre_commit]
+    command = ["echo", "pre"]
+
+    [hooks.post_push]
+    command = ["echo", "post"]
+    """, encoding="utf-8")
+    monkeypatch.setenv("RELAY_CONFIG", str(cfg))
+    ai = StubAI(responses=["feat: dry run"])
+    code = make_orchestrator(git, provider=ai, dry_run=True, yes=True).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "hook pre_commit: echo pre" in out
+    assert "hook post_push: echo post" in out
+
+
+def test_hunks_retry_and_rate_limit(git):
+    from relay.errors import AIError
+
+    class HunkFlakyAI:
+        def __init__(self):
+            self.count = 0
+
+        def generate(self, diff, stat, branch):
+            self.count += 1
+            if self.count == 1:
+                raise AIError("gemini", "rate_limited", "slow")
+            return "feat: recovered hunk"
+
+    git.staged_diff.return_value = "diff --git a/x.py b/x.py\n+x\n"
+    with mock.patch("relay.orchestrator.time.sleep"):
+        with mock.patch("builtins.input", side_effect=["r", "a"]):
+            code = make_orchestrator(git, provider=HunkFlakyAI(), hunks=True).run()
+    assert code == 0
+

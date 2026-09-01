@@ -267,6 +267,41 @@ def test_squash_confirms_before_mutating(git):
     assert git.commit_messages == []
 
 
+def test_squash_confirm_accept(git):
+    with mock.patch("relay.squash.input", return_value="a"):
+        assert run_squash(git=git, count=2) == 0
+    assert len(git.commit_messages) == 1
+
+
+def test_squash_confirm_edit_success(git):
+    with mock.patch("relay.squash.input", side_effect=["e", "feat: custom edited"]):
+        assert run_squash(git=git, count=2) == 0
+    assert git.commit_messages == ["feat: custom edited"]
+
+
+def test_squash_confirm_edit_blank_aborts(git):
+    with mock.patch("relay.squash.input", side_effect=["e", ""]):
+        with pytest.raises(UserAbort):
+            run_squash(git=git, count=2)
+
+
+def test_squash_restore_head_failure_does_not_crash(git):
+    git.commit_error = GitError("commit hook fail")
+    # Make the second reset_soft (the restore) fail as well
+    call_count = 0
+    original_reset = git.reset_soft
+    def flaking_reset(target):
+        nonlocal call_count
+        call_count += 1
+        if call_count > 1:
+            raise GitError("cannot restore")
+        return original_reset(target)
+    git.reset_soft = flaking_reset
+    with pytest.raises(GitError, match="commit hook fail"):
+        run_squash(git=git, count=2, yes=True)
+
+
+
 # ---- CLI routing ------------------------------------------------------------
 
 def test_parser_squash_defaults():

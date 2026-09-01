@@ -827,3 +827,52 @@ def test_ollama_connection_error():
         with pytest.raises(Exception) as exc:
             provider.generate_commit_message("diff", "stat", "main")
         assert "unavailable" in str(exc.value).lower() or "connection" in str(exc.value).lower()
+
+
+# ---- coverage: ai/base.py edge cases -----------------------------------------
+
+def test_path_matches_empty_and_purepath():
+    from relay.ai.base import _path_matches
+
+    assert not _path_matches("foo.py", ["", "  "])
+    assert _path_matches("src/lib/foo.py", ["src/**/*.py"])
+    assert not _path_matches("src/lib/foo.py", ["tests/*"])
+
+
+def test_filter_ignored_diff_leading_text_and_a_header():
+    from relay.ai.base import filter_ignored_diff
+
+    # Diff with preamble text before header
+    diff_with_preamble = "preamble\ndiff --git a/kept.py b/kept.py\n+kept\n"
+    res = filter_ignored_diff(diff_with_preamble, ["ignored.py"])
+    assert "preamble" in res
+    assert "kept.py" in res
+
+    # Diff with a/ header only (unusual diff format)
+    diff_a_only = "diff --git a/ignored.py\n+ignored\ndiff --git a/kept.py\n+kept\n"
+    res2 = filter_ignored_diff(diff_a_only, ["ignored.py"])
+    assert "kept.py" in res2
+    assert "ignored.py" not in res2
+
+
+def test_filter_ignored_stat_empty_and_no_match():
+    from relay.ai.base import filter_ignored_stat
+
+    stat = "\n  ignored.py | 2 +-\n\n  kept.py | 1 +\n\n"
+    res = filter_ignored_stat(stat, ["ignored.py"])
+    assert "kept.py" in res
+    assert "ignored.py" not in res
+
+    # All ignored returns empty string
+    res_empty = filter_ignored_stat("  ignored.py | 2 +-\n", ["ignored.py"])
+    assert res_empty == ""
+
+
+def test_split_diff_by_file_a_header_only():
+    from relay.ai.base import split_diff_by_file
+
+    diff = "diff --git a/file.py\n+content\n"
+    blocks = split_diff_by_file(diff)
+    assert len(blocks) == 1
+    assert blocks[0][0] == "file.py"
+

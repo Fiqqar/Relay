@@ -139,3 +139,21 @@ def test_main_forwards_patch_flag():
 def test_main_stage_error_maps_to_exit_1():
     with mock.patch("relay.cli.run_stage", side_effect=GitError("boom")):
         assert main(["stage"]) == 1
+
+
+# ---- coverage: stage.py edge branches ---------------------------------------
+
+def test_parse_selection_empty_chunks_and_no_selection():
+    from relay.stage import _parse_selection
+
+    assert _parse_selection("1, , 2", total=3) == {1, 2}
+    with pytest.raises(GitError, match="no files selected"):
+        _parse_selection(" ,  , ", total=3)
+
+
+def test_stage_input_wrapper():
+    from relay.stage import _input
+
+    with mock.patch("builtins.input", return_value="hello"):
+        assert _input("prompt: ") == "hello"
+

@@ -607,3 +607,27 @@ def test_safe_open_browser_allows_https():
     with mock.patch("relay.pr.webbrowser.open", return_value=True) as wb:
         assert _safe_open_browser("https://github.com/o/r/pull/1") is True
         wb.assert_called_once()
+
+
+def test_derive_title_with_ai_provider():
+    from relay.pr import _resolve_title
+
+    git = FakeGit()
+    git.latest_commit_message = lambda: ""
+    git.staged_diff = lambda: "diff"
+    git.staged_stat = lambda: "stat"
+    git.current_branch = lambda: "main"
+    ai = mock.MagicMock()
+    ai.generate.return_value = "feat: generated title"
+    title = _resolve_title(git, title=None, provider=ai)
+    assert title == "feat: generated title"
+
+
+def test_build_body_empty():
+    from relay.pr import _build_body
+
+    git = FakeGit()
+    git.log_between = lambda base, head: ""
+    body = _build_body(git, base="main", head="feat")
+    assert body == ""
+
