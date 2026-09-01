@@ -876,3 +876,32 @@ def test_split_diff_by_file_a_header_only():
     assert len(blocks) == 1
     assert blocks[0][0] == "file.py"
 
+
+def test_diff_anchor_does_not_split_on_embedded_content():
+    from relay.ai.base import filter_ignored_diff, split_diff_by_file
+
+    tricky = (
+        "diff --git a/secret.env b/secret.env\n"
+        "--- a/secret.env\n"
+        "+++ b/secret.env\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+API_KEY=sk-supersecret12345\n"
+        "+# example: diff --git a/x b/x shows up in some log format\n"
+        "diff --git a/app.py b/app.py\n"
+        "--- a/app.py\n"
+        "+++ b/app.py\n"
+        "@@ -0,0 +1 @@\n"
+        "+print(1)\n"
+    )
+
+    filtered = filter_ignored_diff(tricky, ["secret.env"])
+    assert "sk-supersecret" not in filtered
+    assert "diff --git a/x b/x" not in filtered
+    assert "app.py" in filtered
+
+    blocks = split_diff_by_file(tricky)
+    paths = [p for p, _ in blocks]
+    assert paths == ["secret.env", "app.py"]
+    assert len(blocks) == 2
+
+

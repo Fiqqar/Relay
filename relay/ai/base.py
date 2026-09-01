@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
 from abc import ABC, abstractmethod
 from pathlib import PurePath
 
@@ -79,6 +80,9 @@ def _path_matches(path: str, patterns: list[str]) -> bool:
     return False
 
 
+_DIFF_HEADER_RE = re.compile(r"(?m)^diff --git ")
+
+
 def filter_ignored_diff(diff: str, patterns: list[str]) -> str:
     """Remove file blocks whose path matches an ignore glob.
 
@@ -86,8 +90,11 @@ def filter_ignored_diff(diff: str, patterns: list[str]) -> str:
     """
     if not patterns or not diff.strip():
         return diff
-    # Split on the git diff header; each block after the first delimiter is one file.
-    parts = diff.split("diff --git ")
+    if not _DIFF_HEADER_RE.search(diff):
+        return diff
+    # Split on the git diff header anchored to start of line; each block after
+    # the first delimiter is one file.
+    parts = _DIFF_HEADER_RE.split(diff)
     kept: list[str] = []
     # parts[0] is content before first header (usually empty)
     if parts[0].strip():
@@ -140,9 +147,9 @@ def split_diff_by_file(diff: str) -> list[tuple[str, str]]:
     """
     if not diff.strip():
         return []
-    if "diff --git " not in diff:
+    if not _DIFF_HEADER_RE.search(diff):
         return [("", diff)]
-    parts = diff.split("diff --git ")
+    parts = _DIFF_HEADER_RE.split(diff)
     blocks: list[tuple[str, str]] = []
     for part in parts[1:]:
         block = "diff --git " + part
@@ -154,6 +161,7 @@ def split_diff_by_file(diff: str) -> list[tuple[str, str]]:
             path = first_line[2:].split()[0].strip().strip('"') if len(first_line) > 2 else ""
         blocks.append((path, block))
     return blocks
+
 
 
 def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None = None):
