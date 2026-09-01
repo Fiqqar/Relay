@@ -224,23 +224,23 @@ class GitManager:
         Empty when ``base`` does not exist yet (or the range is empty), so
         callers can fall back to a plain body without handling git errors.
         """
-        proc = self._run("log", "--format=%s", f"{base}..{head}", check=False)
+        proc = self._run("log", "--format=%s", f"{base}..{head}", "--", check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
 
     def diff_range(self, base: str, head: str) -> str:
         """Combined diff of commits ``base``..``head``, changed lines only.
 
         Mirrors ``staged_diff`` but for a commit range instead of the index:
-        ``git diff {base}..{head} --unified=0``. This is the diff a squash
+        ``git diff {base}..{head} --unified=0 --``. This is the diff a squash
         (or anything comparing two commits) actually needs — the working tree /
         index may hold unrelated changes that would otherwise leak into an
         AI-generated message.
         """
-        return self._run("diff", f"{base}..{head}", "--unified=0").stdout
+        return self._run("diff", f"{base}..{head}", "--unified=0", "--").stdout
 
     def stat_range(self, base: str, head: str) -> str:
         """Short diffstat of commits ``base``..``head`` (context for AI prompts)."""
-        return self._run("diff", f"{base}..{head}", "--stat").stdout
+        return self._run("diff", f"{base}..{head}", "--stat", "--").stdout
 
     # ---- Staging / diff -----------------------------------------------------
 

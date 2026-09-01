@@ -182,13 +182,13 @@ class TestMutations:
         mock_run.return_value = make_proc(stdout="range diff")
         assert git.diff_range("base123", "tip456") == "range diff"
         assert mock_run.call_args.args[0] == [
-            "git", "diff", "base123..tip456", "--unified=0",
+            "git", "diff", "base123..tip456", "--unified=0", "--",
         ]
 
         mock_run.return_value = make_proc(stdout="range stat")
         assert git.stat_range("base123", "tip456") == "range stat"
         assert mock_run.call_args.args[0] == [
-            "git", "diff", "base123..tip456", "--stat",
+            "git", "diff", "base123..tip456", "--stat", "--",
         ]
 
     @mock.patch("relay.git_manager.subprocess.run")
@@ -421,7 +421,7 @@ class TestRemoteHelpers:
     def test_log_between_returns_subjects(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc(stdout="feat: one\nfix: two\n")
         assert git.log_between("main", "feat/login") == "feat: one\nfix: two"
-        assert mock_run.call_args.args[0] == ["git", "log", "--format=%s", "main..feat/login"]
+        assert mock_run.call_args.args[0] == ["git", "log", "--format=%s", "main..feat/login", "--"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_log_between_empty_when_base_missing(self, mock_run, git, make_proc):
