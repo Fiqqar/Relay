@@ -93,9 +93,17 @@
 
 **Consequences:** + History stays bisectable, reviewable. − Requires discipline (but `relay` itself enforces it).
 
+## ADR-012 — CLI Surface Stability & Freeze for GA
+
+**Context:** Ahead of v1.0.0 GA, Relay must guarantee CLI interface stability. Scripted invocations, shell aliases, and team CI integrations depend on predictable flags and subcommands.
+
+**Decision:** The CLI surface is frozen across 9 subcommands (`amend`, `completions`, `doctor`, `man`, `pr`, `squash`, `stage`, `telemetry`, `undo`) and 14 global flags (`--solo`, `--team`, `--provider`, `--timeout`, `--yes`, `--dry-run`, `--no-push`, `--staged`, `--no-verify`, `--allow-protected`, `--hunks`, `--repo`, `--verbose`, `--version`). Any removal, rename, or breaking change requires a new ADR and major version bump.
+
+**Consequences:** + Stable automation and backward compatibility for all users. − New subcommands or flags require a formal design note.
+
 ---
 
 ## Superseded / Future
 
-- If multi-provider failover is needed, create ADR-012 (currently out of scope).
+- If multi-provider failover is needed, create ADR-013 (currently out of scope).
 - If a TUI is needed, create a new ADR that justifies deps — do not silently add deps.
