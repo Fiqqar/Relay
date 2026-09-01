@@ -285,7 +285,7 @@ def test_squash_confirm_edit_blank_aborts(git):
             run_squash(git=git, count=2)
 
 
-def test_squash_restore_head_failure_does_not_crash(git):
+def test_squash_restore_head_failure_does_not_crash(git, capsys):
     git.commit_error = GitError("commit hook fail")
     # Make the second reset_soft (the restore) fail as well
     call_count = 0
@@ -299,6 +299,7 @@ def test_squash_restore_head_failure_does_not_crash(git):
     git.reset_soft = flaking_reset
     with pytest.raises(GitError, match="commit hook fail"):
         run_squash(git=git, count=2, yes=True)
+    assert "automatic recovery failed" in capsys.readouterr().out
 
 
 

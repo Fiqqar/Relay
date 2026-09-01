@@ -155,13 +155,16 @@ def run_squash(
         # the exact pre-squash state — everything stays staged, nothing is lost.
         try:
             git.reset_soft(tip)
+            print(
+                "[relay] squash commit failed; HEAD restored to its original commit. "
+                "Inspect `git status` — your changes are still there (reflog: `git reflog`)."
+            )
         except GitError:
-            pass
-        print(
-            "[relay] squash commit failed; HEAD restored to its original commit. "
-            "Inspect `git status` — your changes are still there (reflog: "
-            "`git reflog`)."
-        )
+            print(
+                "[relay] squash commit failed AND automatic recovery failed; "
+                "do not run further git commands until you inspect `git reflog` "
+                f"and manually run `git reset --soft {tip}`."
+            )
         raise
     print(f"[relay] squashed {count} commits into one on '{branch}'")
     if git.is_ancestor(tip, f"origin/{branch}"):
