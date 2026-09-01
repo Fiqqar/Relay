@@ -222,9 +222,9 @@ class Orchestrator:
             branch = team_branch
             try:
                 self.git.commit(message, no_verify=self.no_verify)
-            except GitError:
-                # The commit failed on the freshly created branch: it is an
-                # orphan holding nothing but the failed attempt. Put the
+            except (GitError, KeyboardInterrupt):
+                # The commit failed or was interrupted on the freshly created branch:
+                # it is an orphan holding nothing but the failed attempt. Put the
                 # developer back on the original branch and delete it, so the
                 # run never strands them on a branch with no commit. The
                 # original branch (e.g. main) is untouched — only the orphan is
@@ -234,12 +234,12 @@ class Orchestrator:
                     self.git.checkout(original_branch)
                     self.git.delete_branch(team_branch)
                     print(
-                        f"[relay] commit failed; deleted the orphan branch "
+                        f"[relay] commit failed or interrupted; deleted the orphan branch "
                         f"'{team_branch}' and restored '{original_branch}'."
                     )
                 except GitError:
                     print(
-                        f"[relay] commit failed; could not auto-clean the "
+                        f"[relay] commit failed or interrupted; could not auto-clean the "
                         f"orphan branch '{team_branch}' (reflog: `git reflog`)."
                     )
                 raise

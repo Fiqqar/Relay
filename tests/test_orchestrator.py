@@ -706,3 +706,16 @@ def test_hunks_retry_and_rate_limit(git):
             code = make_orchestrator(git, provider=HunkFlakyAI(), hunks=True).run()
     assert code == 0
 
+
+def test_team_mode_keyboard_interrupt_rolls_back_orphan_branch(git, capsys):
+    git.current_branch.return_value = "feature-parent"
+    git.commit.side_effect = KeyboardInterrupt()
+    ai = StubAI(responses=["feat(pay): add stripe"])
+    with pytest.raises(KeyboardInterrupt):
+        make_orchestrator(git, provider=ai, mode="team", feature="pay", yes=True).run()
+    git.checkout.assert_called_once_with("feature-parent")
+    git.delete_branch.assert_called_once_with("feat/pay")
+    out = capsys.readouterr().out
+    assert "deleted the orphan branch 'feat/pay' and restored 'feature-parent'" in out
+
+
