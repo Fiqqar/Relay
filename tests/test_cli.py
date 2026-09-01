@@ -484,3 +484,11 @@ def test_cli_surface_is_frozen():
     }
     assert set(subparsers_action.choices.keys()) == expected_subcommands
 
+
+def test_main_multirepo_merges_and_dedupes_cli_and_config_repos(wired):
+    _, orchestrator_cls = wired
+    with mock.patch("relay.cli.config_repos", return_value=["repo-a", "repo-b"]):
+        assert main(["--solo", "--repo", "repo-b", "--repo", "repo-c"]) == 0
+    assert orchestrator_cls.call_count == 3
+
+

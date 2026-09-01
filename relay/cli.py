@@ -366,13 +366,14 @@ def main(argv: list[str] | None = None) -> int:
         except ConfigError as exc:
             print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
             ai_provider = None
-        # Multi-repo: --repo wins over [repos]/RELAY_REPOS, else current dir.
+        # Multi-repo: --repo appends to and deduplicates [repos]/RELAY_REPOS, else current dir.
         raw_repos: list[str | None]
-        if getattr(args, "repo", None):
-            raw_repos = list(args.repo)  # type: ignore[union-attr]
+        cfg = config_repos()
+        cli_repos = getattr(args, "repo", None) or []
+        if cfg or cli_repos:
+            raw_repos = list(dict.fromkeys([*cfg, *cli_repos]))  # type: ignore[assignment]
         else:
-            cfg = config_repos()
-            raw_repos = cfg if cfg else [None]  # type: ignore[assignment]
+            raw_repos = [None]
         codes: list[int] = []
         for idx, repo_path in enumerate(raw_repos):
             cwd = str(repo_path) if repo_path else None
