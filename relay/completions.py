@@ -27,7 +27,7 @@ SUBCOMMANDS = [
 GLOBAL_FLAGS = [
     "--version", "--solo", "--team", "--provider", "--timeout",
     "--yes", "--dry-run", "--no-push", "--staged", "--no-verify",
-    "--allow-protected", "--verbose",
+    "--allow-protected", "--hunks", "--repo", "--verbose",
 ]
 
 # One-line descriptions used by the fish generator. Fish takes a -a <name>
@@ -96,6 +96,8 @@ _arguments \\
   '--staged[only commit what is already staged]' \\
   '--no-verify[skip git pre-commit and commit-msg hooks]' \\
   '--allow-protected[allow team mode to target a protected branch]' \\
+  '--hunks[generate multi-part AI message per file/hunk]' \\
+  '--repo=[run on this repo path]:repo:_files -/' \\
   '--verbose[print the git commands being run]' \\
   '--version[print the relay version]' \\
   '1:subcommand:({subs})' \\
@@ -127,6 +129,8 @@ def fish_script() -> str:
         "complete -c relay -n '__fish_use_subcommand' -l staged -d 'only commit what is staged'",
         "complete -c relay -n '__fish_use_subcommand' -l no-verify -d 'skip git hooks'",
         "complete -c relay -n '__fish_use_subcommand' -l allow-protected -d 'allow team mode to target a protected branch'",
+        "complete -c relay -n '__fish_use_subcommand' -l hunks -d 'generate multi-part AI message per file/hunk'",
+        "complete -c relay -n '__fish_use_subcommand' -l repo -r -d 'run on this repo path'",
         "complete -c relay -n '__fish_use_subcommand' -l verbose -d 'print the git commands'",
     ]
     return "\n".join(lines) + "\n"

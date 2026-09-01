@@ -49,6 +49,15 @@ class TestGenerate:
         for subcommand in SUBCOMMANDS:
             assert subcommand in out, f"{shell} completion is missing '{subcommand}'"
 
+    @pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "powershell"])
+    def test_every_global_flag_appears_in_every_shell(self, shell):
+        out = generate(shell)
+        for flag in ("hunks", "repo", "solo", "team", "verbose"):
+            if shell == "fish":
+                assert f"-l {flag}" in out, f"{shell} completion is missing '-l {flag}'"
+            else:
+                assert f"--{flag}" in out, f"{shell} completion is missing '--{flag}'"
+
     def test_bash_has_complete_directive(self):
         assert "complete -F" in generate("bash")
 
