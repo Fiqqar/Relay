@@ -82,6 +82,12 @@ Skip git pre-commit and commit-msg hooks.
 .B \-\-allow-protected
 Allow team mode to target a protected branch (default-branch safety override).
 .TP
+.B \-\-hunks
+Generate multi-part AI message per file/hunk (hunk-level AI messages).
+.TP
+.B \-\-repo \fIPATH\fR
+Run on this repo path (repeatable; defaults to current dir; also \fI[repos]\fR in config / \fIRELAY_REPOS\fR).
+.TP
 .B \-\-verbose
 Print the git commands being run.
 .SH COMMANDS
@@ -91,11 +97,11 @@ Run a read-only self-diagnostic (PATH, git, AI credentials).
 .TP
 .B pr
 Open a pull request / merge request for the current branch. Detects the host
-from the \fIorigin\fR remote: GitHub (uses \fIGITHUB_TOKEN\fR) or GitLab
-(uses \fIGITLAB_TOKEN\fR). Only \fIgitlab.com\fR is trusted by default; a
-self-hosted GitLab host must be added to \fIRELAY_TRUSTED_GITLAB_HOSTS\fR
-(or \fItrusted_gitlab_hosts\fR in the \fI[relay]\fR config table) or the
-request is refused before any token is sent.
+from the \fIorigin\fR remote: GitHub (uses \fIGITHUB_TOKEN\fR), GitLab
+(uses \fIGITLAB_TOKEN\fR), or Bitbucket Cloud (uses \fIBITBUCKET_TOKEN\fR).
+Only \fIgitlab.com\fR is trusted by default on GitLab; a self-hosted GitLab
+host must be added to \fIRELAY_TRUSTED_GITLAB_HOSTS\fR or the request is
+refused before any token is sent.
 .TP
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
@@ -129,6 +135,15 @@ servers such as llama.cpp via \fIOPENAI_BASE_URL\fR).
 .I ANTHROPIC_API_KEY
 API key for the Anthropic provider.
 .TP
+.I MISTRAL_API_KEY
+API key for the Mistral provider.
+.TP
+.I GROQ_API_KEY
+API key for the Groq provider.
+.TP
+.I XAI_API_KEY
+API key for the xAI provider.
+.TP
 .I OLLAMA_BASE_URL
 Base URL of a local Ollama server (default http://localhost:11434).
 .TP
@@ -155,6 +170,12 @@ Comma/space-separated allowlist of self-hosted GitLab hosts (beyond
 \fIgitlab.com\fR) that \fBrelay pr\fR may send \fIGITLAB_TOKEN\fR to. The
 host is derived from the \fIorigin\fR remote, so anything outside this list
 is refused. Only ever trust instances you own.
+.TP
+.I RELAY_IGNORE_PATHS
+Comma-separated globs hidden from AI prompt (e.g. \fIdist/*,*.lock\fR).
+.TP
+.I RELAY_REPOS
+Comma-separated repository paths for multi-repo runs.
 .SH EXIT STATUS
 0 on success, 1 on a Relay or git error, 130 when the user aborts.
 .SH SEE ALSO

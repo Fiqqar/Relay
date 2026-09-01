@@ -79,7 +79,7 @@ Relay is **zero-dependency by design**: everything uses the Python standard libr
 
 ### 3.6 Diff Collector — `Orchestrator.run` (via GitManager)
 - Responsibility: gather `git diff --cached` (the prompt input) plus a short `--stat` summary and the current branch name.
-- A **token budget / truncation** for very large diffs (FR-14) is a planned enhancement; for now the full staged diff is sent.
+- Applies **token budget line truncation** (`RELAY_MAX_DIFF_LINES`, default 120 lines) and **byte cap** (512 KiB) via `truncate_diff()` (`relay/ai/base.py`) before sending the diff to the provider. The `--stat` summary is preserved in full.
 
 ### 3.7 AIService — `relay/ai/`
 The extension point. Every provider implements one interface:
