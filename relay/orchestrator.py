@@ -372,12 +372,12 @@ class Orchestrator:
                 # Transient failures (429 / 5xx) get 2 retries with short backoff.
                 if exc.kind in {"rate_limited", "api_error"} and transient_tries < 2:
                     transient_tries += 1
-                    print(f"[relay] AI {exc}; retrying ({transient_tries}/2)...")
+                    print(f"[relay] AI {sanitize_terminal(str(exc))}; retrying ({transient_tries}/2)...")
                     time.sleep(1 * transient_tries)
                     continue
                 # THE FALLBACK: catch any AI exception, ask the user for the
                 # message with plain input(), and continue the workflow.
-                print(f"[relay] AI unavailable ({exc}); falling back to manual input.")
+                print(f"[relay] AI unavailable ({sanitize_terminal(str(exc))}); falling back to manual input.")
                 return self._manual_input()
 
             # Confirmation gate (skippable with --yes).
@@ -412,7 +412,7 @@ class Orchestrator:
                         msg = sanitize_ai_message(raw)
                         valid, reason = validate_conventional(msg)
                         if not valid:
-                            print(f"[relay] AI hunk {path or 'unknown'} rejected ({reason}); falling back to manual input.")
+                            print(f"[relay] AI hunk {sanitize_terminal(path or 'unknown')} rejected ({reason}); falling back to manual input.")
                             return self._manual_input()
                         messages.append(msg)
                         paths.append(path)
@@ -420,10 +420,10 @@ class Orchestrator:
                     except AIError as exc:
                         if exc.kind in {"rate_limited", "api_error"} and tries < 2:
                             tries += 1
-                            print(f"[relay] AI {exc}; retrying hunk {path or ''} ({tries}/2)...")
+                            print(f"[relay] AI {sanitize_terminal(str(exc))}; retrying hunk {sanitize_terminal(path or '')} ({tries}/2)...")
                             time.sleep(1 * tries)
                             continue
-                        print(f"[relay] AI unavailable for hunk {path or ''} ({exc}); falling back to manual input.")
+                        print(f"[relay] AI unavailable for hunk {sanitize_terminal(path or '')} ({sanitize_terminal(str(exc))}); falling back to manual input.")
                         return self._manual_input()
             subject = messages[0]
             if len(messages) == 1:

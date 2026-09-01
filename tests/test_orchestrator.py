@@ -719,3 +719,16 @@ def test_team_mode_keyboard_interrupt_rolls_back_orphan_branch(git, capsys):
     assert "deleted the orphan branch 'feat/pay' and restored 'feature-parent'" in out
 
 
+def test_ai_error_ansi_escapes_are_sanitized_in_orchestrator(git, capsys):
+    from relay.errors import AIError
+
+    ai = StubAI(error=AIError("ollama", "bad_response", "\x1b[31mRed\x1b[0m Attack"))
+    with mock.patch("builtins.input", side_effect=["feat: manual fallback", ""]):
+        code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "\x1b[31m" not in out
+    assert "[relay] AI unavailable" in out
+
+
+
