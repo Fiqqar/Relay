@@ -66,3 +66,48 @@ def test_preflight_check_latency_hermetic():
         assert code is None
     elapsed = (time.perf_counter() - start) / 50
     assert elapsed < 0.05, f"Preflight took {elapsed*1000:.2f} ms (budget 50 ms)"
+
+
+def test_orchestrator_local_dispatch_latency():
+    """A full local orchestrator run without network must execute in < 50 ms."""
+    git = mock.Mock()
+    git.is_repo.return_value = True
+    git.has_changes.return_value = True
+    git.has_remote.return_value = True
+    git.staged_diff.return_value = "diff --git a/a.py b/a.py\n+a\n"
+    git.staged_stat.return_value = " a.py | 1 +\n"
+    git.current_branch.return_value = "main"
+    git.staged_diff_binary_only.return_value = False
+    git.write_tree.return_value = "tree123"
+
+    ai = mock.Mock()
+    ai.generate.return_value = "feat(app): fast message"
+
+    start = time.perf_counter()
+    for _ in range(20):
+        orch = Orchestrator(git=git, provider=ai, yes=True, no_push=True)
+        code = orch.run()
+        assert code == 0
+    elapsed = (time.perf_counter() - start) / 20
+    assert elapsed < 0.05, f"Orchestrator dispatch took {elapsed*1000:.2f} ms (budget 50 ms)"
+
+
+def test_config_file_cache_hit_latency(monkeypatch, tmp_path):
+    """Config cache lookup on disk file must be sub-millisecond on cache hit."""
+    from relay import config
+
+    config._RAW_CACHE.clear()
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[relay]\nprovider = 'gemini'\n", encoding="utf-8")
+    monkeypatch.setenv("RELAY_CONFIG", str(cfg))
+
+    # Prime cache
+    _ = config._load_raw()
+
+    start = time.perf_counter()
+    for _ in range(100):
+        data = config._load_raw()
+        assert data.get("relay", {}).get("provider") == "gemini"
+    elapsed = (time.perf_counter() - start) / 100
+    assert elapsed < 0.005, f"Config cache hit took {elapsed*1000:.2f} ms (budget 5 ms)"
+
