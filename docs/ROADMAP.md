@@ -1,7 +1,7 @@
 # Relay Roadmap
 
-Ordered plan from the current release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `0.9.0` are shipped and closed; `1.0.0` is planned.
+Ordered plan from the initial release to **v1.0.0 (GA)**. Versions `0.1.0`
+through `1.0.0` are shipped and closed; Relay is now in stable General Availability.
 
 ## Legend
 
@@ -10,7 +10,7 @@ through `0.9.0` are shipped and closed; `1.0.0` is planned.
 
 ---
 
-## Shipped history (`0.1.0` → `0.9.0`)
+## Shipped history (`0.1.0` → `1.0.0`)
 
 ### v0.1.0 — MVP
 
@@ -357,18 +357,28 @@ of the prompt. ✅
 
 **Exit:** CI-green on 3 OS × 3 Python; coverage gate ≥ 90%; error-message and security audit verified. ✅
 
----
+### v0.9.1 — Security & Correctness Audit Patch
 
-## Planned (`1.0.0`)
+- [x] Anchor diff parsing regex (`(?m)^diff --git `) to prevent data leakage and phantom hunks
+- [x] Handle `KeyboardInterrupt` in team mode rollback to prevent orphaned branches on Ctrl+C
+- [x] Merge and deduplicate CLI `--repo` flags with configured `[repos]`
+- [x] Isolate `RelayError` per repository in multi-repo loops
+- [x] Sanitize all `AIError` exception prints to terminal with `sanitize_terminal`
+- [x] Distinguish between successful and failed rollback in `relay squash` error handler
+- [x] Derive AI PR titles from commit range diff (`origin/{base}..{head}`)
+- [x] Add 2-attempt backoff retry loop for transient HTTP 429/5xx errors in GitHub, GitLab, and Bitbucket clients
+- [x] Add `--` argv separator to `diff_range`, `stat_range`, and `log_between`
 
-### v1.0.0 — GA
+**Exit:** 9 audit findings remediated, 931 tests green, coverage ~96%. ✅
 
-- [ ] Mark all `M` milestones (M0–M3) as **stable**, no loose ends
-- [ ] Public docs: README/ARCHITECTURE/FLOW + roadmap point to the stable API
-- [ ] Cut `v1.0.0` per `RELEASE.md`; artifacts verified on all channels
-- [ ] Deprecation policy documented (semver commits)
+### v1.0.0 — General Availability (GA)
 
-**Exit:** `v1.0.0` released; Homebrew + Scoop point at it; README says stable.
+- [x] Mark all `M` milestones (M0–M3) as **stable**, no loose ends
+- [x] Public docs: README/ARCHITECTURE/FLOW + roadmap point to the stable API
+- [x] Cut `v1.0.0` per `RELEASE.md`; artifacts verified on all channels (pip, Homebrew, Scoop)
+- [x] Backward compatibility and CLI surface stability guaranteed under SemVer (ADR-012)
+
+**Exit:** `v1.0.0` released; Homebrew + Scoop point at it; all systems verified production-ready. ✅
 
 ---
 

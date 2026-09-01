@@ -54,8 +54,8 @@ Wait for CI (`main`) to go green before tagging.
 ### 3. Tag and publish
 
 ```bash
-git tag v0.9.0
-git push origin v0.9.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 Pushing the `v*` tag triggers the **Release** workflow
