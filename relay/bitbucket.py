@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -162,30 +163,34 @@ class BitbucketClient:
         raw = f"{username}:{password}".encode()
         return base64.b64encode(raw).decode("ascii")
 
-    def _request(self, request: urllib.request.Request):
+    def _request(self, request: urllib.request.Request, *, retries: int = 2):
         if self.verbose:
             print(f"[relay] bitbucket {request.get_method()} {request.full_url}")
-        try:
-            with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:  # nosec B310
-                body = resp.read(MAX_RESPONSE_BYTES + 1)
-                if len(body) > MAX_RESPONSE_BYTES:
-                    raise BitbucketError(
-                        f"Bitbucket API response exceeded the {MAX_RESPONSE_BYTES}-byte limit"
-                    )
-                return json.loads(body.decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
-            payload = _parse_json(body)
-            detail = _extract_reason(payload) or body.strip() or "unknown error"
-            raise BitbucketError(
-                f"Bitbucket API error {exc.code}: {detail}",
-                status=exc.code,
-                body=body,
-                payload=payload,
-                detail=detail,
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise BitbucketError(f"cannot reach Bitbucket: {exc.reason}") from exc
+        for attempt in range(retries + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:  # nosec B310
+                    body = resp.read(MAX_RESPONSE_BYTES + 1)
+                    if len(body) > MAX_RESPONSE_BYTES:
+                        raise BitbucketError(
+                            f"Bitbucket API response exceeded the {MAX_RESPONSE_BYTES}-byte limit"
+                        )
+                    return json.loads(body.decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                if exc.code in (429, 502, 503, 504) and attempt < retries:
+                    time.sleep(1.0 * (attempt + 1))
+                    continue
+                body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
+                payload = _parse_json(body)
+                detail = _extract_reason(payload) or body.strip() or "unknown error"
+                raise BitbucketError(
+                    f"Bitbucket API error {exc.code}: {detail}",
+                    status=exc.code,
+                    body=body,
+                    payload=payload,
+                    detail=detail,
+                ) from exc
+            except urllib.error.URLError as exc:
+                raise BitbucketError(f"cannot reach Bitbucket: {exc.reason}") from exc
 
     def find_open_pull(self, *, source_branch: str) -> dict | None:
         """Return the first open PR for ``source_branch``, else None.

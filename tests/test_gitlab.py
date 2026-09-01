@@ -1,4 +1,5 @@
 """Unit tests for relay/gitlab.py — the zero-dependency GitLab MR client."""
+import io
 import json
 import urllib.error
 from unittest import mock
@@ -154,3 +155,16 @@ class TestGitLabClient:
             urlopen.return_value.__enter__.return_value = response
             with pytest.raises(GitLabError, match="byte limit"):
                 make_client().find_open_mr(source_branch="feat/login")
+
+    def test_transient_http_errors_retry_and_recover(self):
+        err_503 = urllib.error.HTTPError("url", 503, "Service Unavailable", {}, io.BytesIO(b"{}"))
+        success_resp = mock.MagicMock()
+        success_resp.read.return_value = b'{"iid": 1, "web_url": "https://gitlab.com/acme/widget/-/merge_requests/1"}'
+        with mock.patch("relay.gitlab.time.sleep") as mock_sleep:
+            with mock.patch("urllib.request.urlopen", side_effect=[err_503, mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp))]) as mock_urlopen:
+                client = make_client()
+                res = client.open_merge_request(title="t", source_branch="b", target_branch="main")
+                assert res["iid"] == 1
+                assert mock_urlopen.call_count == 2
+                mock_sleep.assert_called_once_with(1.0)
+

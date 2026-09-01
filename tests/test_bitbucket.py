@@ -4,6 +4,7 @@ urllib.request.urlopen is mocked so no real network request is ever made; the
 suite stays hermetic and offline-safe.
 """
 import base64
+import io
 import json
 import urllib.error
 import urllib.parse
@@ -195,3 +196,17 @@ class TestVerboseLogging:
         out = capsys.readouterr().out
         assert "[relay] bitbucket GET" in out
         assert "pullrequests" in out
+
+    def test_transient_http_errors_retry_and_recover(self):
+        err_502 = urllib.error.HTTPError("url", 502, "Bad Gateway", {}, io.BytesIO(b"{}"))
+        success_resp = mock.MagicMock()
+        success_resp.read.return_value = b'{"id": 10, "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/10"}}}'
+        with mock.patch("relay.bitbucket.time.sleep") as mock_sleep:
+            with mock.patch("urllib.request.urlopen", side_effect=[err_502, mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp))]) as mock_urlopen:
+                client = make_client()
+                res = client.open_pull(title="t", source_branch="b", destination_branch="main")
+                assert res["id"] == 10
+                assert mock_urlopen.call_count == 2
+                mock_sleep.assert_called_once_with(1.0)
+
+

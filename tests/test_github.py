@@ -352,3 +352,18 @@ class TestOpenPull:
     def test_explicit_token_beats_env(self):
         with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "env"}):
             assert GitHubClient("a", "b", token="explicit").token == "explicit"
+
+    @mock.patch("relay.github.time.sleep")
+    @mock.patch("relay.github.urllib.request.urlopen")
+    def test_transient_http_errors_retry_and_recover(self, mock_urlopen, mock_sleep):
+        err_429 = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, io.BytesIO(b"{}"))
+        success_resp = mock.MagicMock()
+        success_resp.__enter__.return_value.read.return_value = b'{"number": 1, "html_url": "https://github.com/acme/widget/pull/1"}'
+        mock_urlopen.side_effect = [err_429, success_resp]
+
+        client = GitHubClient("acme", "widget", token="t")
+        res = client.open_pull(title="x", head="h")
+        assert res["number"] == 1
+        assert mock_urlopen.call_count == 2
+        mock_sleep.assert_called_once_with(1.0)
+
