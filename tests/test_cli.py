@@ -492,3 +492,19 @@ def test_main_multirepo_merges_and_dedupes_cli_and_config_repos(wired):
     assert orchestrator_cls.call_count == 3
 
 
+def test_main_multirepo_continues_on_per_repo_relay_error(wired, capsys):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = [
+        GitError("repo 1 error", stderr="fatal: mock failure"),
+        0,
+    ]
+    with mock.patch("relay.cli.config_repos", return_value=[]):
+        code = main(["--solo", "--repo", "repo1", "--repo", "repo2", "--verbose"])
+    assert code == 1
+    assert orchestrator_cls.call_count == 2
+    out = capsys.readouterr().out
+    assert "repo repo1: error: repo 1 error" in out
+    assert "fatal: mock failure" in out
+
+
+

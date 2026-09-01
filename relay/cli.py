@@ -397,10 +397,17 @@ def main(argv: list[str] | None = None) -> int:
             )
             try:
                 code = orchestrator.run()
-            except (UserAbort, RelayError):
+            except UserAbort:
                 raise
-            except Exception:
-                raise
+            except RelayError as exc:
+                if len(raw_repos) > 1:
+                    print(f"[relay] repo {cwd or '.'}: error: {sanitize_terminal(str(exc))}")
+                    stderr = getattr(exc, "stderr", None)
+                    if args.verbose and stderr:
+                        print(sanitize_terminal(stderr))
+                    code = 1
+                else:
+                    raise
             codes.append(code)
             _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
             if code != 0 and len(raw_repos) > 1:
