@@ -32,6 +32,8 @@ CI mirrors this on 3 OS × 3 Python (see `.github/workflows/ci.yml`). E2E `e2e_t
 | Protected-branch guard | `tests/test_protected.py` | `relay/protected.py` case-insensitive, env/file/default precedence |
 | Version consistency | `tests/test_version.py` | `relay/__init__.py` == `pyproject.toml` version |
 | Error taxonomy & NFR-7 audit | `tests/test_error_audit.py` | Every `raise RelayError` carries actionable message (scans `relay/**/*.py`) |
+| CLI surface stability & freeze | `tests/test_cli.py` | All 9 subcommands, flags, and options match ADR-012 frozen contract |
+| Performance timing harness (NFR-1) | `tests/test_performance.py` | CLI startup, config cache, and orchestrator dispatch latency < 50 ms |
 
 ### 3.2 Provider — HTTP without network
 
@@ -87,11 +89,10 @@ with patch("builtins.input", side_effect=["feat(x): add thing", ""]):
 2. Keep `pyproject.toml` dev array single-line (parser limitation).
 3. Ensure `pytest --cov-fail-under=90` passes locally before `relay --solo --yes`.
 
-## 7. Known Gaps (track in ROADMAP)
-
-- Hunk-level AI messages (v0.8) need diff-hunk fixtures.
-- Multi-repo / `relay --repo <path>` needs worktree fixtures.
-- Performance NFR-1 (<500 ms overhead) needs a timing harness (not yet in CI).
+## 7. Performance & Quality Guarantees
+- Performance NFR-1 (<500 ms CLI overhead) is continuously benchmarked by `tests/test_performance.py` (<50 ms pure overhead).
+- NFR-7 usability audit is enforced on every commit by `tests/test_error_audit.py`.
+- Zero-dependency stdlib purity and ≥90% branch coverage gate enforced in CI.
 
 ## 8. Quick Commands
 
