@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-02
+
+### Security & Supply Chain (DevSecOps)
+- Eliminated third-party GitHub Action `softprops/action-gh-release` in favor of native, zero-dependency `gh release create` CLI in the token-privileged release workflow (NIST SP 800-218 PW.4).
+- Isolated wheel smoke testing into a standalone temporary virtualenv outside the source tree to eliminate local directory package shadowing.
+- Added cryptographic `SHA256SUMS` generation for all release artifacts alongside CycloneDX SBOM before SLSA provenance attestation.
+- Added Bandit SAST security scanning with SARIF report upload to GitHub Advanced Security.
+- Enforced cross-platform POSIX bash shell defaults across all runner environments (Linux, macOS, and Windows).
+
+### Performance & CI Optimization
+- Optimized CI test matrix from 9 permutations to 5 high-impact configurations (Python 3.10-3.12 on Ubuntu + Python 3.12 on macOS and Windows), reducing runner queue time and pipeline compute by ~44%.
+- Added documentation path ignore rules (`docs/**`, `**.md`, `.gitignore`, `LICENSE`) to prevent unnecessary CI execution on documentation-only commits.
+- Configured non-destructive concurrency to prevent in-flight CI cancellation on the `main` branch while maintaining fast cancellation on PRs.
+
 ## [1.0.0] - 2026-09-01
 
 ### General Availability (GA) Release
@@ -406,7 +420,8 @@ Relay 1.0.0 marks the official **General Availability (GA)** release. All core w
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Fiqqar/Relay/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Fiqqar/Relay/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/Fiqqar/Relay/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/Fiqqar/Relay/compare/v0.8.0...v0.9.0
