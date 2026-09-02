@@ -14,50 +14,76 @@ permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build:
-    name: build ${{ github.ref_name }}
-    if: startsWith(github.ref, 'refs/tags/')
+    name: build release artifacts
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout Source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: ./.github/actions/bootstrap
+      - name: Set up Isolated Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.4.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Test and Build Dependencies
+        run: |
+          pip install --disable-pip-version-check ".[dev]"
+          pip install --disable-pip-version-check "pip-audit>=2.7,<3" "cyclonedx-bom>=5.0,<8"
 
       - name: Test suite must pass
         run: pytest -q
 
       - name: Dependency vulnerability scan
-        run: pip install "pip-audit>=2.7,<3" && pip-audit --strict .
+        run: pip-audit --strict .
 
       - name: Clean dist
         run: rm -rf dist build *.egg-info
 
       - name: Build sdist + wheel
-        run: python -m build
+        run: python -m build --sdist --wheel --outdir dist/
 
-      - name: Smoke-test the built wheel
+      - name: Isolated wheel smoke test
         run: |
-          pip install --no-deps --force-reinstall dist/relay_cli-*.whl
-          relay --version
-        shell: bash
+          python -m venv "${RUNNER_TEMP}/smoke-env"
+          "${RUNNER_TEMP}/smoke-env/bin/pip" install --no-deps dist/relay_cli-*.whl
+          (
+            cd "${RUNNER_TEMP}"
+            "${RUNNER_TEMP}/smoke-env/bin/relay" --version
+          )
 
       - name: Generate SBOM (shipped artifact only)
         run: |
-          pip install "cyclonedx-bom>=5.0,<8"
-          python -m venv /tmp/sbom-env
-          /tmp/sbom-env/bin/pip install --no-deps dist/relay_cli-*.whl
-          cyclonedx-py environment /tmp/sbom-env -o dist/relay-sbom.cdx.json
+          python -m venv "${RUNNER_TEMP}/sbom-env"
+          "${RUNNER_TEMP}/sbom-env/bin/pip" install --no-deps dist/relay_cli-*.whl
+          cyclonedx-py environment "${RUNNER_TEMP}/sbom-env" -o dist/relay-sbom.cdx.json
+
+      - name: Generate SHA256 checksums
+        run: |
+          (
+            cd dist
+            sha256sum * > SHA256SUMS
+          )
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
+          retention-days: 1
 
   attest-and-publish:
     name: attest & publish ${{ github.ref_name }}
@@ -80,8 +106,13 @@ jobs:
         with:
           subject-path: "dist/*"
 
-      - name: Create GitHub Release and upload artifacts
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-        with:
-          files: dist/*
-          generate_release_notes: true
+      - name: Publish GitHub Release via Native Toolchain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release create "${TAG_NAME}" dist/* \
+            --title "Release ${TAG_NAME}" \
+            --generate-notes \
+            --verify-tag

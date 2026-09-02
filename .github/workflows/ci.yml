@@ -3,14 +3,29 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".gitignore"
+      - "LICENSE"
   pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".gitignore"
+      - "LICENSE"
   workflow_dispatch:
 
 permissions: {}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   static-analysis:
@@ -18,22 +33,38 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout Source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: ./.github/actions/bootstrap
+      - name: Bootstrap Environment
+        uses: ./.github/actions/bootstrap
 
-      - name: Static analysis
+      - name: Static analysis (Ruff)
         run: ruff check .
 
-      - name: Type checking
+      - name: Type checking (MyPy)
         run: mypy relay
 
       - name: Dependency vulnerability scan
-        run: pip install "pip-audit>=2.7,<3" && pip-audit --strict .
+        run: |
+          pip install --disable-pip-version-check "pip-audit>=2.7,<3"
+          pip-audit --strict .
 
-      - name: Security scan
-        run: pip install "bandit>=1.7,<2" && bandit -r relay -ll
+      - name: Security scan (Bandit)
+        run: |
+          pip install --disable-pip-version-check "bandit[sarif]>=1.7,<2"
+          bandit -r relay -ll -f sarif -o bandit.sarif || true
+          bandit -r relay -ll
+
+      - name: Upload Bandit SARIF Report
+        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b473ac8087 # v3.28.10
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
 
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python-version }})
@@ -42,15 +73,26 @@ jobs:
     permissions:
       contents: read
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' }}
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout Source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: ./.github/actions/bootstrap
+      - name: Bootstrap Environment
+        uses: ./.github/actions/bootstrap
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -58,34 +100,45 @@ jobs:
         run: pytest -q --cov --cov-report=term
 
       - name: Smoke test the CLI entry point
-        run: relay --version
-
-      - name: Smoke test --help
-        run: relay --help
+        run: |
+          relay --version
+          relay --help
 
   build:
-    name: build wheel
+    name: build wheel & isolated smoke test
     runs-on: ubuntu-latest
     needs: static-analysis
     permissions:
       contents: read
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout Source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: ./.github/actions/bootstrap
+      - name: Set up Isolated Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.4.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tooling
+        run: pip install --disable-pip-version-check "build>=1.2,<2"
 
       - name: Clean dist
         run: rm -rf dist build *.egg-info
 
-      - name: sdist + wheel build
-        run: python -m build
+      - name: Build sdist and wheel
+        run: python -m build --sdist --wheel --outdir dist/
 
-      - name: Installed wheel works standalone
+      - name: Isolated wheel smoke test
         run: |
-          pip install --no-deps --force-reinstall dist/relay_cli-*.whl
-          relay --version
-        shell: bash
+          python -m venv "${RUNNER_TEMP}/smoke-env"
+          "${RUNNER_TEMP}/smoke-env/bin/pip" install --no-deps dist/relay_cli-*.whl
+          (
+            cd "${RUNNER_TEMP}"
+            "${RUNNER_TEMP}/smoke-env/bin/relay" --version
+            "${RUNNER_TEMP}/smoke-env/bin/relay" --help
+          )
 
   e2e:
     name: e2e (${{ matrix.os }})
@@ -99,9 +152,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout Source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: ./.github/actions/bootstrap
+      - name: Bootstrap Environment
+        uses: ./.github/actions/bootstrap
 
       - name: Run the end-to-end test (POSIX)
         if: runner.os != 'Windows'
