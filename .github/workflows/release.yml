@@ -117,7 +117,7 @@ jobs:
             gh release upload "${TAG_NAME}" dist/* --clobber
           else
             gh release create "${TAG_NAME}" dist/* \
-              --title "Release ${TAG_NAME}" \
+              --title "${TAG_NAME}" \
               --generate-notes \
               --verify-tag
           fi
