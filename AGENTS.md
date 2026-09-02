@@ -25,4 +25,5 @@ rules. Those rules bind humans and AI alike and are summarized briefly here:
 - Git identity: `Fiqqar` / `fiqarsilmy@gmail.com`.
 - Remote: `https://github.com/Fiqqar/Relay.git`. Default branch: `main`.
 - Releases: runbook in `RELEASE.md` (bump version, re-point Formula/Scoop with
-  real hashes from a local `python -m build`, tag `v*` triggers release CI).
+  real hashes from a local `python -m build`, tag `v*` triggers release CI;
+  tags and release titles are strictly `vx.y.z` with no extra words).

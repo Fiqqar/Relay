@@ -84,6 +84,12 @@ mypy relay
 - If AI is offline/rate-limited, `relay` falls back to manual input — still use it (type the Conventional subject + body, blank line to finish). Never bypass with `git commit -m`.
 - This proves the change survives the real preflight → stage → AI/manual → confirm → commit → push path, not just `pytest`.
 
+### 9. Release tagging — strictly 'vx.y.z' only
+
+- Tag format: `vx.y.z` (e.g. `v1.0.1`), strictly SemVer with a leading `v`.
+- **No extra words or descriptive phrases** in the tag name or GitHub release title (never `Release vx.y.z`, `v1.0.1-final`, etc.). Tag identifier and release title must always be strictly `vx.y.z` only.
+- Tag annotations can contain release notes (`git tag vx.y.z -m "..."`), but the tag name itself must remain purely `vx.y.z`.
+
 ## Common mistakes (checklist)
 
 - [ ] Commit subject > 72 characters / not imperative
@@ -95,3 +101,4 @@ mypy relay
 - [ ] Pushed before tests/lint/mypy are green
 - [ ] Committed with `git commit` instead of `relay --solo/--team --yes` (not dogfooded)
 - [ ] Batched multiple `relay` commits locally instead of push-straight per change
+- [ ] Release tag or release title contains extra words (must be strictly 'vx.y.z' only)

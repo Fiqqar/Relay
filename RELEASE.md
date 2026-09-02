@@ -53,9 +53,11 @@ Wait for CI (`main`) to go green before tagging.
 
 ### 3. Tag and publish
 
+Tags and GitHub release titles must follow the strict `vx.y.z` format only (no extra words or descriptive prefixes/suffixes):
+
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 Pushing the `v*` tag triggers the **Release** workflow
