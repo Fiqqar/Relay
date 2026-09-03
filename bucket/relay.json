@@ -4,7 +4,7 @@
   "homepage": "https://github.com/Fiqqar/Relay",
   "license": "MIT",
   "url": "https://github.com/Fiqqar/Relay/releases/download/v1.0.2/relay_cli-1.0.2-py3-none-any.whl",
-  "hash": "sha256:f8924b10b025502d2c11b465cd482774b2fce35512326253925e116fb5174f2c",
+  "hash": "sha256:8945eed44da4afb330d10799ac9113e6816a7e25de5ad1711d06a24d584b9285",
   "depends": [
     "git",
     "python"
