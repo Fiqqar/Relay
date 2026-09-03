@@ -15,6 +15,15 @@
 #   ./e2e_test.sh          (or:  bash e2e_test.sh)
 set -euo pipefail
 
+# Locate relay binary; fall back to python -m relay if not on PATH
+if command -v relay >/dev/null 2>&1; then
+  relay_cmd=(relay)
+elif command -v python3 >/dev/null 2>&1; then
+  relay_cmd=(python3 -m relay)
+else
+  relay_cmd=(python -m relay)
+fi
+
 expect="fix: e2e test commit"
 repo="$(mktemp -d)"
 trap 'rm -rf "$repo"' EXIT
@@ -32,9 +41,13 @@ git -C "$repo" add .
 
 (
   cd "$repo"
+  # Quick diagnostic smoke checks
+  "${relay_cmd[@]}" --version >/dev/null
+  "${relay_cmd[@]}" --help >/dev/null
+
   # Subject + trailing blank line so the manual-input loop terminates on
   # EOF-free, non-interactive stdin (blank line ends the body loop).
-  printf '%s\n\n' "$expect" | relay --solo --no-push --provider ollama
+  printf '%s\n\n' "$expect" | "${relay_cmd[@]}" --solo --no-push --provider ollama
 )
 
 subject="$(git -C "$repo" log -1 --format=%s)"
