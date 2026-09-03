@@ -18,7 +18,7 @@ _CONVENTIONAL_RE = re.compile(
     r"^(?P<type>[a-zA-Z]+)"               # commit type
     r"(\((?P<scope>[^)]+)\))?"            # optional (scope)
     r"(?P<breaking>!)?"                   # optional breaking-change bang
-    r":\s+(?P<subject>[^\s].*?[^\s])$"    # subject (no leading/trailing ws).
+    r":\s+(?P<subject>[^\s](?:.*[^\s])?)$"  # subject (no leading/trailing ws, min 1 char).
 )
 
 

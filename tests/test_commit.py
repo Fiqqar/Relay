@@ -45,6 +45,8 @@ class TestValidateConventional:
             "docs(readme): clarify install",
             "test(unit): cover fallback path",
             "FEAT: uppercase type is normalized",
+            "fix: x",
+            "chore(deps): a",
         ],
     )
     def test_valid_messages(self, message):
