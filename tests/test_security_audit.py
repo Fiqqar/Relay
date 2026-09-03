@@ -107,3 +107,16 @@ def test_telemetry_url_ssrf_validation():
     assert not _is_https("https://169.254.169.254/api")
 
 
+def test_api_redirects_are_rejected_to_prevent_credential_leakage():
+    """Verify that default urlopen opener rejects 3xx redirects to prevent credential leak."""
+    import urllib.error
+    import urllib.request
+
+    from relay import _NoRedirectHandler
+
+    handler = _NoRedirectHandler()
+    req = urllib.request.Request("https://example.com/api")
+    # redirect_request returning None causes urllib to raise HTTPError instead of redirecting
+    assert handler.redirect_request(req, None, 302, "Found", {}, "https://evil.com/leak") is None
+
+
