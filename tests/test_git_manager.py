@@ -628,6 +628,20 @@ class TestUndoAndSquashGuards:
         assert git.stat_range("-p", "HEAD") == ""
         assert git.stat_range("HEAD", "-p") == ""
 
+        # Leading dash in remote_has_branch must return False safely
+        assert git.remote_has_branch("main", remote="--upload-pack=evil") is False
+        assert git.remote_has_branch("", remote="origin") is False
+
+        # Leading dash in fetch must raise GitError when check=True or no-op when check=False
+        with pytest.raises(GitError, match="invalid git fetch remote"):
+            git.fetch(remote="--upload-pack=evil", check=True)
+        git.fetch(remote="--upload-pack=evil", check=False)  # no exception
+
+        # Leading dash in config_get and remote_url must return empty string safely
+        assert git.config_get("--bool") == ""
+        assert git.config_get("-f") == ""
+        assert git.remote_url("--bad") == ""
+
 
 # ---- coverage: empty-repo head_diff / binary paths ------------------------
 

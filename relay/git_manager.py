@@ -194,11 +194,15 @@ class GitManager:
         "unset" rather than an error so callers can give their own message
         (e.g. a missing user.name before a commit).
         """
+        if not key or key.startswith("-"):
+            return ""
         proc = self._run("config", "--get", key, check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
 
     def remote_url(self, name: str = "origin") -> str:
         """Value of ``remote.<name>.url`` ('' if that remote is not configured)."""
+        if not name or name.startswith("-"):
+            return ""
         return self.config_get(f"remote.{name}.url")
 
     def remote_has_branch(self, branch: str, remote: str = "origin") -> bool:
@@ -208,6 +212,8 @@ class GitManager:
         1 otherwise, so a missing branch (or an offline remote) simply yields
         False instead of raising.
         """
+        if not remote or remote.startswith("-") or not branch:
+            return False
         proc = self._run(
             "ls-remote", "--exit-code", "--heads", remote, "--", branch, check=False
         )
@@ -420,6 +426,13 @@ class GitManager:
         that tolerate an offline network should pass ``check=False`` — a failed
         fetch falls back to whatever refs are already present.
         """
+        if not remote or remote.startswith("-"):
+            if check:
+                raise GitError(
+                    f"invalid git fetch remote: {remote!r}",
+                    command=f"git fetch {remote}",
+                )
+            return
         cmd = ["fetch", remote]
         if ref:
             cmd += ["--", ref]
