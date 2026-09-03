@@ -605,6 +605,29 @@ class TestUndoAndSquashGuards:
         git.reset_soft("HEAD~3")
         assert mock_run.call_args.args[0] == ["git", "reset", "--soft", "HEAD~3"]
 
+    def test_option_injection_guards(self, git):
+        # Leading dash in rev_parse must safely return empty string without running git
+        assert git.rev_parse("-q") == ""
+        assert git.rev_parse("--verify") == ""
+
+        # Leading dash in reset_soft must raise GitError to prevent option injection
+        import pytest
+
+        from relay.errors import GitError
+
+        with pytest.raises(GitError, match="invalid git reset target"):
+            git.reset_soft("--hard")
+        with pytest.raises(GitError, match="invalid git reset target"):
+            git.reset_soft("-q")
+
+        # Leading dash in commit ranges must return empty string safely
+        assert git.log_between("-p", "HEAD") == ""
+        assert git.log_between("HEAD", "-p") == ""
+        assert git.diff_range("-p", "HEAD") == ""
+        assert git.diff_range("HEAD", "-p") == ""
+        assert git.stat_range("-p", "HEAD") == ""
+        assert git.stat_range("HEAD", "-p") == ""
+
 
 # ---- coverage: empty-repo head_diff / binary paths ------------------------
 

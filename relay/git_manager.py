@@ -224,6 +224,8 @@ class GitManager:
         Empty when ``base`` does not exist yet (or the range is empty), so
         callers can fall back to a plain body without handling git errors.
         """
+        if not base or not head or base.startswith("-") or head.startswith("-"):
+            return ""
         proc = self._run("log", "--format=%s", f"{base}..{head}", "--", check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
 
@@ -236,10 +238,14 @@ class GitManager:
         index may hold unrelated changes that would otherwise leak into an
         AI-generated message.
         """
+        if not base or not head or base.startswith("-") or head.startswith("-"):
+            return ""
         return self._run("diff", f"{base}..{head}", "--unified=0", "--").stdout
 
     def stat_range(self, base: str, head: str) -> str:
         """Short diffstat of commits ``base``..``head`` (context for AI prompts)."""
+        if not base or not head or base.startswith("-") or head.startswith("-"):
+            return ""
         return self._run("diff", f"{base}..{head}", "--stat", "--").stdout
 
     # ---- Staging / diff -----------------------------------------------------
@@ -444,6 +450,8 @@ class GitManager:
 
     def rev_parse(self, ref: str) -> str:
         """Full SHA of a ref ('' when the ref does not exist)."""
+        if not ref or ref.startswith("-"):
+            return ""
         proc = self._run("rev-parse", ref, check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
 
@@ -470,4 +478,6 @@ class GitManager:
         new commit (or an amend) can reuse it exactly. ``undo`` uses the default
         ``HEAD~1``; ``squash`` passes ``HEAD~N`` to fold several commits.
         """
+        if not target or target.startswith("-"):
+            raise GitError(f"invalid git reset target: {target!r}")
         self._run("reset", "--soft", target)
