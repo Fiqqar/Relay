@@ -1,7 +1,13 @@
 # Relay
 
-
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+<p align="left">
+  <a href="https://github.com/Fiqqar/Relay/releases"><img src="https://img.shields.io/github/v/release/Fiqqar/Relay?style=for-the-badge&logo=github&logoColor=white" alt="Release"></a>
+  <a href="https://github.com/Fiqqar/Relay/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Fiqqar/Relay/ci.yml?branch=main&label=CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/Fiqqar/Relay/security/code-scanning"><img src="https://img.shields.io/badge/Security-CodeQL-success?style=for-the-badge&logo=github&logoColor=white" alt="CodeQL"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge" alt="Ruff"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License: MIT"></a>
+</p>
 
 **Your Git workflow, on autopilot.**
 
