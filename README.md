@@ -11,7 +11,7 @@
 
 **Your Git workflow, on autopilot.**
 
-One command collapses the tedious daily Git loop into a reviewable, AI-assisted workflow:
+One command collapses the daily Git loop into a reviewable, AI-assisted workflow:
 
 ```text
 git add .  →  generate Conventional Commit  →  git commit  →  git push  →  open PR
@@ -21,18 +21,18 @@ git add .  →  generate Conventional Commit  →  git commit  →  git push  �
   <img src="assets/relay-demo.gif" alt="Relay Demo" width="100%" style="max-width: 800px; border-radius: 8px;">
 </p>
 
-Relay reads your staged diff, consults your preferred AI model (Gemini, local Ollama, OpenAI, Anthropic, Mistral, Groq, or xAI), and formats a compliant **Conventional Commit**. If the AI is rate-limited, offline, or unavailable, Relay **never blocks your flow** — it drops straight into a manual terminal prompt and continues smoothly.
+Relay inspects your staged diff, consults your preferred AI model (Gemini, local Ollama, OpenAI, Anthropic, Mistral, Groq, or xAI), and formats a standard Conventional Commit message. If the AI is rate-limited, offline, or unavailable, Relay never blocks your flow. It drops straight into a manual terminal prompt and continues the workflow from there.
 
 ---
 
 ## Highlights
 
-- ⚡ **Zero Runtime Dependencies** — 100% Python standard library. Instant install, minimal attack surface, works offline.
-- 🤖 **AI Conventional Commits** — Generates meaningful `type(scope): subject` messages from your actual staged changes.
-- 🛡️ **Human-in-the-Loop Fallback** — Always review before committing (`[Accept] [Edit] [Retry] [Abort]`). Seamless terminal fallback if AI fails.
-- 🚀 **Solo & Team Modes** — Commit and push straight to the current branch (`--solo`), or auto-create `<type>/<feature>` branches with default-branch protection (`--team`).
-- 🌐 **Instant Forge Pull Requests** — Open PRs/MRs natively on GitHub, GitLab, and Bitbucket Cloud (`relay pr`) without external CLI tools.
-- 🔒 **Security-First Architecture** — Secrets are strictly environment-only. No `shell=True` subprocess calls. Protected-branch safety guards against accidental pushes to `main`.
+- **Zero Runtime Dependencies** — Pure Python standard library. Fast install, minimal attack surface, and works offline.
+- **AI Conventional Commits** — Generates `type(scope): subject` commit messages derived from your actual staged diff.
+- **Human-in-the-Loop Fallback** — Interactive review before committing (`[Accept] [Edit] [Retry] [Abort]`). Seamless terminal fallback if AI is unreachable.
+- **Solo and Team Modes** — Commit and push directly to the current branch (`--solo`), or branch out cleanly with branch protection (`--team`).
+- **Instant Forge Pull Requests** — Open PRs/MRs directly from the terminal on GitHub, GitLab, and Bitbucket Cloud (`relay pr`).
+- **Security-First Architecture** — Secrets are strictly environment-only. No `shell=True` subprocess calls. Protected-branch safety guards against accidental pushes to `main`.
 
 ---
 
@@ -119,26 +119,24 @@ branches = ["main", "master", "develop"]
 paths = ["dist/*", "*.lock", "package-lock.json"]
 ```
 
-> 🔐 **Security Guarantee:** Secrets (`*_API_KEY`, `GITHUB_TOKEN`, `GITLAB_TOKEN`) are **strictly environment-only** and never read from config files or logged to disk.
+> **Security Guarantee:** Secrets (`*_API_KEY`, `GITHUB_TOKEN`, `GITLAB_TOKEN`) are strictly environment-only and never read from config files or written to disk.
 
 ---
 
 ## Documentation
 
-Comprehensive architectural design and governance documentation:
-
-- 📖 [Product Specification (PRD)](docs/SPEC.md) — Personas, functional requirements, and non-goals.
-- 🏗️ [Architecture & Components](docs/ARCHITECTURE.md) — Data flow and internal module design.
-- 🔄 [State Machine & Logic Flow](docs/FLOW.md) — State transitions, error matrix, and edge cases.
-- 📜 [Architecture Decision Records (ADR)](docs/ADR.md) — Permanent rationale behind key technical choices.
-- 🛡️ [Threat Model & Security](docs/THREAT_MODEL.md) — Security boundaries and attack surface mitigations.
-- 🚦 [Working Rules](docs/WORKING_RULES.md) — Mandatory engineering rules (90% coverage gate, zero dependencies).
-- 🗺️ [Project Roadmap](docs/ROADMAP.md) — Milestones, shipped history, and future directions.
+- [Product Specification (PRD)](docs/SPEC.md) — Personas, functional requirements, and non-goals.
+- [Architecture & Components](docs/ARCHITECTURE.md) — Data flow and internal module design.
+- [State Machine & Logic Flow](docs/FLOW.md) — State transitions, error matrix, and edge cases.
+- [Architecture Decision Records (ADRs)](docs/ADR.md) — Rationale behind key technical choices.
+- [Threat Model & Security](docs/THREAT_MODEL.md) — Security boundaries and attack surface mitigations.
+- [Working Rules](docs/WORKING_RULES.md) — Mandatory engineering rules (90% coverage gate, zero dependencies).
+- [Project Roadmap](docs/ROADMAP.md) — Milestones, shipped history, and future directions.
 
 ---
 
 ## Contributing & License
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/WORKING_RULES.md](docs/WORKING_RULES.md) before opening a pull request.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/WORKING_RULES.md](docs/WORKING_RULES.md) before opening a pull request.
 
 Relay is distributed under the [MIT License](LICENSE).
