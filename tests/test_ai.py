@@ -130,6 +130,15 @@ class TestGemini:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "bad_response"
 
+    def test_error_in_response_body_raises_bad_response(self):
+        payload = {"error": {"code": 400, "message": "API key not valid"}}
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(payload)
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+        assert "API key not valid" in str(exc_info.value)
+
 
 class TestOllama:
     def make_provider(self):
@@ -139,12 +148,29 @@ class TestOllama:
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value.__enter__.return_value = fake_http(OLLAMA_SUCCESS)
             result = self.make_provider().generate_commit_message(sample_diff, sample_stat, "main")
-
         assert result == "fix: update docs"
         request = mock_urlopen.call_args.args[0]
         assert request.full_url == "http://localhost:11434/api/generate"
         headers = {key.lower(): value for key, value in request.headers.items()}
         assert headers["content-type"] == "application/json"
+
+    def test_http_429_maps_to_rate_limited_aierror(self):
+        http_error = urllib.error.HTTPError(
+            "http://localhost:11434", 429, "Too Many Requests", {}, None
+        )
+        with mock.patch("urllib.request.urlopen", side_effect=http_error):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "rate_limited"
+
+    def test_http_4xx_maps_to_api_error_aierror(self):
+        http_error = urllib.error.HTTPError(
+            "http://localhost:11434", 404, "Not Found", {}, None
+        )
+        with mock.patch("urllib.request.urlopen", side_effect=http_error):
+            with pytest.raises(AIError) as exc_info:
+                self.make_provider().generate_commit_message("d", "s", "b")
+        assert exc_info.value.kind == "api_error"
 
     def test_http_500_maps_to_unavailable_aierror(self):
         http_error = urllib.error.HTTPError(

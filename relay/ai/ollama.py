@@ -52,7 +52,13 @@ class OllamaProvider(AIManager):
                     read_limited_response(response, self.provider_name).decode("utf-8")
                 )
         except urllib.error.HTTPError as exc:
-            raise AIError(self.provider_name, "unavailable", f"HTTP {exc.code}: {exc.reason}") from exc
+            if exc.code == 429:
+                kind = "rate_limited"
+            elif exc.code >= 500:
+                kind = "unavailable"
+            else:
+                kind = "api_error"
+            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {exc.reason}") from exc
         except TimeoutError as exc:
             # Timeout hit -> "unavailable" so the Orchestrator falls back to
             # manual input rather than waiting on a hung model.

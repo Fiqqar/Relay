@@ -91,6 +91,9 @@ class GeminiProvider(AIManager):
         except ConnectionError as exc:
             raise AIError(self.provider_name, "unavailable", f"connection error: {exc}") from exc
 
+        if "error" in data:
+            raise AIError(self.provider_name, "bad_response", str(data["error"]))
+
         # Gemini wraps the answer in candidates[0].content.parts[0].text.
         try:
             return data["candidates"][0]["content"]["parts"][0]["text"]

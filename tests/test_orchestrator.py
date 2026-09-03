@@ -151,6 +151,28 @@ def test_rate_limited_recovers_on_second_attempt(mock_input, mock_sleep, git):
 
 
 @mock.patch("relay.orchestrator.time.sleep")
+def test_ollama_429_triggers_retry_in_orchestrator(mock_sleep, git):
+    import json
+    import urllib.error
+
+    from relay.ai.ollama import OllamaProvider
+
+    provider = OllamaProvider(base_url="http://localhost:11434", model="qwen2.5-coder:7b", timeout=5)
+    err_429 = urllib.error.HTTPError("http://localhost:11434/api/generate", 429, "Too Many Requests", {}, None)
+    success_resp = mock.MagicMock()
+    success_resp.read.return_value = json.dumps({"response": "feat(core): recovered from 429"}).encode("utf-8")
+    success_resp.__enter__.return_value = success_resp
+    success_resp.__exit__.return_value = False
+
+    with mock.patch("urllib.request.urlopen", side_effect=[err_429, success_resp]):
+        code = make_orchestrator(git, provider=provider, yes=True).run()
+
+    assert code == 0
+    assert mock_sleep.call_count == 1
+    git.commit.assert_called_once_with("feat(core): recovered from 429", no_verify=False)
+
+
+@mock.patch("relay.orchestrator.time.sleep")
 @mock.patch("builtins.input", return_value="")
 def test_api_error_is_retried_twice_before_fallback(mock_input, mock_sleep, git):
     """api_error (e.g. a 4xx HTTP status) is in the transient retry set, so it
