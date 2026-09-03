@@ -39,9 +39,7 @@ jobs:
           cache: pip
 
       - name: Install Test and Build Dependencies
-        run: |
-          pip install --disable-pip-version-check ".[dev]"
-          pip install --disable-pip-version-check "pip-audit>=2.7,<3" "cyclonedx-bom>=5.0,<8"
+        run: pip install --disable-pip-version-check ".[dev]" "pip-audit>=2.7,<3" "cyclonedx-bom>=5.0,<8"
 
       - name: Test suite must pass
         run: pytest -q
