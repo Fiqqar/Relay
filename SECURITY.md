@@ -42,6 +42,9 @@ weaken them:
   until `relay telemetry on` is run *and* `RELAY_TELEMETRY_URL` is set.
 - **No data leaves the machine** except requests to the AI provider or forge
   you explicitly configure.
+- **Custom hooks follow Git's trust model.** Commands configured under `[hooks]`
+  run with user privileges (argv-as-list, `shell=False`) and must only be defined
+  in user-controlled configuration files.
 
 See the [Installation & Security](README.md#security) section of the README
 for the full design notes.
@@ -53,8 +56,8 @@ previous release. Older releases are not patched.
 
 | Version | Supported |
 | --- | --- |
-| latest (v0.7.x) | ✅ |
-| previous minor (v0.6.x) | ⚠️ critical fixes only |
+| latest (v1.x) | ✅ |
+| previous minor (v0.9.x) | ⚠️ critical fixes only |
 | older | ❌ |
 
 ## Verification
