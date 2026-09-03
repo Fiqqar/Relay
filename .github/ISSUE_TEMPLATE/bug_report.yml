@@ -1,0 +1,95 @@
+name: Bug Report
+description: File an issue to help us reproduce and fix a bug in Relay
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue!
+        Please verify that you are running the latest version of Relay (`relay --version`)
+        and run `relay doctor` before submitting.
+
+  - type: input
+    id: relay-version
+    attributes:
+      label: Relay Version
+      description: Run `relay --version` and paste the output here.
+      placeholder: "relay 1.0.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Linux (Ubuntu / Debian / Fedora / Arch)
+        - macOS (Apple Silicon / Intel)
+        - Windows 10 / 11 (PowerShell / cmd / WSL)
+        - Other (specify in details)
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: Run `python --version` and paste the output.
+      placeholder: "Python 3.11.9"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: AI Provider
+      options:
+        - Gemini (default)
+        - Ollama (local)
+        - OpenAI / OpenAI-compatible
+        - Anthropic
+        - Mistral
+        - Groq
+        - xAI
+        - None / Manual Fallback
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Describe the exact steps or command sequence to reproduce the problem.
+      placeholder: |
+        1. Run `relay --solo`
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior & Error Logs
+      description: Paste the terminal output (preferably with `--verbose` enabled).
+      render: shell
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate.
+          required: true
+        - label: I have run `relay doctor` to verify environment prerequisites.
+          required: true

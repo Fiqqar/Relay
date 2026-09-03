@@ -1,0 +1,45 @@
+name: Feature Request
+description: Suggest a new idea or improvement for Relay
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Relay!
+        Before proposing a feature, please review `docs/SPEC.md` and `docs/ROADMAP.md`
+        to check Relay's non-goals (e.g. pure-stdlib, zero runtime dependencies).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Friction
+      description: Is your feature request related to a specific problem or workflow friction?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see (new flag, command, or config setting).
+      placeholder: "Add `--new-flag` to allow..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or workarounds you've considered.
+    validations:
+      false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples of how other tools do it.
+    validations:
+      false

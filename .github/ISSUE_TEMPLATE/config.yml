@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability Reporting
+    url: https://github.com/Fiqqar/Relay/security/advisories/new
+    about: Please report security vulnerabilities privately via GitHub Security Advisories.
+  - name: Ask a Question or Discuss Ideas
+    url: https://github.com/Fiqqar/Relay/discussions
+    about: For Q&A, workflow ideas, and general discussion, visit GitHub Discussions.
