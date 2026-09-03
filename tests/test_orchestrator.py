@@ -378,6 +378,22 @@ def test_team_branch_uses_docs_type_from_ai_message(mock_input, git):
     git.create_branch.assert_called_once_with("docs/setup")
 
 
+def test_team_branch_preserves_nested_slash_feature_name(git):
+    orch = make_orchestrator(git, mode="team")
+    # Current branch with multiple slashes should preserve all segments after the first slash
+    result = orch._resolve_team_branch_name("feat: add login", current_branch="feat/frontend/login")
+    assert result == "feat/frontend/login"
+
+
+def test_resolve_team_branch_reuses_current_branch_without_spawning_git(git):
+    orch = make_orchestrator(git, mode="team")
+    git.current_branch.reset_mock()
+    result = orch._resolve_team_branch_name("feat: add login", current_branch="feature-x")
+    assert result == "feat/feature-x"
+    # git.current_branch should not have been called since current_branch was passed
+    git.current_branch.assert_not_called()
+
+
 @mock.patch("builtins.input", side_effect=["fix: push fails but commit stays", ""])
 def test_push_failure_returns_1_and_keeps_commit(mock_input, git):
     git.push.side_effect = GitError("push rejected", stderr="! [rejected]")

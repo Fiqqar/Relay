@@ -166,7 +166,7 @@ class Orchestrator:
         # can report the plan without creating the branch.
         team_branch = None
         if self.mode == "team":
-            team_branch = self._resolve_team_branch_name(message)
+            team_branch = self._resolve_team_branch_name(message, current_branch=branch)
             blocked = is_protected(team_branch, self.protected_branches)
 
         force = self.allow_protected
@@ -475,7 +475,7 @@ class Orchestrator:
             return f"{first}\n\n{rest}"
         return message
 
-    def _resolve_team_branch_name(self, message: str) -> str:
+    def _resolve_team_branch_name(self, message: str, current_branch: str = "") -> str:
         """Feature-name precedence: --team <name> > current branch > prompt.
 
         The branch prefix is the Conventional Commit type extracted from the
@@ -488,9 +488,10 @@ class Orchestrator:
         """
         feature = self.feature
         if not feature:
-            current = self.git.current_branch()
+            current = current_branch or self.git.current_branch()
             if current and not is_protected(current, self.protected_branches):
-                feature = current.split("/")[-1]
+                parts = current.split("/", 1)
+                feature = parts[1] if len(parts) > 1 else parts[0]
             if not feature:
                 feature = self._prompt_feature_name()
         commit_type = extract_commit_type(message) or "feat"
