@@ -11,28 +11,52 @@
 
 **Your Git workflow, on autopilot.**
 
-One command collapses the daily Git loop into a reviewable, AI-assisted workflow:
+Relay is a zero-dependency CLI that turns your daily Git loop into a single command: stage changed files, generate a Conventional Commit message via LLM, commit, push, and open a Pull Request.
 
 ```text
-git add .  →  generate Conventional Commit  →  git commit  →  git push  →  open PR
+git add .  ──▶  Generate Conventional Commit  ──▶  git commit  ──▶  git push  ──▶  Open PR
 ```
 
 <p align="center">
-  <img src="assets/relay-demo.gif" alt="Relay Demo" width="100%" style="max-width: 800px; border-radius: 8px;">
+  <img src="assets/relay-demo.gif" alt="Relay Terminal Walkthrough" width="100%" style="max-width: 800px; border-radius: 8px;">
 </p>
 
-Relay inspects your staged diff, consults your preferred AI model (Gemini, local Ollama, OpenAI, Anthropic, Mistral, Groq, or xAI), and formats a standard Conventional Commit message. If the AI is rate-limited, offline, or unavailable, Relay never blocks your flow. It drops straight into a manual terminal prompt and continues the workflow from there.
+```mermaid
+flowchart LR
+    A["Working Tree"] --> B["relay"]
+    B --> C{"Mode Selection"}
+    C -->|--solo| D["Commit & Push to Current Branch"]
+    C -->|--team| E["Create & Checkout Branch, Push -u"]
+    D --> F["relay pr"]
+    E --> F
+    F --> G["Native Pull Request (GitHub / GitLab / Bitbucket)"]
+```
+
+> [!NOTE]
+> **Zero Network Dependency for Core Operations**  
+> Relay runs entirely on the Python standard library. If the AI model is offline, rate-limited, or misconfigured, Relay immediately drops into an interactive manual prompt in the same terminal session so your work is never blocked.
 
 ---
 
-## Highlights
+## Key Capabilities
 
-- **Zero Runtime Dependencies** — Pure Python standard library. Fast install, minimal attack surface, and works offline.
-- **AI Conventional Commits** — Generates `type(scope): subject` commit messages derived from your actual staged diff.
-- **Human-in-the-Loop Fallback** — Interactive review before committing (`[Accept] [Edit] [Retry] [Abort]`). Seamless terminal fallback if AI is unreachable.
-- **Solo and Team Modes** — Commit and push directly to the current branch (`--solo`), or branch out cleanly with branch protection (`--team`).
-- **Instant Forge Pull Requests** — Open PRs/MRs directly from the terminal on GitHub, GitLab, and Bitbucket Cloud (`relay pr`).
-- **Security-First Architecture** — Secrets are strictly environment-only. No `shell=True` subprocess calls. Protected-branch safety guards against accidental pushes to `main`.
+- **Zero Runtime Dependencies**  
+  Built strictly with the Python standard library. No `requests`, no `pydantic`, no external CLI frameworks. Installs in seconds and runs anywhere Python 3.10+ is present.
+
+- **AI-Powered Conventional Commits**  
+  Inspects the actual `git diff --cached` and generates standard `type(scope): subject` commit messages. Supports Gemini, local Ollama, OpenAI, Anthropic, Mistral, Groq, and xAI.
+
+- **Human-in-the-Loop Control**  
+  Every message is presented for review before committing (`[Accept] [Edit] [Retry] [Abort]`). Auto-accept can be enabled with `--yes`.
+
+- **Solo and Team Modes**  
+  Use `--solo` to commit and push straight to your current branch. Use `--team <feature>` to auto-create feature branches, with built-in default branch protection preventing accidental direct pushes to `main`.
+
+- **Native Forge Pull Requests**  
+  Create PRs directly from your terminal (`relay pr`) via zero-dependency REST clients for GitHub, GitLab (including self-hosted), and Bitbucket Cloud.
+
+- **Engineered for Reliability**  
+  Subprocess calls are executed with strict `argv` arrays (`shell=False`). Secrets remain environment-only. Every command is tested with a 90%+ coverage gate.
 
 ---
 
@@ -46,7 +70,8 @@ Requires **Python 3.10+** and `git` on your `PATH`.
 | **Windows** | Scoop | `scoop bucket add relay https://github.com/Fiqqar/Relay && scoop install relay/relay` |
 | **Anywhere** | pip / git | `pip install "git+https://github.com/Fiqqar/Relay.git"` |
 
-> Or install locally from source:
+> [!TIP]
+> You can also run the bundled installer directly from a cloned repo:
 > ```bash
 > python install.py --yes
 > ```
@@ -55,56 +80,88 @@ Requires **Python 3.10+** and `git` on your `PATH`.
 
 ## Quick Start
 
+### 1. Set Provider Credentials
+
+Set the API key for your chosen provider:
+
 ```bash
-# 1. Set your API key (environment variable)
-export GEMINI_API_KEY="your-api-key"   # or OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.
+# Gemini (default)
+export GEMINI_API_KEY="your-key-here"
 
-# 2. Verify installation & health
-relay doctor
+# Or local Ollama (no key needed)
+export RELAY_AI_PROVIDER="ollama"
+```
 
-# 3. Daily workflow:
-relay --solo                     # Stage all, generate AI commit, push to current branch
-relay --team "payments"          # Create feat/payments branch, commit, push
-relay pr --open                  # Create PR and open it in your browser
+### 2. Verify Your Environment
+
+Run `relay doctor` to verify Python, Git, and credentials:
+
+```console
+$ relay doctor
+[relay doctor] Relay 1.0.2 - gemini provider
+
+  Python 3.10+       PASS   3.11.9
+  relay on PATH      PASS   /usr/local/bin/relay
+  git installed      PASS   2.43.0
+  inside a git repo  PASS   branch: feat/auth, remote: yes, working tree: clean
+  provider: gemini   PASS   Gemini API
+  AI credentials     PASS   GEMINI_API_KEY is set
+  GitHub token       PASS   GITHUB_TOKEN is set
+
+  7 pass, 0 warn, 0 fail - system healthy.
+```
+
+### 3. Daily Workflow
+
+```bash
+# Solo workflow: stage all, generate commit message, push to current branch
+relay --solo
+
+# Team workflow: stage all, create feat/checkout branch, push upstream
+relay --team "checkout"
+
+# Open a pull request for the pushed branch
+relay pr --open
 ```
 
 ---
 
-## Core Commands & Flags
+## Command Reference
 
-| Command / Flag | Purpose |
+| Command / Flag | Description |
 | :--- | :--- |
-| `relay --solo` | Stage all, generate commit message, push to current branch *(default)*. |
-| `relay --team [FEATURE]` | Auto-create `<type>/<feature>` branch, commit, push upstream. |
-| `relay pr` | Open a GitHub / GitLab / Bitbucket PR directly from terminal (`-d` draft, `-o` open browser). |
-| `relay undo` | Soft-reset the last commit (`git reset --soft HEAD~1`); changes remain staged. |
-| `relay amend` | Regenerate commit message for the last commit in place (never force pushes). |
-| `relay squash` | Fold the last N commits into a clean single Conventional Commit locally. |
-| `relay stage` | Interactive file and hunk staging (`git add -p` helper). |
-| `relay doctor` | Diagnose environment (Python, Git, PATH, provider credentials, forge tokens). |
-| `--yes` | Auto-accept AI message and skip confirmation prompt. |
+| `relay --solo` | Stage all, generate message, commit, and push to the current branch *(default)*. |
+| `relay --team [NAME]` | Auto-create `<type>/<feature>` branch, commit, and push upstream. |
+| `relay pr` | Open a PR on GitHub, GitLab, or Bitbucket (`-d` draft, `-o` open browser). |
+| `relay undo` | Soft-reset the last commit (`HEAD~1`); modified files stay staged. |
+| `relay amend` | Regenerate and replace the last commit message in place (never force-pushes). |
+| `relay squash` | Fold the last N commits into a single clean Conventional Commit. |
+| `relay stage` | Interactive file and hunk staging helper (`git add -p`). |
+| `relay doctor` | Diagnose environment readiness (PATH, Git, tokens, remotes). |
+| `--yes` | Skip the confirmation menu and proceed automatically. |
 | `--staged` | Only commit already-staged changes (skips `git add .`). |
 | `--dry-run` | Preview diff, AI message, and execution plan without making changes. |
-| `--allow-protected` | Override team-mode default-branch protection. |
-| `--hunks` | Generate multi-part Conventional Commit message per changed file/hunk. |
+| `--allow-protected` | Explicit escape hatch to permit team mode on protected branches. |
+| `--hunks` | Generate multi-part Conventional Commit message per file/hunk. |
+| `--verbose` | Print exact Git and HTTP commands as they run. |
 
 ---
 
-## AI Providers & Configuration
+## AI Providers and Configuration
 
-Relay works out-of-the-box with environment variables, or an optional TOML config file (`~/.config/relay/config.toml` or `%APPDATA%\relay\config.toml`).
+Relay reads settings from environment variables or an optional TOML config file (`~/.config/relay/config.toml` on POSIX, `%APPDATA%\relay\config.toml` on Windows).
 
-| Provider | Required Env Variable | Default Model | Custom Base URL (Env) |
-| :--- | :--- | :--- | :--- |
-| **Gemini** *(default)* | `GEMINI_API_KEY` | `gemini-2.5-flash` | — |
-| **Ollama** *(local)* | *None (local)* | `qwen2.5-coder:7b` | `OLLAMA_BASE_URL` (`http://localhost:11434`) |
-| **OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini` | `OPENAI_BASE_URL` (vLLM, llama.cpp compatible) |
-| **Anthropic** | `ANTHROPIC_API_KEY` | `claude-3-5-haiku-latest` | `ANTHROPIC_BASE_URL` |
-| **Mistral** | `MISTRAL_API_KEY` | `mistral-small-latest` | `MISTRAL_BASE_URL` |
-| **Groq** | `GROQ_API_KEY` | `llama-3.3-70b-versatile` | `GROQ_BASE_URL` |
-| **xAI** | `XAI_API_KEY` | `grok-beta` | `XAI_BASE_URL` |
+| Provider | Identifier | Required Credential | Default Model | Base URL Override (Env) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Gemini** | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` | — |
+| **Ollama** | `ollama` | None | `qwen2.5-coder:7b` | `OLLAMA_BASE_URL` |
+| **OpenAI** | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` | `OPENAI_BASE_URL` |
+| **Anthropic** | `anthropic` | `ANTHROPIC_API_KEY` | `claude-3-5-haiku-latest` | `ANTHROPIC_BASE_URL` |
+| **Mistral** | `mistral` | `MISTRAL_API_KEY` | `mistral-small-latest` | `MISTRAL_BASE_URL` |
+| **Groq** | `groq` | `GROQ_API_KEY` | `llama-3.3-70b-versatile` | `GROQ_BASE_URL` |
+| **xAI** | `xai` | `XAI_API_KEY` | `grok-beta` | `XAI_BASE_URL` |
 
-### Example Config (`config.toml`)
+### Sample Configuration (`config.toml`)
 
 ```toml
 [relay]
@@ -119,24 +176,28 @@ branches = ["main", "master", "develop"]
 paths = ["dist/*", "*.lock", "package-lock.json"]
 ```
 
-> **Security Guarantee:** Secrets (`*_API_KEY`, `GITHUB_TOKEN`, `GITLAB_TOKEN`) are strictly environment-only and never read from config files or written to disk.
+> [!IMPORTANT]
+> **Secrets Are Environment-Only**  
+> Tokens and API keys are never read from configuration files and are never written to disk or logs. This ensures repository configuration can be safely shared without credential leakage.
 
 ---
 
 ## Documentation
 
-- [Product Specification (PRD)](docs/SPEC.md) — Personas, functional requirements, and non-goals.
-- [Architecture & Components](docs/ARCHITECTURE.md) — Data flow and internal module design.
-- [State Machine & Logic Flow](docs/FLOW.md) — State transitions, error matrix, and edge cases.
-- [Architecture Decision Records (ADRs)](docs/ADR.md) — Rationale behind key technical choices.
-- [Threat Model & Security](docs/THREAT_MODEL.md) — Security boundaries and attack surface mitigations.
-- [Working Rules](docs/WORKING_RULES.md) — Mandatory engineering rules (90% coverage gate, zero dependencies).
-- [Project Roadmap](docs/ROADMAP.md) — Milestones, shipped history, and future directions.
+Full architectural specifications and governance documentation:
+
+- [Product Specification (PRD)](docs/SPEC.md) — Personas, requirements, and functional scope.
+- [System Architecture](docs/ARCHITECTURE.md) — Component interactions and data flow.
+- [Logical Flow & State Machine](docs/FLOW.md) — Detailed execution paths and fallback matrix.
+- [Architecture Decision Records (ADRs)](docs/ADR.md) — Permanent records of design choices.
+- [Threat Model & Security](docs/THREAT_MODEL.md) — Security boundaries, SSRF guards, and mitigations.
+- [Working Rules](docs/WORKING_RULES.md) — Engineering standards and CI gates.
+- [Project Roadmap](docs/ROADMAP.md) — Milestones, shipped features, and release history.
 
 ---
 
 ## Contributing & License
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/WORKING_RULES.md](docs/WORKING_RULES.md) before opening a pull request.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/WORKING_RULES.md](docs/WORKING_RULES.md) before submitting patches.
 
-Relay is distributed under the [MIT License](LICENSE).
+Distributed under the [MIT License](LICENSE).
