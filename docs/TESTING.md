@@ -81,7 +81,7 @@ with patch("builtins.input", side_effect=["feat(x): add thing", ""]):
 
 - Run focused: `pytest -q --cov=relay --cov-branch --cov-report=term-missing -k test_orchestrator`
 - Missing branches usually hide in: error/fallback arms, `ConfigError` lazy build, non-TTY `EOFError`, binary diff skip, detached HEAD refusal.
-- Add the missing arm + a test that triggers `AIError(kind="...")` or `ConfigError` → assert fallback/manual path.
+- Add the missing arm + a test that triggers `AIError(kind="...")` or `ConfigError` → assert fallback/manual path
 
 ## 6. Adding Tests for New Code
 
