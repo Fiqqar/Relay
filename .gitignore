@@ -28,9 +28,10 @@ env/
 .vscode/
 .idea/
 
-# Local overrides / secrets
+# Local overrides / secrets / logs
 .env
 .env.*
+*.log
 
 # OS files
 .DS_Store
