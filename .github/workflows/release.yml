@@ -46,6 +46,18 @@ jobs:
       - name: Test suite must pass
         run: pytest -q
 
+      - name: Verify Scoop manifest does not have dummy hash
+        run: |
+          python -c "
+          import json, sys
+          from pathlib import Path
+          manifest = json.loads(Path('bucket/relay.json').read_text('utf-8'))
+          raw_hash = manifest.get('hash', '').removeprefix('sha256:').lower()
+          if not raw_hash or set(raw_hash) == {'0'} or len(raw_hash) != 64:
+              print(f'::error file=bucket/relay.json::Release blocked: Scoop manifest has dummy or invalid hash ({manifest.get(\"hash\")!r}). Update bucket/relay.json with a valid SHA256 checksum before release.', file=sys.stderr)
+              sys.exit(1)
+          "
+
       - name: Dependency vulnerability scan
         run: pip-audit --strict .
 

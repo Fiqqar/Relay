@@ -41,6 +41,9 @@ def test_scoop_manifest_tracks_version():
     wheel = f"relay_cli-{__version__}-py3-none-any.whl"
     assert manifest["url"].endswith(f"v{__version__}/{wheel}")
     assert manifest["hash"].startswith("sha256:")
+    raw_hash = manifest["hash"].removeprefix("sha256:").lower()
+    assert len(raw_hash) == 64, f"expected 64-character sha256 hash, got {len(raw_hash)}"
+    assert not set(raw_hash) == {"0"}, "Scoop manifest hash must not be a dummy zero placeholder"
     assert manifest["autoupdate"]["url"] == (
         "https://github.com/Fiqqar/Relay/releases/download/"
         "v$version/relay_cli-$version-py3-none-any.whl"
