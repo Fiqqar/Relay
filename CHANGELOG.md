@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-03
+
+### Security
+- Hardened against Git option injection across all remaining dynamic invocations: guarded `remote` in `fetch` and `remote_has_branch`, and guarded `key`/`name` in `config_get` and `remote_url`.
+
+### Fixed
+- Fixed error mapping in `OllamaProvider`: HTTP 429 now correctly maps to `rate_limited` (triggering transient retry) and 5xx to `unavailable`, aligning with all other providers.
+- Added structured error response payload checking (`"error" in data`) in `GeminiProvider` for consistent error handling across providers.
+- Fixed team branch name truncation on nested branches (`feat/frontend/login` no longer truncated to `login`).
+- Fixed Conventional Commit regex to accept valid single-character subjects (e.g. `feat: a`).
+- Updated Scoop manifest hash to match actual release artifacts and added CI validation in `release.yml` and `test_version.py` preventing releases with dummy zero hashes.
+
+### Reliability & Improvements
+- Added randomized jitter (`random.uniform(0.1, 0.5)`) to exponential/linear retry backoff sleeps across `orchestrator.py` and forge clients (`github.py`, `gitlab.py`, `bitbucket.py`) to prevent thundering herd during rate limits.
+- Optimized orchestrator team branch resolution by reusing the already-queried branch name, eliminating a redundant Git subprocess spawn on Windows (~28 ms saved).
+
 ## [1.0.1] - 2026-09-02
 
 ### Security & Supply Chain (DevSecOps)
@@ -420,7 +436,8 @@ Relay 1.0.0 marks the official **General Availability (GA)** release. All core w
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/Fiqqar/Relay/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Fiqqar/Relay/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Fiqqar/Relay/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/Fiqqar/Relay/compare/v0.9.0...v0.9.1
