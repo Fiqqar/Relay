@@ -365,5 +365,6 @@ class TestOpenPull:
         res = client.open_pull(title="x", head="h")
         assert res["number"] == 1
         assert mock_urlopen.call_count == 2
-        mock_sleep.assert_called_once_with(1.0)
+        assert mock_sleep.call_count == 1
+        assert 1.0 <= mock_sleep.call_args.args[0] <= 1.6
 

@@ -11,6 +11,7 @@ never leave the developer stranded.
 """
 from __future__ import annotations
 
+import random
 import time
 
 from .ai.base import filter_ignored_diff, filter_ignored_stat, split_diff_by_file
@@ -373,7 +374,7 @@ class Orchestrator:
                 if exc.kind in {"rate_limited", "api_error"} and transient_tries < 2:
                     transient_tries += 1
                     print(f"[relay] AI {sanitize_terminal(str(exc))}; retrying ({transient_tries}/2)...")
-                    time.sleep(1 * transient_tries)
+                    time.sleep(1.0 * transient_tries + random.uniform(0.1, 0.5))
                     continue
                 # THE FALLBACK: catch any AI exception, ask the user for the
                 # message with plain input(), and continue the workflow.
@@ -421,7 +422,7 @@ class Orchestrator:
                         if exc.kind in {"rate_limited", "api_error"} and tries < 2:
                             tries += 1
                             print(f"[relay] AI {sanitize_terminal(str(exc))}; retrying hunk {sanitize_terminal(path or '')} ({tries}/2)...")
-                            time.sleep(1 * tries)
+                            time.sleep(1.0 * tries + random.uniform(0.1, 0.5))
                             continue
                         print(f"[relay] AI unavailable for hunk {sanitize_terminal(path or '')} ({sanitize_terminal(str(exc))}); falling back to manual input.")
                         return self._manual_input()

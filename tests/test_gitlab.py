@@ -166,5 +166,6 @@ class TestGitLabClient:
                 res = client.open_merge_request(title="t", source_branch="b", target_branch="main")
                 assert res["iid"] == 1
                 assert mock_urlopen.call_count == 2
-                mock_sleep.assert_called_once_with(1.0)
+                assert mock_sleep.call_count == 1
+                assert 1.0 <= mock_sleep.call_args.args[0] <= 1.6
 

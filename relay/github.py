@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import time
 import urllib.error
 import urllib.parse
@@ -145,7 +146,7 @@ class GitHubClient:
                     return json.loads(body.decode("utf-8"))
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 502, 503, 504) and attempt < retries:
-                    time.sleep(1.0 * (attempt + 1))
+                    time.sleep(1.0 * (attempt + 1) + random.uniform(0.1, 0.5))
                     continue
                 body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
                 payload = _parse_json(body)
