@@ -11,6 +11,7 @@ from relay import config
 def clear_relay_env(monkeypatch):
     """Make every test start from a clean Relay environment."""
     config._RAW_CACHE.clear()  # the parsed-file cache is keyed by path+mtime+size
+    config._LOCAL_CACHE.clear()
     for key in (
         "RELAY_AI_TIMEOUT",
         "RELAY_MAX_DIFF_LINES",
@@ -18,6 +19,7 @@ def clear_relay_env(monkeypatch):
         "RELAY_BRANCH_TEMPLATE",
         "RELAY_PR_OPEN",
         "RELAY_CONFIG",
+        "RELAY_LOCAL_CONFIG",
         "RELAY_PROTECTED_BRANCHES",
         "RELAY_TRUSTED_GITLAB_HOSTS",
         "XDG_CONFIG_HOME",
@@ -556,3 +558,79 @@ def test_config_file_cache_invalidates_on_change(monkeypatch, tmp_path):
     """)
     assert config.ai_timeout() == 77
     assert config.max_diff_lines() == 200
+
+
+def test_repo_local_config_precedence(monkeypatch, tmp_path):
+    """Repo-local .relay.toml overrides user config.toml, but env vars win over both."""
+    user_cfg = tmp_path / "user_config.toml"
+    user_cfg.write_text(textwrap.dedent("""
+        [relay]
+        provider = "gemini"
+        ai_timeout = 40
+        branch_template = "user/<feature>"
+    """), encoding="utf-8")
+    monkeypatch.setenv("RELAY_CONFIG", str(user_cfg))
+
+    local_cfg = tmp_path / ".relay.toml"
+    local_cfg.write_text(textwrap.dedent("""
+        [relay]
+        provider = "openai"
+        ai_timeout = 50
+    """), encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local_cfg))
+
+    assert config.provider_from_env() == "openai"
+    assert config.ai_timeout() == 50
+    assert config.branch_template() == "user/<feature>"  # falls through to user config
+
+    # Env var overrides repo-local config
+    monkeypatch.setenv("RELAY_AI_PROVIDER", "anthropic")
+    monkeypatch.setenv("RELAY_AI_TIMEOUT", "60")
+    assert config.provider_from_env() == "anthropic"
+    assert config.ai_timeout() == 60
+
+
+def test_repo_local_config_security_allowlist_blocks_hooks_and_endpoints(monkeypatch, tmp_path, capsys):
+    """Security boundary: .relay.toml must never allow hooks, base URLs, or secrets."""
+    local_cfg = tmp_path / ".relay.toml"
+    local_cfg.write_text(textwrap.dedent("""
+        [hooks.pre_commit]
+        command = ["malicious", "command"]
+
+        [relay]
+        openai_base_url = "https://evil-phishing.com/v1"
+        pre_commit_hook = "evil"
+        provider = "openai"
+
+        [ai]
+        openai_model = "gpt-4o"
+    """), encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local_cfg))
+
+    # Hooks must remain None
+    assert config.hook_pre_commit() is None
+    # Base URL must remain safe default
+    assert config.openai_base_url() == config.DEFAULT_OPENAI_BASE_URL
+    # Safe keys are honored
+    assert config.provider_from_env() == "openai"
+    assert config.openai_model() == "gpt-4o"
+
+    err = capsys.readouterr().err
+    assert "security-restricted" in err
+
+
+def test_repo_local_config_ignore_paths_and_protected_branches(monkeypatch, tmp_path):
+    """Repo-local ignore paths and protected branches are loaded safely."""
+    local_cfg = tmp_path / ".relay.toml"
+    local_cfg.write_text(textwrap.dedent("""
+        [relay.ignore]
+        paths = ["*.min.js", "dist/*"]
+
+        [team.protected]
+        branches = ["production", "release"]
+    """), encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local_cfg))
+
+    assert config.ignore_paths() == ["*.min.js", "dist/*"]
+    assert config.protected_branches() == ["production", "release"]
+

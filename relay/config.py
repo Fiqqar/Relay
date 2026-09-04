@@ -112,6 +112,35 @@ _ENV_ONLY = {
 # Parsed config-file cache: {(path, mtime_ns, size): document}. Invalidated by
 # a file change (mtime/size), so getters resolve the file only once per state.
 _RAW_CACHE: dict[tuple[str, int, int], dict] = {}
+_LOCAL_CACHE: dict[tuple[str, int, int], dict] = {}
+
+# Security allowlist for repo-local `.relay.toml`.
+# Untrusted cloned repositories must NOT be able to run arbitrary hooks,
+# redirect API keys to malicious endpoints (SSRF), or override secrets.
+_LOCAL_ALLOWED_RELAY_KEYS = {
+    "provider",
+    "branch_template",
+    "max_diff_lines",
+    "ai_timeout",
+    "pr_open",
+    "gemini_model",
+    "openai_model",
+    "anthropic_model",
+    "ollama_model",
+    "mistral_model",
+    "groq_model",
+    "xai_model",
+}
+_LOCAL_ALLOWED_AI_KEYS = {
+    "default",
+    "gemini_model",
+    "openai_model",
+    "anthropic_model",
+    "ollama_model",
+    "mistral_model",
+    "groq_model",
+    "xai_model",
+}
 
 
 def _warn_invalid(setting: str, value) -> None:
@@ -141,6 +170,129 @@ def config_file_path() -> Path | None:
     if base:
         return Path(base) / "relay" / "config.toml"
     return Path.home() / ".config" / "relay" / "config.toml"
+
+
+def find_repo_root(start: Path | None = None) -> Path | None:
+    """Traverse parents from ``start`` (or CWD) looking for a ``.git`` directory or file."""
+    current = (start or Path.cwd()).resolve()
+    for p in [current, *current.parents]:
+        if (p / ".git").exists():
+            return p
+    return None
+
+
+def local_config_file_path(root: Path | None = None) -> Path | None:
+    """Path to the repo-local ``.relay.toml`` if it exists."""
+    explicit = os.environ.get("RELAY_LOCAL_CONFIG")
+    if explicit:
+        p = Path(explicit)
+        return p if p.is_file() else None
+    r = root or find_repo_root()
+    if r is None:
+        return None
+    candidate = r / ".relay.toml"
+    return candidate if candidate.is_file() else None
+
+
+def _load_local_raw() -> dict:
+    """Parse and sanitize repo-local ``.relay.toml`` with a strict security allowlist."""
+    path = local_config_file_path()
+    if path is None:
+        return {}
+    try:
+        stat = path.stat()
+        key = (str(path), stat.st_mtime_ns, stat.st_size)
+        cached = _LOCAL_CACHE.get(key)
+        if cached is not None:
+            return cached
+        with open(path, "rb") as fh:
+            data = _load_toml(fh)
+    except OSError:
+        return {}
+    except _TOML_DECODE_ERROR:
+        print(
+            f"[relay] warning: ignoring malformed repo config {path}; using defaults",
+            file=sys.stderr,
+        )
+        _LOCAL_CACHE[key] = {}
+        return {}
+
+    sanitized: dict = {}
+    for section_name, section_val in data.items():
+        if not isinstance(section_val, dict):
+            continue
+        if section_name == "relay":
+            filtered_relay = {}
+            for k, v in section_val.items():
+                if k == "ignore" and isinstance(v, dict):
+                    paths = v.get("paths")
+                    if isinstance(paths, list):
+                        filtered_relay["ignore"] = {"paths": paths}
+                elif k in _LOCAL_ALLOWED_RELAY_KEYS:
+                    filtered_relay[k] = v
+                else:
+                    print(
+                        f"[relay] warning: ignoring security-restricted key {k!r} in repo config",
+                        file=sys.stderr,
+                    )
+            sanitized["relay"] = filtered_relay
+        elif section_name == "ai":
+            filtered_ai = {}
+            for k, v in section_val.items():
+                if k in _LOCAL_ALLOWED_AI_KEYS:
+                    filtered_ai[k] = v
+                else:
+                    print(
+                        f"[relay] warning: ignoring security-restricted key {k!r} in repo config",
+                        file=sys.stderr,
+                    )
+            sanitized["ai"] = filtered_ai
+        elif section_name == "team":
+            protected = section_val.get("protected")
+            if isinstance(protected, dict) and "branches" in protected:
+                branches = protected.get("branches")
+                if isinstance(branches, list):
+                    sanitized["team"] = {"protected": {"branches": branches}}
+        elif section_name == "ignore":
+            paths = section_val.get("paths")
+            if isinstance(paths, list):
+                sanitized["ignore"] = {"paths": paths}
+        else:
+            print(
+                f"[relay] warning: ignoring security-restricted section {section_name!r} in repo config",
+                file=sys.stderr,
+            )
+    _LOCAL_CACHE[key] = sanitized
+    return sanitized
+
+
+def _load_local_config() -> dict:
+    section = _load_local_raw().get("relay")
+    return section if isinstance(section, dict) else {}
+
+
+def _load_local_ai() -> dict:
+    section = _load_local_raw().get("ai")
+    return section if isinstance(section, dict) else {}
+
+
+def _load_local_team_protected() -> dict:
+    team = _load_local_raw().get("team")
+    if not isinstance(team, dict):
+        return {}
+    protected = team.get("protected")
+    return protected if isinstance(protected, dict) else {}
+
+
+def _load_local_ignore() -> dict:
+    local_raw = _load_local_raw()
+    relay_sec = local_raw.get("relay")
+    if isinstance(relay_sec, dict) and isinstance(relay_sec.get("ignore"), dict):
+        return relay_sec["ignore"]
+    ign_sec = local_raw.get("ignore")
+    if isinstance(ign_sec, dict):
+        return ign_sec
+    return {}
 
 
 def _load_raw() -> dict:
@@ -208,7 +360,7 @@ def _load_ai() -> dict:
 
 
 def _resolve(env_key: str, cfg_key: str, default):
-    """resolve(env_key, cfg_key, default): env > file > default.
+    """resolve(env_key, cfg_key, default): env > repo-local file > user config > default.
 
     Returns ``default`` when neither the env var nor the config file defines a
     value. Secrets are env-only because their ``cfg_key`` is never consulted.
@@ -217,6 +369,11 @@ def _resolve(env_key: str, cfg_key: str, default):
     if env_val is not None:
         return env_val
     if env_key not in _ENV_ONLY:
+        local_val = _load_local_config().get(cfg_key)
+        if local_val is None and cfg_key.endswith("_model"):
+            local_val = _load_local_ai().get(cfg_key)
+        if local_val is not None:
+            return local_val
         file_val = _load_config().get(cfg_key)
         if file_val is not None:
             return file_val
@@ -226,16 +383,19 @@ def _resolve(env_key: str, cfg_key: str, default):
 def provider_from_env() -> str:
     """The default AI provider, lowercased.
 
-    Resolution order: ``RELAY_AI_PROVIDER`` env var > ``[relay] provider`` in
-    the config file > ``[ai] default`` in the config file > the built-in
-    default (``gemini``). The ``[ai]`` table gives a config file a second,
-    dedicated knob for the default provider without touching the ``[relay]``
-    table or the env var — useful when a team wants to standardize on one
-    provider across machines.
+    Resolution order: ``RELAY_AI_PROVIDER`` env var > repo-local ``.relay.toml``
+    > ``[relay] provider`` in user config > ``[ai] default`` in user config
+    > the built-in default (``gemini``).
     """
     env_val = os.environ.get("RELAY_AI_PROVIDER")
     if env_val is not None:
         return str(env_val).lower()
+    local_provider = _load_local_config().get("provider")
+    if local_provider is not None:
+        return str(local_provider).lower()
+    local_ai_default = _load_local_ai().get("default")
+    if local_ai_default is not None:
+        return str(local_ai_default).lower()
     relay_provider = _load_config().get("provider")
     if relay_provider is not None:
         return str(relay_provider).lower()
@@ -517,15 +677,16 @@ def ignore_paths() -> list[str]:
     """Glob patterns whose diffs are hidden from the AI prompt.
 
     Resolution order: ``RELAY_IGNORE_PATHS`` env var (comma-separated globs)
+    > repo-local ``.relay.toml`` ignore paths
     > ``[relay.ignore] paths`` in config.toml
     > the built-in default (no ignores).
-
-    The filter applies only to the LLM prompt; ``git commit`` still commits
-    whatever is staged. Env var example: ``RELAY_IGNORE_PATHS="*.lock,dist/*"``.
     """
     env_raw = os.environ.get("RELAY_IGNORE_PATHS")
     if env_raw is not None and env_raw.strip():
         return [p.strip() for p in env_raw.split(",") if p.strip()]
+    local_paths = _load_local_ignore().get("paths")
+    if isinstance(local_paths, list) and local_paths:
+        return [str(p).strip() for p in local_paths if str(p).strip()]
     file_paths = _load_ignore().get("paths")
     if isinstance(file_paths, list) and file_paths:
         return [str(p).strip() for p in file_paths if str(p).strip()]
@@ -537,17 +698,16 @@ def protected_branches() -> list[str]:
 
     Resolution order (mirrors the rest of the config):
     ``RELAY_PROTECTED_BRANCHES`` env var (comma/space separated)
+    > repo-local ``.relay.toml`` protected branches
     > ``[team.protected] branches`` in config.toml
     > the built-in default (``main``, ``master``).
-
-    A team-mode run (or a solo push) targeting one of these is refused at
-    the ``CONFIRM`` boundary and at push time unless ``--allow-protected``
-    opts out explicitly. ``--yes`` skips the confirmation prompt only; it
-    never overrides this rule.
     """
     env_raw = os.environ.get("RELAY_PROTECTED_BRANCHES")
     if env_raw is not None and env_raw.strip():
         return _split_branch_list(env_raw)
+    local_branches = _load_local_team_protected().get("branches")
+    if isinstance(local_branches, list) and local_branches:
+        return [str(b) for b in local_branches]
     file_branches = _load_team_protected().get("branches")
     if isinstance(file_branches, list) and file_branches:
         return [str(b) for b in file_branches]
