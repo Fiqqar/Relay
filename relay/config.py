@@ -63,6 +63,7 @@ DEFAULT_PROTECTED_BRANCHES = ["main", "master"]
 # so anything outside this allowlist is refused unless the user trusts it
 # explicitly (RELAY_TRUSTED_GITLAB_HOSTS / `trusted_gitlab_hosts`).
 DEFAULT_TRUSTED_GITLAB_HOSTS = ("gitlab.com",)
+DEFAULT_TRUSTED_GITHUB_HOSTS = ("github.com",)
 
 # Performance knobs: keep the diff payload small and give the LLM a realistic
 # window to respond. 30s is enough for normal network conditions (and large
@@ -107,6 +108,8 @@ _ENV_ONLY = {
     "MISTRAL_BASE_URL",
     "GROQ_BASE_URL",
     "XAI_BASE_URL",
+    "RELAY_TRUSTED_GITHUB_HOSTS",
+    "RELAY_TRUSTED_GITLAB_HOSTS",
 }
 
 # Parsed config-file cache: {(path, mtime_ns, size): document}. Invalidated by
@@ -580,6 +583,24 @@ def trusted_gitlab_hosts() -> list[str]:
     if env_raw is not None and env_raw.strip():
         extra = _split_branch_list(env_raw)
     return _normalize_hosts([*DEFAULT_TRUSTED_GITLAB_HOSTS, *extra])
+
+
+def trusted_github_hosts() -> list[str]:
+    """GitHub hosts `relay pr` may send GITHUB_TOKEN to (always lowercased).
+
+    ``github.com`` is always trusted; any other host (a self-hosted GitHub
+    Enterprise Server instance) must be opted in explicitly via the
+    ``RELAY_TRUSTED_GITHUB_HOSTS`` env var (comma/space separated). The allowlist
+    is additive: forgetting to repeat ``github.com`` can never break the canonical
+    host. Config-file is intentionally ignored (env-only) so an untrusted repo-local
+    config cannot expand the credential destination.
+    """
+    extra: list[str] = []
+    env_raw = os.environ.get("RELAY_TRUSTED_GITHUB_HOSTS")
+    if env_raw is not None and env_raw.strip():
+        extra = _split_branch_list(env_raw)
+    return _normalize_hosts([*DEFAULT_TRUSTED_GITHUB_HOSTS, *extra])
+
 
 
 def _load_hooks() -> dict:

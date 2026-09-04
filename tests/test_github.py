@@ -45,6 +45,14 @@ class TestPullsUrl:
             "https://api.github.com/repos/owner%20with%20space/repo%2Fslash/pulls"
         )
 
+    def test_pulls_url_with_custom_enterprise_host(self):
+        client = GitHubClient("acme", "widget", host="github.internal.mycompany.com")
+        assert client.api_base == "https://github.internal.mycompany.com/api/v3"
+        assert client.pulls_url == (
+            "https://github.internal.mycompany.com/api/v3/repos/acme/widget/pulls"
+        )
+
+
 
 class TestFindOpenPr:
     @mock.patch("relay.github.urllib.request.urlopen")

@@ -110,19 +110,27 @@ class GitHubClient:
         self,
         owner: str,
         repo: str,
+        host: str = "github.com",
         token: str | None = None,
         verbose: bool = False,
     ):
         self.owner = owner
         self.repo = repo
+        self.host = host.lower()
         self.token = token if token is not None else github_token()
         self.verbose = verbose
+
+    @property
+    def api_base(self) -> str:
+        if self.host == "github.com":
+            return API_BASE
+        return f"https://{self.host}/api/v3"
 
     @property
     def pulls_url(self) -> str:
         owner = urllib.parse.quote(self.owner, safe="")
         repo = urllib.parse.quote(self.repo, safe="")
-        return f"{API_BASE}/repos/{owner}/{repo}/pulls"
+        return f"{self.api_base}/repos/{owner}/{repo}/pulls"
 
     def _require_token(self) -> str:
         if not self.token:

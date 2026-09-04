@@ -196,6 +196,17 @@ class TestRunPr:
             run_pr(git=FakeGit(), base="..evil")
         fake_client.return_value.open_pull.assert_not_called()
 
+    def test_self_hosted_github_enterprise_allowed_when_env_trusted(
+        self, fake_client, monkeypatch
+    ):
+        monkeypatch.setenv("RELAY_TRUSTED_GITHUB_HOSTS", "github.mycompany.internal")
+        git = FakeGit(remote="git@github.mycompany.internal:acme/widget.git")
+        assert run_pr(git=git) == 0
+        fake_client.assert_called_once_with(
+            "acme", "widget", host="github.mycompany.internal", verbose=False
+        )
+
+
 
 class TestAntiDuplicate:
     def test_queries_open_prs_for_head_branch(self, fake_client):

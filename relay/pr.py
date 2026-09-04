@@ -21,7 +21,7 @@ import webbrowser
 from .bitbucket import BitbucketClient, BitbucketError
 from .bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
 from .commit import sanitize_ai_message
-from .config import trusted_gitlab_hosts
+from .config import trusted_github_hosts, trusted_gitlab_hosts
 from .errors import RelayError, sanitize_terminal
 from .git_manager import GitManager, parse_remote
 from .github import DuplicatePullRequestError, GitHubClient, GitHubError
@@ -44,16 +44,16 @@ def _safe_open_browser(url: str) -> bool:
 
 def _host_web_base(host: str, owner: str, repo: str) -> str:
     """Human-visible base URL a browser can open for this host's PR list."""
-    if host == "github.com":
-        return f"https://github.com/{owner}/{repo}/pulls"
+    if host in trusted_github_hosts():
+        return f"https://{host}/{owner}/{repo}/pulls"
     if host == "bitbucket.org":
         return f"https://bitbucket.org/{owner}/{repo}/pull-requests"
     return f"https://{host}/{owner}/{repo}/-/merge_requests"
 
 
 def _pr_web_url(host: str, owner: str, repo: str, number) -> str:
-    if host == "github.com":
-        return f"https://github.com/{owner}/{repo}/pull/{number}"
+    if host in trusted_github_hosts():
+        return f"https://{host}/{owner}/{repo}/pull/{number}"
     if host == "bitbucket.org":
         return f"https://bitbucket.org/{owner}/{repo}/pull-requests/{number}"
     return f"https://{host}/{owner}/{repo}/-/merge_requests/{number}"
@@ -136,6 +136,7 @@ def _build_body(git: GitManager, *, base: str, head: str) -> str:
 
 def _run_github(
     *,
+    host: str = "github.com",
     owner: str,
     repo: str,
     head: str,
@@ -146,10 +147,13 @@ def _run_github(
     open_browser: bool,
     verbose: bool,
 ) -> int:
-    client = GitHubClient(owner, repo, verbose=verbose)
+    if host == "github.com":
+        client = GitHubClient(owner, repo, verbose=verbose)
+    else:
+        client = GitHubClient(owner, repo, host=host, verbose=verbose)
     existing = client.find_open_pr(head=head)
     if existing is not None:
-        return _exit_existing_pr_host("github.com", owner, repo, existing, open_browser)
+        return _exit_existing_pr_host(host, owner, repo, existing, open_browser)
     try:
         created = client.open_pull(
             title=title, head=head, base=base, body=body, draft=draft
@@ -157,14 +161,14 @@ def _run_github(
     except DuplicatePullRequestError:
         # Race or a fork-owner head: re-query and exit gracefully instead of a 422.
         existing = client.find_open_pr(head=head)
-        return _exit_existing_pr_host("github.com", owner, repo, existing, open_browser)
+        return _exit_existing_pr_host(host, owner, repo, existing, open_browser)
     except GitHubError as exc:
         if exc.status == 422:
             print(f"[relay] Cannot open PR: {sanitize_terminal(exc.reason)}")
             return 1
         raise
     number = created.get("number")
-    url = created.get("html_url") or _pr_web_url("github.com", owner, repo, number)
+    url = created.get("html_url") or _pr_web_url(host, owner, repo, number)
     print(f"[relay] opened PR #{number}: {sanitize_terminal(str(url))}")
     if open_browser:
         _safe_open_browser(url)
@@ -288,16 +292,17 @@ def run_pr(
     # The forge host is derived from `origin`, which a malicious repository
     # (e.g. a fork you clone) can point anywhere. Only github.com and
     # bitbucket.org are trusted by default; any other host is refused before
-    # any token is read or any request is sent unless it is a GitLab instance
-    # the user explicitly trusts (SECURITY: credential exfil).
-    if host not in ("github.com", "bitbucket.org") and host not in trusted_gitlab_hosts():
+    # any token is read or any request is sent unless it is a GitHub Enterprise
+    # or GitLab instance the user explicitly trusts (SECURITY: credential exfil).
+    trusted_gh = trusted_github_hosts()
+    trusted_gl = trusted_gitlab_hosts()
+    if host not in trusted_gh and host != "bitbucket.org" and host not in trusted_gl:
         raise RelayError(
             f"unsupported or untrusted forge host '{host}': `relay pr` supports "
-            "github.com and bitbucket.org by default, plus gitlab.com or any host "
-            "listed in RELAY_TRUSTED_GITLAB_HOSTS (or `trusted_gitlab_hosts` in "
-            "the `[relay]` config table). The host comes from your 'origin' "
-            "remote, which an attacker could control; refusing to send a forge "
-            "token to an unvetted host"
+            "github.com and bitbucket.org by default, plus self-hosted instances "
+            "listed in RELAY_TRUSTED_GITHUB_HOSTS or RELAY_TRUSTED_GITLAB_HOSTS. "
+            "The host comes from your 'origin' remote, which an attacker could control; "
+            "refusing to send a forge token to an unvetted host"
         )
 
     head = git.current_branch()
@@ -323,13 +328,13 @@ def run_pr(
     pr_title = _resolve_title(git, title=title, base=base, head=head, provider=provider)
     body = _build_body(git, base=base, head=head)
 
-    if host == "github.com":
+    if host in trusted_gh:
         return _run_github(
-            owner=owner, repo=repo, head=head, base=base,
+            host=host, owner=owner, repo=repo, head=head, base=base,
             title=pr_title, body=body, draft=draft,
             open_browser=open_browser, verbose=verbose,
         )
-    if host in trusted_gitlab_hosts():
+    if host in trusted_gl:
         return _run_gitlab(
             host=host, owner=owner, repo=repo, head=head, base=base,
             title=pr_title, body=body, draft=draft,

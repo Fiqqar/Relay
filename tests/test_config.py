@@ -387,6 +387,29 @@ def test_trusted_gitlab_hosts_empty_file_list_is_ignored(monkeypatch, tmp_path):
     assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
+def test_trusted_github_hosts_defaults_to_github_com():
+    assert config.trusted_github_hosts() == ["github.com"]
+
+
+def test_trusted_github_hosts_env_is_additive(monkeypatch):
+    monkeypatch.setenv(
+        "RELAY_TRUSTED_GITHUB_HOSTS", "github.internal.net, gh.enterprise.io"
+    )
+    assert config.trusted_github_hosts() == [
+        "github.com",
+        "github.internal.net",
+        "gh.enterprise.io",
+    ]
+
+
+def test_trusted_github_hosts_env_lowercases_and_dedupes(monkeypatch):
+    monkeypatch.setenv(
+        "RELAY_TRUSTED_GITHUB_HOSTS", "GitHub.INTERNAL.net github.internal.net github.com"
+    )
+    assert config.trusted_github_hosts() == ["github.com", "github.internal.net"]
+
+
+
 def test_ai_default_supplies_provider_from_file(monkeypatch, tmp_path):
     """The [ai] table is a dedicated knob for the default provider."""
     _write_toml(monkeypatch, tmp_path, """
