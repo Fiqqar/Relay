@@ -107,9 +107,11 @@ def check_pip() -> bool:
 
 
 def install_package() -> bool:
-    """pip-install the project from REPO_ROOT, preferring --user."""
+    """pip-install the project from REPO_ROOT, preferring --user outside venvs."""
     print("\nInstalling Relay ...")
-    for user in (True, False):
+    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    attempts = [False] if in_venv else [True, False]
+    for user in attempts:
         args = [sys.executable, "-m", "pip", "install"]
         if user:
             args.append("--user")
@@ -128,7 +130,9 @@ def install_package() -> bool:
 
 
 def scripts_dir() -> Path:
-    """Where pip places console scripts for the user install scheme."""
+    """Where pip places console scripts for the active Python environment."""
+    if sys.prefix != getattr(sys, "base_prefix", sys.prefix):
+        return Path(sysconfig.get_path("scripts"))
     scheme = "nt_user" if os.name == "nt" else "posix_user"
     return Path(sysconfig.get_path("scripts", scheme))
 
@@ -172,7 +176,8 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
     )
     if _powershell(script) == "" and not user_path:
         _warn("could not update user PATH (PowerShell unavailable or denied).")
-        _warn(f'add it manually:  setx PATH "%PATH%;{target}"')
+        _warn(f'add it manually via PowerShell:  [Environment]::SetEnvironmentVariable("Path", $env:Path + ";{target_esc}", "User")')
+        _warn(f'or via System Properties -> Environment Variables -> User variables -> Path -> New -> "{target}"')
         return True
     _ok(f"added {target} to your user PATH")
     print("       New terminals will find `relay`; this one won't until restarted.")
@@ -188,14 +193,19 @@ def update_path_unix(scripts: Path, yes: bool) -> bool:
     target = str(scripts)
     target_esc = _escape_sh_double(target)
     home = Path.home()
-    profiles = ["~/.bashrc", "~/.zshrc", "~/.profile"]
+    shell = os.environ.get("SHELL", "").lower()
+    if shell.endswith("zsh"):
+        profiles = ["~/.zshrc", "~/.zprofile", "~/.bashrc", "~/.profile"]
+    else:
+        profiles = ["~/.bashrc", "~/.zshrc", "~/.profile"]
     candidates = []
     for p in profiles:
         path = home / p.replace("~/", "")
         if path.exists():
             candidates.append(path)
     if not candidates:
-        candidates.append(home / ".profile")
+        default_profile = "~/.zshrc" if shell.endswith("zsh") else "~/.profile"
+        candidates.append(home / default_profile.replace("~/", ""))
 
     line = f'export PATH="{target_esc}:$PATH"'
     for profile in candidates:
