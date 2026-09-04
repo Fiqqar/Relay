@@ -9,11 +9,15 @@ tool. Every check degrades gracefully and never raises.
 """
 from __future__ import annotations
 
+import json
 import shutil
 import socket
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 
 from . import __version__
@@ -21,14 +25,19 @@ from .bitbucket import bitbucket_token
 from .config import (
     DEFAULT_OLLAMA_BASE_URL,
     anthropic_api_key,
+    anthropic_base_url,
     gemini_api_key,
     groq_api_key,
+    groq_base_url,
     mistral_api_key,
+    mistral_base_url,
     ollama_base_url,
     openai_api_key,
+    openai_base_url,
     protected_branches,
     provider_from_env,
     xai_api_key,
+    xai_base_url,
 )
 from .git_manager import GitManager
 from .github import github_token
@@ -87,7 +96,139 @@ def _ollama_reachable(url: str) -> tuple[bool, str]:
         return False, f"not reachable at {url} ({exc})"
 
 
-def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
+def _probe_provider(chosen: str) -> Check:
+    start = time.perf_counter()
+    timeout = 5
+    req: urllib.request.Request | None = None
+    if chosen == "gemini":
+        key = gemini_api_key()
+        if not key:
+            return Check("AI probe", "skip", "GEMINI_API_KEY is not set")
+        headers = {"User-Agent": "relay-cli"}
+        if key.startswith("AQ."):
+            headers["Authorization"] = f"Bearer {key}"
+        else:
+            headers["X-Goog-Api-Key"] = key
+        req = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1",
+            headers=headers,
+        )
+    elif chosen in ("openai", "groq", "mistral", "xai"):
+        if chosen == "openai":
+            key, base = openai_api_key(), openai_base_url()
+        elif chosen == "groq":
+            key, base = groq_api_key(), groq_base_url()
+        elif chosen == "mistral":
+            key, base = mistral_api_key(), mistral_base_url()
+        else:
+            key, base = xai_api_key(), xai_base_url()
+        if not key:
+            return Check("AI probe", "skip", f"{chosen.upper()}_API_KEY is not set")
+        req = urllib.request.Request(
+            f"{base.rstrip('/')}/models",
+            headers={"Authorization": f"Bearer {key}", "User-Agent": "relay-cli"},
+        )
+    elif chosen == "anthropic":
+        key, base = anthropic_api_key(), anthropic_base_url()
+        if not key:
+            return Check("AI probe", "skip", "ANTHROPIC_API_KEY is not set")
+        req = urllib.request.Request(
+            f"{base.rstrip('/')}/models",
+            headers={
+                "x-api-key": key,
+                "anthropic-version": "2023-06-01",
+                "User-Agent": "relay-cli",
+            },
+        )
+    elif chosen == "ollama":
+        base = ollama_base_url()
+        req = urllib.request.Request(
+            f"{base.rstrip('/')}/api/tags",
+            headers={"User-Agent": "relay-cli"},
+        )
+    else:
+        return Check("AI probe", "skip", f"unknown provider '{chosen}'")
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as _:  # nosec B310
+            elapsed = int((time.perf_counter() - start) * 1000)
+            return Check("AI probe", "ok", f"authenticated ({elapsed}ms)")
+    except urllib.error.HTTPError as exc:
+        elapsed = int((time.perf_counter() - start) * 1000)
+        return Check("AI probe", "fail", f"HTTP {exc.code} {exc.reason} ({elapsed}ms)")
+    except Exception as exc:
+        return Check("AI probe", "fail", f"connection failed ({exc})")
+
+
+def _probe_forge() -> Check | None:
+    start = time.perf_counter()
+    timeout = 5
+    token = github_token()
+    if token:
+        req = urllib.request.Request(
+            "https://api.github.com/user",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "User-Agent": "relay-cli",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+                elapsed = int((time.perf_counter() - start) * 1000)
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+                user = body.get("login") or "user"
+                return Check("Forge probe", "ok", f"GitHub @{user} ({elapsed}ms)")
+        except urllib.error.HTTPError as exc:
+            elapsed = int((time.perf_counter() - start) * 1000)
+            return Check("Forge probe", "fail", f"GitHub HTTP {exc.code} ({elapsed}ms)")
+        except Exception as exc:
+            return Check("Forge probe", "fail", f"GitHub connection failed ({exc})")
+
+    gl_token = gitlab_token()
+    if gl_token:
+        req = urllib.request.Request(
+            "https://gitlab.com/api/v4/user",
+            headers={"PRIVATE-TOKEN": gl_token, "User-Agent": "relay-cli"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+                elapsed = int((time.perf_counter() - start) * 1000)
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+                user = body.get("username") or "user"
+                return Check("Forge probe", "ok", f"GitLab @{user} ({elapsed}ms)")
+        except urllib.error.HTTPError as exc:
+            elapsed = int((time.perf_counter() - start) * 1000)
+            return Check("Forge probe", "fail", f"GitLab HTTP {exc.code} ({elapsed}ms)")
+        except Exception as exc:
+            return Check("Forge probe", "fail", f"GitLab connection failed ({exc})")
+
+    bb_token = bitbucket_token()
+    if bb_token:
+        req = urllib.request.Request(
+            "https://api.bitbucket.org/2.0/user",
+            headers={"Authorization": f"Bearer {bb_token}", "User-Agent": "relay-cli"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+                elapsed = int((time.perf_counter() - start) * 1000)
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+                user = body.get("username") or "user"
+                return Check("Forge probe", "ok", f"Bitbucket @{user} ({elapsed}ms)")
+        except urllib.error.HTTPError as exc:
+            elapsed = int((time.perf_counter() - start) * 1000)
+            return Check("Forge probe", "fail", f"Bitbucket HTTP {exc.code} ({elapsed}ms)")
+        except Exception as exc:
+            return Check("Forge probe", "fail", f"Bitbucket connection failed ({exc})")
+
+    return None
+
+
+def run_doctor(
+    provider: str | None = None,
+    probe: bool = False,
+    verbose: bool = False,
+) -> int:
     """Run all checks and print the report. Returns the exit code."""
     git = GitManager(verbose=verbose)
     chosen = (provider or provider_from_env()).lower()
@@ -240,6 +381,12 @@ def run_doctor(provider: str | None = None, verbose: bool = False) -> int:
         )
     else:
         checks[8].status = "ok"
+
+    if probe:
+        checks.append(_probe_provider(chosen))
+        forge_probe = _probe_forge()
+        if forge_probe:
+            checks.append(forge_probe)
 
     # ---- report -----------------------------------------------------------
     print(f"[relay doctor] Relay {__version__} - {chosen} provider")

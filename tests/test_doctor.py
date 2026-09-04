@@ -434,3 +434,80 @@ def test_doctor_unknown_provider_warns_extra():
          mock.patch("relay.doctor.bitbucket_token", return_value=None), \
          mock.patch("relay.doctor.protected_branches", return_value=["main"]):
         assert run_doctor() == 0
+
+
+def test_doctor_probe_success(healthy_env, capsys):
+    mock_resp = mock.MagicMock()
+    mock_resp.read.return_value = b'{"login": "testuser"}'
+    mock_resp.__enter__.return_value = mock_resp
+    with mock.patch("urllib.request.urlopen", return_value=mock_resp):
+        code = run_doctor(probe=True)
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "AI probe" in out
+    assert "Forge probe" in out
+    assert "authenticated" in out
+    assert "@testuser" in out
+
+
+def test_doctor_probe_ai_failure(healthy_env, capsys):
+    import urllib.error
+    with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+        "https://api.test", 401, "Unauthorized", {}, None
+    )):
+        code = run_doctor(probe=True)
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "AI probe" in out
+    assert "FAIL" in out
+    assert "401" in out
+
+
+def test_doctor_probe_skipped_when_key_missing(healthy_env, capsys):
+    with mock.patch("relay.doctor.gemini_api_key", return_value=None), \
+         mock.patch("relay.doctor.github_token", return_value=None):
+        code = run_doctor(probe=True)
+    # AI credentials check fails, probe skips
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "AI probe" in out
+    assert "SKIP" in out
+
+
+def test_doctor_probe_various_providers(healthy_env, capsys):
+    mock_resp = mock.MagicMock()
+    mock_resp.read.return_value = b"{}"
+    mock_resp.__enter__.return_value = mock_resp
+
+    for prov in ("openai", "anthropic", "ollama", "mistral", "groq", "xai"):
+        with mock.patch("urllib.request.urlopen", return_value=mock_resp), \
+             mock.patch(
+                 f"relay.doctor.{prov}_api_key" if prov != "ollama" else "relay.doctor.ollama_base_url",
+                 return_value="http://localhost:11434" if prov == "ollama" else "dummy_key",
+             ), \
+             mock.patch("relay.doctor._ollama_reachable", return_value=(True, "reachable")), \
+             mock.patch("relay.doctor.github_token", return_value=None):
+            run_doctor(provider=prov, probe=True)
+
+
+def test_doctor_probe_forges_gitlab_and_bitbucket(healthy_env, capsys):
+    mock_resp = mock.MagicMock()
+    mock_resp.read.return_value = b'{"username": "forge_user"}'
+    mock_resp.__enter__.return_value = mock_resp
+
+    with mock.patch("urllib.request.urlopen", return_value=mock_resp), \
+         mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"):
+        code = run_doctor(probe=True)
+        assert code == 0
+        assert "GitLab @forge_user" in capsys.readouterr().out
+
+    with mock.patch("urllib.request.urlopen", return_value=mock_resp), \
+         mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"):
+        code = run_doctor(probe=True)
+        assert code == 0
+        assert "Bitbucket @forge_user" in capsys.readouterr().out
+
+

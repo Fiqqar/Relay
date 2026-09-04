@@ -132,6 +132,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--provider", choices=PROVIDER_NAMES,
                         help="AI provider to check (default: gemini, or RELAY_AI_PROVIDER)")
+    doctor.add_argument("--probe", action="store_true",
+                        help="actively probe AI provider and forge authentication endpoints")
     doctor.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -264,7 +266,10 @@ def main(argv: list[str] | None = None) -> int:
     # Subcommand routing: `relay doctor` never touches the git workflow.
     if getattr(args, "command", None) == "doctor":
         try:
-            return run_doctor(provider=args.provider, verbose=args.verbose)
+            kwargs: dict = {"provider": args.provider, "verbose": args.verbose}
+            if getattr(args, "probe", False):
+                kwargs["probe"] = True
+            return run_doctor(**kwargs)
         except Exception as exc:  # noqa: BLE001 - doctor must never traceback
             print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
             return 1

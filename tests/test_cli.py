@@ -515,5 +515,13 @@ def test_main_message_flag_passes_to_orchestrator(wired):
     assert orchestrator_cls.call_args.kwargs["message"] == "fix(test): direct message test"
 
 
+def test_main_doctor_probe_passes_to_run_doctor():
+    with mock.patch("relay.cli.run_doctor", return_value=0) as mock_doc:
+        code = main(["doctor", "--probe"])
+    assert code == 0
+    mock_doc.assert_called_once_with(provider=None, probe=True, verbose=False)
+
+
+
 
 
