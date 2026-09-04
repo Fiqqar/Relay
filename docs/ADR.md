@@ -97,7 +97,7 @@
 
 **Context:** Ahead of v1.0.0 GA, Relay must guarantee CLI interface stability. Scripted invocations, shell aliases, and team CI integrations depend on predictable flags and subcommands.
 
-**Decision:** The CLI surface is frozen across 9 subcommands (`amend`, `completions`, `doctor`, `man`, `pr`, `squash`, `stage`, `telemetry`, `undo`) and 14 global flags (`--solo`, `--team`, `--provider`, `--timeout`, `--yes`, `--dry-run`, `--no-push`, `--staged`, `--no-verify`, `--allow-protected`, `--hunks`, `--repo`, `--verbose`, `--version`). Any removal, rename, or breaking change requires a new ADR and major version bump.
+**Decision:** The CLI surface is frozen across 9 subcommands (`amend`, `completions`, `doctor`, `man`, `pr`, `squash`, `stage`, `telemetry`, `undo`) and 14 global flags (`--solo`, `--team`, `--provider`, `--timeout`, `--yes`, `--dry-run`, `--no-push`, `--staged`, `--no-verify`, `--allow-protected`, `--hunks`, `--repo`, `--verbose`, `--version`). Any removal, rename, or breaking change requires a new ADR and major version bump. Non-breaking additive extensions (e.g. `-m`/`--message` for direct manual commit, `doctor --probe` for auth probes) are permitted in minor releases.
 
 **Consequences:** + Stable automation and backward compatibility for all users. − New subcommands or flags require a formal design note.
 
