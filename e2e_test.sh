@@ -45,15 +45,38 @@ git -C "$repo" add .
   "${relay_cmd[@]}" --version >/dev/null
   "${relay_cmd[@]}" --help >/dev/null
 
+  echo "[e2e] checking doctor probe"
+  "${relay_cmd[@]}" doctor >/dev/null
+
   # Subject + trailing blank line so the manual-input loop terminates on
   # EOF-free, non-interactive stdin (blank line ends the body loop).
   printf '%s\n\n' "$expect" | "${relay_cmd[@]}" --solo --no-push --provider ollama
+
+  subject="$(git -C "$repo" log -1 --format=%s)"
+  if [[ "$subject" != "$expect" ]]; then
+    echo "FAIL: commit subject '$subject' != '$expect'" >&2
+    exit 1
+  fi
+  echo "[e2e] PASS: solo flow committed '$subject'"
+
+  # Test direct message flag (-m)
+  echo "[e2e] testing direct -m flag commit"
+  printf 'direct commit test\n' >"$repo/direct.txt"
+  git -C "$repo" add .
+  direct_msg="feat: direct flag e2e"
+  "${relay_cmd[@]}" -m "$direct_msg" --solo --no-push --yes >/dev/null
+  subject2="$(git -C "$repo" log -1 --format=%s)"
+  if [[ "$subject2" != "$direct_msg" ]]; then
+    echo "FAIL: direct message '$subject2' != '$direct_msg'" >&2
+    exit 1
+  fi
+  echo "[e2e] PASS: direct -m committed '$subject2'"
+
+  # Test repo-level .relay.toml configuration
+  echo "[e2e] testing repo-level .relay.toml configuration"
+  printf '[relay]\nprovider = "ollama"\n' >"$repo/.relay.toml"
+  "${relay_cmd[@]}" doctor >/dev/null
+  echo "[e2e] PASS: doctor verified .relay.toml"
 )
 
-subject="$(git -C "$repo" log -1 --format=%s)"
-if [[ "$subject" != "$expect" ]]; then
-  echo "FAIL: commit subject '$subject' != '$expect'" >&2
-  exit 1
-fi
-
-echo "[e2e] PASS: solo flow committed '$subject'"
+echo "[e2e] PASS: all e2e checks passed and temp repo cleaned up"

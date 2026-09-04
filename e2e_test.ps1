@@ -54,23 +54,44 @@ try {
         & $cmd --version | Out-Null
         & $cmd --help | Out-Null
 
+        Write-Step "checking doctor probe"
+        & $cmd doctor | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "relay doctor failed with code $LASTEXITCODE" }
+        Write-Step "PASS: doctor probe clean"
+
         Write-Step "running: $cmd $($relayArgs -join ' ')  < stdin: $expect"
         # The correct way to pipe into a native command in PowerShell with args splatting
         # Subject + trailing blank line so the manual-input loop terminates on
         # non-interactive stdin (blank line ends the body loop).
         $output = "$expect`n`n" | & $cmd @relayArgs 2>&1
         $code = $LASTEXITCODE
+        if ($code -ne 0) { throw "relay exited with code ${code}: $output" }
+
+        $subject = (git -C $repo log -1 --format=%s).Trim()
+        if ($subject -ne $expect) { throw "commit subject mismatch: '$subject' != '$expect'" }
+        Write-Step "PASS: solo flow committed '$subject'"
+
+        # Test direct message flag (-m / --message)
+        Write-Step "testing direct -m flag commit"
+        Set-Content -LiteralPath (Join-Path $repo "direct.txt") -Value "direct commit test`n"
+        git -C $repo add .
+        $directMsg = "feat: direct flag e2e"
+        & $cmd -m $directMsg --solo --no-push --yes | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "direct -m commit failed with code $LASTEXITCODE" }
+        $subject2 = (git -C $repo log -1 --format=%s).Trim()
+        if ($subject2 -ne $directMsg) { throw "direct message mismatch: '$subject2' != '$directMsg'" }
+        Write-Step "PASS: direct -m committed '$subject2'"
+
+        # Test repo-level .relay.toml configuration
+        Write-Step "testing repo-level .relay.toml configuration"
+        Set-Content -LiteralPath (Join-Path $repo ".relay.toml") -Value "[relay]`nprovider = ""ollama""`n"
+        & $cmd doctor | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "relay doctor failed with .relay.toml present" }
+        Write-Step "PASS: doctor verified .relay.toml"
     } finally {
         Pop-Location
     }
 
-    Write-Host $output
-    if ($code -ne 0) { throw "relay exited with code $code" }
-
-    $subject = (git -C $repo log -1 --format=%s).Trim()
-    if ($subject -ne $expect) { throw "commit subject mismatch: '$subject' != '$expect'" }
-
-    Write-Step "PASS: solo flow committed '$subject'"
     Write-Step "PASS: temp repo cleaned up"
 }
 finally {
