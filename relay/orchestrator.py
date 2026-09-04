@@ -11,7 +11,12 @@ never leave the developer stranded.
 """
 from __future__ import annotations
 
+import os
 import random
+import shlex
+import subprocess
+import sys
+import tempfile
 import time
 
 from .ai.base import filter_ignored_diff, filter_ignored_stat, split_diff_by_file
@@ -145,7 +150,8 @@ class Orchestrator:
                 if action == "accept":
                     message = msg
                 elif action == "edit":
-                    message = self._manual_input()
+                    edited = self._open_in_editor(draft=msg)
+                    message = edited if edited else self._manual_input(draft=msg)
                 else:
                     raise UserAbort("workflow aborted by user")
             else:
@@ -404,7 +410,8 @@ class Orchestrator:
             if action == "accept":
                 return message
             if action == "edit":
-                return self._manual_input()
+                edited = self._open_in_editor(draft=message)
+                return edited if edited else self._manual_input(draft=message)
             if action == "retry" and user_retries < 3:
                 user_retries += 1
                 print("[relay] regenerating...")
@@ -459,36 +466,81 @@ class Orchestrator:
             if action == "accept":
                 return combined
             if action == "edit":
-                return self._manual_input()
+                edited = self._open_in_editor(draft=combined)
+                return edited if edited else self._manual_input(draft=combined)
             if action == "retry" and user_retries < 3:
                 user_retries += 1
                 print("[relay] regenerating hunks...")
                 continue
             raise UserAbort("workflow aborted by user")
 
-    def _manual_input(self) -> str:
-        """The exact fallback we designed: a plain input() prompt, no exit.
+    @staticmethod
+    def _open_in_editor(draft: str = "") -> str | None:
+        """Open $GIT_EDITOR / $EDITOR with the draft commit message in a temporary file.
 
-        Supports a Conventional Commits body: type the subject on the first
-        line, add body lines below, then press Enter on an empty line to
-        finish. An immediately empty answer aborts; anything typed is
-        committed (subject + optional body, blank line separated) verbatim.
+        Returns the edited content if saved and non-empty, or None if the editor
+        is unavailable, exits with an error, or the terminal is not interactive.
+        """
+        if not sys.stdin.isatty():
+            return None
+        editor = os.environ.get("GIT_EDITOR") or os.environ.get("EDITOR")
+        if not editor:
+            editor = "notepad" if sys.platform == "win32" else "nano"
+        tmp_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w+", suffix=".commit.txt", delete=False, encoding="utf-8"
+            ) as tmp:
+                if draft:
+                    tmp.write(draft)
+                tmp_path = tmp.name
+            cmd = shlex.split(editor) + [tmp_path]
+            ret = subprocess.run(cmd, check=False)
+            if ret.returncode == 0 and os.path.exists(tmp_path):
+                with open(tmp_path, encoding="utf-8") as f:
+                    content = f.read().strip()
+                return content or None
+            return None
+        except Exception:
+            return None
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+    def _manual_input(self, draft: str = "") -> str:
+        """The fallback manual input prompt.
+
+        Supports multi-paragraph Conventional Commits:
+        - Press Enter on an empty line to finish.
+        - Enter '.' on an empty line to insert a paragraph separator.
+        - Ctrl-C or empty answer aborts.
         """
         print("Enter your commit message (subject, then optional body;")
-        print("blank line to finish, Ctrl-C to abort):")
-        lines = []
+        print("blank line to finish, '.' for paragraph break, Ctrl-C to abort):")
+        lines: list[str] = []
         while True:
-            line = input("> ")
-            if not line.strip():
+            try:
+                line = input("> ")
+            except (EOFError, StopIteration):
                 break
-            lines.append(line.rstrip())
+            stripped = line.strip()
+            if stripped == ".":
+                lines.append("")
+            elif not stripped:
+                break
+            else:
+                lines.append(line.rstrip())
         message = "\n".join(lines).strip()
+        if not message and draft:
+            message = draft.strip()
         if not message:
             raise UserAbort("aborted - no commit message provided")
-        # Keep the subject as the first line and separate a body with a blank
-        # line, so git (and changelog tools) treat the first line as subject.
         first, _, rest = message.partition("\n")
         if rest:
+            rest = rest.lstrip("\n")
             return f"{first}\n\n{rest}"
         return message
 

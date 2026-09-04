@@ -813,5 +813,72 @@ def test_explicit_message_warns_if_not_conventional(git, capsys):
     assert "warning: 'plain commit without convention' is not a Conventional Commit" in out
 
 
+def test_manual_input_multi_paragraph_terminated_with_dot(git):
+    ai = StubAI(error=AIError("test", "unavailable", "offline"))
+    inputs = [
+        "feat(core): support multi-paragraph",
+        ".",
+        "First paragraph explanation.",
+        ".",
+        "Second paragraph details.",
+        "",
+    ]
+    with mock.patch("builtins.input", side_effect=inputs):
+        code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    expected = (
+        "feat(core): support multi-paragraph\n\n"
+        "First paragraph explanation.\n\n"
+        "Second paragraph details."
+    )
+    git.commit.assert_called_once_with(expected, no_verify=False)
+
+
+def test_manual_input_single_paragraph_body(git):
+    ai = StubAI(error=AIError("test", "unavailable", "offline"))
+    inputs = [
+        "fix(core): single paragraph body",
+        "Body content line.",
+        "",
+    ]
+    with mock.patch("builtins.input", side_effect=inputs):
+        code = make_orchestrator(git, provider=ai).run()
+    assert code == 0
+    expected = "fix(core): single paragraph body\n\nBody content line."
+    git.commit.assert_called_once_with(expected, no_verify=False)
+
+
+def test_open_in_editor_invokes_editor_and_returns_content():
+    from relay.orchestrator import Orchestrator
+
+    def fake_editor_run(cmd, check=False):
+        path = cmd[-1]
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("feat(editor): committed from editor\n\nDetailed body from editor")
+        return mock.Mock(returncode=0)
+
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch.dict("os.environ", {"EDITOR": "dummy-editor"}):
+            with mock.patch("subprocess.run", side_effect=fake_editor_run):
+                result = Orchestrator._open_in_editor("draft message")
+    assert result == "feat(editor): committed from editor\n\nDetailed body from editor"
+
+
+def test_open_in_editor_returns_none_when_not_a_tty():
+    from relay.orchestrator import Orchestrator
+
+    with mock.patch("sys.stdin.isatty", return_value=False):
+        assert Orchestrator._open_in_editor("draft") is None
+
+
+def test_open_in_editor_returns_none_on_editor_error():
+    from relay.orchestrator import Orchestrator
+
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch("subprocess.run", return_value=mock.Mock(returncode=1)):
+            assert Orchestrator._open_in_editor("draft") is None
+
+
+
 
 
