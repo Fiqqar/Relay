@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import urllib.request
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):

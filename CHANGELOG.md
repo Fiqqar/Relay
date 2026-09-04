@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-04
+
+### Fixed
+- **Preflight Conflict Guard**: Halt commit operations immediately if unresolved merge/rebase conflicts or active merge heads exist, preventing `git add .` from staging conflict markers (`<<<<<<< HEAD`).
+- **Windows External Editor Paths**: Preserve backslashes in custom editor paths on Windows, and respect Git standard editor precedence (`$GIT_EDITOR` -> `git config core.editor` -> `$VISUAL` -> `$EDITOR`).
+- **Non-ASCII Path Handling**: Decode Git porcelain C-style octal escape sequences (e.g. `\303\251` -> `é`) ensuring non-ASCII files stage and commit cleanly.
+- **Diff UTF-8 Boundary Truncation**: Backtrack across incomplete trailing multi-byte UTF-8 codepoints during diff byte-capping, avoiding truncated Unicode characters.
+- **Virtualenv & Shell Detection in Installer**: Detect active virtualenvs in `install.py` to target virtual environment script paths directly, prioritize `~/.zshrc` when zsh is the user shell, and recommend non-truncating PowerShell environment commands on Windows.
+- **AI Gateway Error Diagnostics**: Extract structured JSON error payloads (e.g. quota limits, invalid tokens) from AI provider HTTP gateways to display actionable diagnostics instead of generic HTTP status lines.
+- **Headless E2E Test Suite**: Configured offline fallback provider in the end-to-end test suite to ensure robust verification in headless CI environments.
+
 ## [1.1.0] - 2026-09-04
 
 ### Added
