@@ -235,9 +235,17 @@ def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None
     # Byte budget: slice the UTF-8 payload if still too large
     encoded = diff.encode("utf-8")
     if len(encoded) > byte_cap:
-        # Truncate bytes and decode safely; append notice if not already truncated
+        # Truncate bytes and decode safely; trim trailing incomplete multi-byte sequence
         truncated_bytes = encoded[:byte_cap]
-        diff = truncated_bytes.decode("utf-8", errors="ignore")
+        for i in range(min(4, len(truncated_bytes)) + 1):
+            chunk = truncated_bytes[: len(truncated_bytes) - i] if i > 0 else truncated_bytes
+            try:
+                diff = chunk.decode("utf-8")
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            diff = truncated_bytes.decode("utf-8", errors="ignore")
         # Ensure we don't cut in the middle of the truncation notice
         if not was_truncated:
             diff += f"\n... [diff truncated to {byte_cap} bytes]"

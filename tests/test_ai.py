@@ -1003,4 +1003,26 @@ def test_openai_provider_includes_extracted_error_detail():
         assert exc_info.value.kind == "rate_limited"
 
 
+def test_truncate_diff_preserves_multibyte_utf8_boundary():
+    # 'é' is 2 bytes: b'\xc3\xa9'
+    diff_2byte = "prefix-café"
+    encoded_2byte = diff_2byte.encode("utf-8")
+    # Cut right in the middle of 'é'
+    cut_idx = len(encoded_2byte) - 1
+    result, was_truncated = truncate_diff(diff_2byte, max_bytes=cut_idx)
+    assert was_truncated is True
+    assert result.startswith("prefix-caf")
+    assert f"... [diff truncated to {cut_idx} bytes]" in result
 
+    # 4-byte UTF-8 character: U+1F680 (rocket) is b'\xf0\x9f\x9a\x80'
+    rocket = "\U0001F680"
+    base_prefix = "commit-"
+    diff_4byte = base_prefix + rocket
+    for offset in range(1, 4):
+        cap = len(base_prefix.encode("utf-8")) + offset
+        res, truncated = truncate_diff(diff_4byte, max_bytes=cap)
+        assert truncated is True
+        # Must safely decode and trim back to base_prefix
+        assert res.startswith(base_prefix)
+        # Verify valid UTF-8 string encoding
+        assert res.encode("utf-8")
