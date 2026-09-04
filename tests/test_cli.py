@@ -470,6 +470,7 @@ def test_cli_surface_is_frozen():
         "--yes", "--dry-run", "--no-push",
         "--staged", "--no-verify", "--allow-protected",
         "--repo", "--hunks", "--verbose",
+        "-m", "--message",
     }
     actual_flags = {opt for action in parser._actions for opt in action.option_strings}
     assert expected_flags == actual_flags
@@ -505,6 +506,14 @@ def test_main_multirepo_continues_on_per_repo_relay_error(wired, capsys):
     out = capsys.readouterr().out
     assert "repo repo1: error: repo 1 error" in out
     assert "fatal: mock failure" in out
+
+
+def test_main_message_flag_passes_to_orchestrator(wired):
+    provider_factory, orchestrator_cls = wired
+    assert main(["--solo", "-m", "fix(test): direct message test", "--yes"]) == 0
+    provider_factory.assert_not_called()
+    assert orchestrator_cls.call_args.kwargs["message"] == "fix(test): direct message test"
+
 
 
 

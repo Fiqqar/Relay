@@ -96,6 +96,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="create & checkout <type>/<feature>, commit, and push it (feature optional)",
     )
 
+    parser.add_argument("-m", "--message", metavar="MESSAGE",
+                        help="use this commit message instead of generating one with AI")
     parser.add_argument("--provider", choices=PROVIDER_NAMES,
                         help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
     parser.add_argument("--timeout", type=int, metavar="SECONDS",
@@ -361,11 +363,12 @@ def main(argv: list[str] | None = None) -> int:
         # degrade to provider=None so the run continues interactively instead
         # of dying with a ConfigError before anything happens.
         ai_provider: AIManager | None = None
-        try:
-            ai_provider = build_provider(args.provider, timeout=args.timeout)
-        except ConfigError as exc:
-            print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
-            ai_provider = None
+        if not getattr(args, "message", None):
+            try:
+                ai_provider = build_provider(args.provider, timeout=args.timeout)
+            except ConfigError as exc:
+                print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+                ai_provider = None
         # Multi-repo: --repo appends to and deduplicates [repos]/RELAY_REPOS, else current dir.
         raw_repos: list[str | None]
         cfg = config_repos()
@@ -394,6 +397,7 @@ def main(argv: list[str] | None = None) -> int:
                 hunks=getattr(args, "hunks", False),
                 allow_protected=args.allow_protected,
                 branch_template=branch_template(),
+                message=getattr(args, "message", None),
             )
             try:
                 code = orchestrator.run()

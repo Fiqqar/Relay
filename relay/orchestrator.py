@@ -51,6 +51,7 @@ class Orchestrator:
         allow_protected: bool = False,
         protected_branches: list[str] | None = None,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
+        message: str | None = None,
     ):
         self.mode = mode
         self.feature = feature
@@ -66,6 +67,7 @@ class Orchestrator:
         self.allow_protected = allow_protected
         self.protected_branches = protected_branches or get_protected_branches()
         self.branch_template = branch_template
+        self.message = message
 
     # ---- Public entry point -------------------------------------------------
 
@@ -131,10 +133,24 @@ class Orchestrator:
         # GENERATE (with built-in fallback to manual input). The message is
         # produced BEFORE the team branch name is resolved, because the branch
         # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
-        # A binary-only staged diff skips the AI entirely: it has no readable
-        # content to summarize, so guessing would produce a misleading message.
-        # An all-ignored diff also skips the AI (empty prompt fallback).
-        if not diff.strip():
+        # An explicit --message skips AI entirely.
+        if self.message and self.message.strip():
+            msg = self.message.strip()
+            valid, reason = validate_conventional(msg)
+            if not valid:
+                print(f"[relay] warning: '{msg}' is not a Conventional Commit ({reason})")
+            if not self.yes and not self.dry_run:
+                print(f"[relay] commit message: {msg}")
+                action = interpret_choice(input(CONFIRM_PROMPT))
+                if action == "accept":
+                    message = msg
+                elif action == "edit":
+                    message = self._manual_input()
+                else:
+                    raise UserAbort("workflow aborted by user")
+            else:
+                message = msg
+        elif not diff.strip():
             print(
                 "[relay] staged changes are binary-only or fully ignored; "
                 "an AI cannot derive a commit message from them."

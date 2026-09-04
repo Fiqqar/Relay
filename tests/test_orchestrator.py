@@ -773,4 +773,45 @@ def test_ai_error_ansi_escapes_are_sanitized_in_orchestrator(git, capsys):
     assert "[relay] AI unavailable" in out
 
 
+def test_explicit_message_skips_ai_and_commits_directly(git):
+    ai = StubAI(responses=["feat(ai): should not be called"])
+    code = make_orchestrator(git, provider=ai, message="feat(auth): login with google", yes=True).run()
+    assert code == 0
+    git.commit.assert_called_once_with("feat(auth): login with google", no_verify=False)
+    assert not ai.generate_calls
+
+
+def test_explicit_message_confirmation_accept(git):
+    ai = StubAI()
+    with mock.patch("builtins.input", side_effect=["a"]):
+        code = make_orchestrator(git, provider=ai, message="fix: direct fix").run()
+    assert code == 0
+    git.commit.assert_called_once_with("fix: direct fix", no_verify=False)
+    assert not ai.generate_calls
+
+
+def test_explicit_message_confirmation_edit(git):
+    ai = StubAI()
+    with mock.patch("builtins.input", side_effect=["e", "fix: edited message", ""]):
+        code = make_orchestrator(git, provider=ai, message="fix: original message").run()
+    assert code == 0
+    git.commit.assert_called_once_with("fix: edited message", no_verify=False)
+
+
+def test_explicit_message_confirmation_abort(git):
+    ai = StubAI()
+    with mock.patch("builtins.input", side_effect=["A"]):
+        with pytest.raises(UserAbort):
+            make_orchestrator(git, provider=ai, message="fix: will abort").run()
+
+
+def test_explicit_message_warns_if_not_conventional(git, capsys):
+    ai = StubAI()
+    code = make_orchestrator(git, provider=ai, message="plain commit without convention", yes=True).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "warning: 'plain commit without convention' is not a Conventional Commit" in out
+
+
+
 
