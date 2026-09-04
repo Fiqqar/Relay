@@ -224,6 +224,18 @@ class GitManager:
         proc = self._run("log", "-1", "--format=%B", check=False)
         return proc.stdout.strip() if proc.returncode == 0 else ""
 
+    def recent_subjects(self, count: int = 5) -> list[str]:
+        """One-line subjects of the most recent commits (empty if no commits).
+
+        Returns up to ``count`` subjects, newest first, formatted with ``%s``.
+        """
+        if count <= 0:
+            return []
+        proc = self._run("log", f"-{count}", "--format=%s", "--", check=False)
+        if proc.returncode != 0:
+            return []
+        return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
     def log_between(self, base: str, head: str) -> str:
         """One-line subjects of commits reachable from ``head`` but not ``base``.
 

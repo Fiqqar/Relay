@@ -428,6 +428,18 @@ class TestRemoteHelpers:
         mock_run.return_value = make_proc(returncode=128, stderr="fatal: ambiguous")
         assert git.log_between("nope", "feat/login") == ""
 
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_recent_subjects_returns_list(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc(stdout="feat(cli): add flag\nfix(ai): error\n")
+        assert git.recent_subjects(count=2) == ["feat(cli): add flag", "fix(ai): error"]
+        assert mock_run.call_args.args[0] == ["git", "log", "-2", "--format=%s", "--"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_recent_subjects_empty_when_no_commits_or_invalid_count(self, mock_run, git, make_proc):
+        assert git.recent_subjects(count=0) == []
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: your branch has no commits")
+        assert git.recent_subjects(count=5) == []
+
 
 class TestVerbose:
     @mock.patch("relay.git_manager.subprocess.run")

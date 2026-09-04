@@ -44,6 +44,7 @@ def git():
     g.staged_diff_binary_only.return_value = False
     g.head_diff_binary_only.return_value = False
     g.write_tree.return_value = "abc123"
+    g.recent_subjects.return_value = []
     return g
 
 
@@ -877,6 +878,18 @@ def test_open_in_editor_returns_none_on_editor_error():
     with mock.patch("sys.stdin.isatty", return_value=True):
         with mock.patch("subprocess.run", return_value=mock.Mock(returncode=1)):
             assert Orchestrator._open_in_editor("draft") is None
+
+
+def test_orchestrator_passes_recent_commits_to_ai(git):
+    git.recent_subjects.return_value = ["feat(cli): old commit", "fix(core): bug"]
+    mock_ai = mock.Mock()
+    mock_ai.generate.return_value = "feat(core): new generated commit"
+    code = make_orchestrator(git, provider=mock_ai, yes=True).run()
+    assert code == 0
+    assert mock_ai.generate.call_count == 1
+    args, kwargs = mock_ai.generate.call_args
+    assert kwargs.get("recent_commits") == ["feat(cli): old commit", "fix(core): bug"]
+
 
 
 

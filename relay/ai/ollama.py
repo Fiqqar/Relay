@@ -32,8 +32,16 @@ class OllamaProvider(AIManager):
         # safety clamp, so a slow local model still falls back to manual input.
         self.timeout = ai_timeout(timeout)
 
-    def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:
-        prompt = self.build_prompt(diff, stat, branch)
+    def generate_commit_message(
+        self,
+        diff: str,
+        stat: str,
+        branch: str,
+        recent_commits: list[str] | None = None,
+    ) -> str:
+        prompt = self.build_prompt(
+            diff, stat, branch, recent_commits=recent_commits
+        )
         payload = {
             "model": self.model,
             "prompt": prompt,

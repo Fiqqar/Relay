@@ -625,6 +625,17 @@ class TestBuildPrompt:
         assert "main" in prompt
         assert "type(scope): subject" in prompt
 
+    def test_includes_recent_commits_when_provided(self):
+        recent = ["feat(cli): add flag", "fix(core): fix bug"]
+        prompt = AIManager.build_prompt("DIFF", "STAT", "main", recent_commits=recent)
+        assert "Recent commit subjects in this repository" in prompt
+        assert "- feat(cli): add flag" in prompt
+        assert "- fix(core): fix bug" in prompt
+
+    def test_omits_recent_commits_when_empty(self):
+        prompt = AIManager.build_prompt("DIFF", "STAT", "main", recent_commits=[])
+        assert "Recent commit subjects in this repository" not in prompt
+
 
 class TestDiffTruncation:
     def test_small_diff_is_passthrough(self):

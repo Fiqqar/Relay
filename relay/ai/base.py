@@ -213,7 +213,13 @@ class AIManager(ABC):
     provider_name = "base"
 
     @staticmethod
-    def build_prompt(diff: str, stat: str, branch: str, max_lines: int | None = None) -> str:
+    def build_prompt(
+        diff: str,
+        stat: str,
+        branch: str,
+        max_lines: int | None = None,
+        recent_commits: list[str] | None = None,
+    ) -> str:
         """Compose the full prompt: repo context (branch + diffstat) + diff.
 
         The diff is truncated to a strict line budget before it is sent; the
@@ -222,19 +228,40 @@ class AIManager(ABC):
         diff, was_truncated = truncate_diff(diff, max_lines)
         cap = max_lines if max_lines is not None else max_diff_lines()
         notice = f"\nNote: the diff was truncated to its first {cap} lines.\n" if was_truncated else ""
+        recent_section = ""
+        if recent_commits:
+            items = "\n".join(f"- {c}" for c in recent_commits[:5] if c.strip())
+            if items:
+                recent_section = (
+                    f"Recent commit subjects in this repository (for scope and style reference):\n"
+                    f"{items}\n"
+                )
         return (
             f"Current branch: {branch}\n"
             f"Changed files summary:\n{stat}\n"
+            f"{recent_section}"
             f"Staged diff:\n{diff}\n"
             f"---\n{SYSTEM_PROMPT}"
             f"{notice}"
         )
 
     @abstractmethod
-    def generate_commit_message(self, diff: str, stat: str, branch: str) -> str:
+    def generate_commit_message(
+        self,
+        diff: str,
+        stat: str,
+        branch: str,
+        recent_commits: list[str] | None = None,
+    ) -> str:
         """Return the raw AI text. Raise AIError on any failure."""
 
-    def generate(self, diff: str, stat: str, branch: str) -> str:
+    def generate(
+        self,
+        diff: str,
+        stat: str,
+        branch: str,
+        recent_commits: list[str] | None = None,
+    ) -> str:
         """Public entry point used by the Orchestrator.
 
         Wraps the concrete implementation so ANY unexpected exception (network
@@ -242,7 +269,9 @@ class AIManager(ABC):
         is the exact seam the fallback logic in the Orchestrator catches.
         """
         try:
-            return self.generate_commit_message(diff, stat, branch)
+            return self.generate_commit_message(
+                diff, stat, branch, recent_commits=recent_commits
+            )
         except AIError:
             raise
         except Exception as exc:  # noqa: BLE001 - provider internals are opaque

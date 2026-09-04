@@ -380,9 +380,17 @@ class Orchestrator:
             return self._manual_input()
         user_retries = 0
         transient_tries = 0
+        recent: list[str] = []
+        try:
+            recent = self.git.recent_subjects(count=5)
+        except Exception:
+            pass
         while True:
             try:
-                raw = self.ai.generate(diff, stat, branch)
+                try:
+                    raw = self.ai.generate(diff, stat, branch, recent_commits=recent)
+                except TypeError:
+                    raw = self.ai.generate(diff, stat, branch)
                 message = sanitize_ai_message(raw)
                 valid, reason = validate_conventional(message)
                 if not valid:
@@ -425,6 +433,11 @@ class Orchestrator:
             return self._manual_input()
         print(f"[relay] hunk-level: generating {len(blocks)} messages")
         user_retries = 0
+        recent: list[str] = []
+        try:
+            recent = self.git.recent_subjects(count=5)
+        except Exception:
+            pass
         while True:
             messages: list[str] = []
             paths: list[str] = []
@@ -432,7 +445,12 @@ class Orchestrator:
                 tries = 0
                 while True:
                     try:
-                        raw = self.ai.generate(block, path, branch)
+                        try:
+                            raw = self.ai.generate(
+                                block, path, branch, recent_commits=recent
+                            )
+                        except TypeError:
+                            raw = self.ai.generate(block, path, branch)
                         msg = sanitize_ai_message(raw)
                         valid, reason = validate_conventional(msg)
                         if not valid:
