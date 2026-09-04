@@ -47,10 +47,15 @@ class AnthropicProvider(AIManager):
         stat: str,
         branch: str,
         recent_commits: list[str] | None = None,
+        rejected_message: str | None = None,
     ) -> str:
         assert self.api_key is not None
         prompt = self.build_prompt(
-            diff, stat, branch, recent_commits=recent_commits
+            diff,
+            stat,
+            branch,
+            recent_commits=recent_commits,
+            rejected_message=rejected_message,
         )
         payload = {
             "model": self.model,

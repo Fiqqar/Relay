@@ -385,10 +385,17 @@ class Orchestrator:
             recent = self.git.recent_subjects(count=5)
         except Exception:
             pass
+        rejected_message: str | None = None
         while True:
             try:
                 try:
-                    raw = self.ai.generate(diff, stat, branch, recent_commits=recent)
+                    raw = self.ai.generate(
+                        diff,
+                        stat,
+                        branch,
+                        recent_commits=recent,
+                        rejected_message=rejected_message,
+                    )
                 except TypeError:
                     raw = self.ai.generate(diff, stat, branch)
                 message = sanitize_ai_message(raw)
@@ -422,6 +429,7 @@ class Orchestrator:
                 return edited if edited else self._manual_input(draft=message)
             if action == "retry" and user_retries < 3:
                 user_retries += 1
+                rejected_message = message
                 print("[relay] regenerating...")
                 continue
             raise UserAbort("workflow aborted by user")

@@ -219,6 +219,7 @@ class AIManager(ABC):
         branch: str,
         max_lines: int | None = None,
         recent_commits: list[str] | None = None,
+        rejected_message: str | None = None,
     ) -> str:
         """Compose the full prompt: repo context (branch + diffstat) + diff.
 
@@ -236,10 +237,18 @@ class AIManager(ABC):
                     f"Recent commit subjects in this repository (for scope and style reference):\n"
                     f"{items}\n"
                 )
+        retry_section = ""
+        if rejected_message:
+            retry_section = (
+                f"The previously suggested commit message was rejected:\n"
+                f'"{rejected_message.strip()}"\n'
+                f"Please generate an ALTERNATIVE Conventional Commit message with a different perspective, scope, or phrasing.\n"
+            )
         return (
             f"Current branch: {branch}\n"
             f"Changed files summary:\n{stat}\n"
             f"{recent_section}"
+            f"{retry_section}"
             f"Staged diff:\n{diff}\n"
             f"---\n{SYSTEM_PROMPT}"
             f"{notice}"
@@ -252,6 +261,7 @@ class AIManager(ABC):
         stat: str,
         branch: str,
         recent_commits: list[str] | None = None,
+        rejected_message: str | None = None,
     ) -> str:
         """Return the raw AI text. Raise AIError on any failure."""
 
@@ -261,6 +271,7 @@ class AIManager(ABC):
         stat: str,
         branch: str,
         recent_commits: list[str] | None = None,
+        rejected_message: str | None = None,
     ) -> str:
         """Public entry point used by the Orchestrator.
 
@@ -270,7 +281,11 @@ class AIManager(ABC):
         """
         try:
             return self.generate_commit_message(
-                diff, stat, branch, recent_commits=recent_commits
+                diff,
+                stat,
+                branch,
+                recent_commits=recent_commits,
+                rejected_message=rejected_message,
             )
         except AIError:
             raise

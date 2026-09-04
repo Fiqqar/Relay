@@ -636,6 +636,18 @@ class TestBuildPrompt:
         prompt = AIManager.build_prompt("DIFF", "STAT", "main", recent_commits=[])
         assert "Recent commit subjects in this repository" not in prompt
 
+    def test_includes_rejected_message_when_provided(self):
+        prompt = AIManager.build_prompt(
+            "DIFF", "STAT", "main", rejected_message="feat(cli): bad message"
+        )
+        assert "The previously suggested commit message was rejected:" in prompt
+        assert '"feat(cli): bad message"' in prompt
+        assert "ALTERNATIVE Conventional Commit message" in prompt
+
+    def test_omits_rejected_message_when_none(self):
+        prompt = AIManager.build_prompt("DIFF", "STAT", "main", rejected_message=None)
+        assert "previously suggested commit message was rejected" not in prompt
+
 
 class TestDiffTruncation:
     def test_small_diff_is_passthrough(self):

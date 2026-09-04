@@ -891,6 +891,22 @@ def test_orchestrator_passes_recent_commits_to_ai(git):
     assert kwargs.get("recent_commits") == ["feat(cli): old commit", "fix(core): bug"]
 
 
+def test_orchestrator_passes_rejected_message_on_retry(git):
+    mock_ai = mock.Mock()
+    mock_ai.generate.side_effect = [
+        "feat(core): first rejected idea",
+        "feat(core): second accepted idea",
+    ]
+    with mock.patch("builtins.input", side_effect=["r", "y"]):
+        code = make_orchestrator(git, provider=mock_ai).run()
+    assert code == 0
+    assert mock_ai.generate.call_count == 2
+    second_call_kwargs = mock_ai.generate.call_args_list[1].kwargs
+    assert second_call_kwargs.get("rejected_message") == "feat(core): first rejected idea"
+    git.commit.assert_called_once_with("feat(core): second accepted idea", no_verify=False)
+
+
+
 
 
 

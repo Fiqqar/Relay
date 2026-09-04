@@ -38,9 +38,14 @@ class OllamaProvider(AIManager):
         stat: str,
         branch: str,
         recent_commits: list[str] | None = None,
+        rejected_message: str | None = None,
     ) -> str:
         prompt = self.build_prompt(
-            diff, stat, branch, recent_commits=recent_commits
+            diff,
+            stat,
+            branch,
+            recent_commits=recent_commits,
+            rejected_message=rejected_message,
         )
         payload = {
             "model": self.model,
