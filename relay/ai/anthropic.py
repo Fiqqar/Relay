@@ -18,7 +18,7 @@ from ..config import (
 )
 from ..errors import AIError, ConfigError
 from ..telemetry import _is_valid_ai_base_url
-from .base import AIManager, read_limited_response
+from .base import AIManager, extract_http_error_detail, read_limited_response
 
 
 class AnthropicProvider(AIManager):
@@ -85,7 +85,8 @@ class AnthropicProvider(AIManager):
                 kind = "unavailable"
             else:
                 kind = "api_error"
-            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {exc.reason}") from exc
+            detail = extract_http_error_detail(exc) or exc.reason
+            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {detail}") from exc
         except TimeoutError as exc:
             raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
         except urllib.error.URLError as exc:

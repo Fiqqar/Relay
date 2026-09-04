@@ -15,7 +15,7 @@ import urllib.request
 from ..config import ai_timeout, ollama_base_url, ollama_model
 from ..errors import AIError, ConfigError
 from ..telemetry import _is_valid_ai_base_url
-from .base import AIManager, read_limited_response
+from .base import AIManager, extract_http_error_detail, read_limited_response
 
 
 class OllamaProvider(AIManager):
@@ -71,7 +71,8 @@ class OllamaProvider(AIManager):
                 kind = "unavailable"
             else:
                 kind = "api_error"
-            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {exc.reason}") from exc
+            detail = extract_http_error_detail(exc) or exc.reason
+            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {detail}") from exc
         except TimeoutError as exc:
             # Timeout hit -> "unavailable" so the Orchestrator falls back to
             # manual input rather than waiting on a hung model.

@@ -954,3 +954,53 @@ def test_diff_anchor_does_not_split_on_embedded_content():
     assert len(blocks) == 2
 
 
+def test_extract_http_error_detail():
+    import io
+    import urllib.error
+
+    from relay.ai.base import extract_http_error_detail
+
+    # 1. OpenAI / Anthropic format: {"error": {"message": "Invalid API key"}}
+    body = io.BytesIO(b'{"error": {"message": "Invalid API key provided"}}')
+    exc = urllib.error.HTTPError("http://api.test", 401, "Unauthorized", {}, body)
+    assert extract_http_error_detail(exc) == "Invalid API key provided"
+
+    # 2. Ollama / string format: {"error": "model not found"}
+    body = io.BytesIO(b'{"error": "model \'llama3\' not found"}')
+    exc = urllib.error.HTTPError("http://api.test", 404, "Not Found", {}, body)
+    assert extract_http_error_detail(exc) == "model 'llama3' not found"
+
+    # 3. Gemini format: {"message": "Quota exceeded"}
+    body = io.BytesIO(b'{"message": "Quota exceeded"}')
+    exc = urllib.error.HTTPError("http://api.test", 429, "Too Many Requests", {}, body)
+    assert extract_http_error_detail(exc) == "Quota exceeded"
+
+    # 4. Plain text / non-JSON:
+    body = io.BytesIO(b"Bad Gateway HTML")
+    exc = urllib.error.HTTPError("http://api.test", 502, "Bad Gateway", {}, body)
+    assert extract_http_error_detail(exc) == "Bad Gateway HTML"
+
+    # 5. Empty body fallback to exc.reason:
+    body = io.BytesIO(b"")
+    exc = urllib.error.HTTPError("http://api.test", 500, "Internal Server Error", {}, body)
+    assert extract_http_error_detail(exc) == "Internal Server Error"
+
+
+def test_openai_provider_includes_extracted_error_detail():
+    import io
+    import urllib.error
+
+    from relay.ai.openai import OpenAIProvider
+
+    provider = OpenAIProvider(api_key="k", model="m", base_url="https://api.openai.com/v1")
+    body = io.BytesIO(b'{"error": {"message": "Quota limit reached"}}')
+    with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+        "https://api.openai.com/v1", 429, "Too Many Requests", {}, body
+    )):
+        with pytest.raises(AIError) as exc_info:
+            provider.generate_commit_message("d", "s", "b")
+        assert "Quota limit reached" in str(exc_info.value)
+        assert exc_info.value.kind == "rate_limited"
+
+
+

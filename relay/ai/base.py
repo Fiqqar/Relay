@@ -12,8 +12,10 @@ provider-independent.
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
 import re
+import urllib.error
 from abc import ABC, abstractmethod
 from pathlib import PurePath
 
@@ -25,6 +27,48 @@ from ..errors import AIError
 # answer. Rejecting oversized bodies keeps a runaway provider from holding a
 # multi-megabyte blob in memory.
 MAX_RESPONSE_BYTES = 1024 * 1024  # 1 MiB
+
+# Diagnostic error payload read cap
+MAX_ERROR_BODY_BYTES = 10 * 1024  # 10 KiB
+
+
+def extract_http_error_detail(exc: urllib.error.HTTPError) -> str:
+    """Extract a human-readable diagnostic error message from an HTTPError.
+
+    Reads up to 10 KiB from the error body and attempts to parse JSON error payloads
+    returned by AI gateways (OpenAI, Gemini, Anthropic, Ollama), falling back to
+    exc.reason if no message is extractable.
+    """
+    try:
+        raw = exc.read(MAX_ERROR_BODY_BYTES + 1)
+        if not raw:
+            return exc.reason or ""
+        text = raw[:MAX_ERROR_BODY_BYTES].decode("utf-8", "replace")
+        try:
+            payload = json.loads(text)
+        except Exception:
+            return text.strip() or exc.reason or ""
+
+        if isinstance(payload, dict):
+            # 1. Standard OpenAI / Anthropic format: {"error": {"message": "..."}}
+            err = payload.get("error")
+            if isinstance(err, dict):
+                msg = err.get("message")
+                if msg and isinstance(msg, str):
+                    return msg.strip()
+            elif isinstance(err, str) and err.strip():
+                return err.strip()
+            # 2. Gemini format: {"error": {"message": "...", "status": "..."}} or {"message": "..."}
+            msg = payload.get("message")
+            if msg and isinstance(msg, str):
+                return msg.strip()
+            # 3. Ollama format: {"detail": "..."}
+            detail = payload.get("detail")
+            if detail and isinstance(detail, str):
+                return detail.strip()
+        return text.strip() or exc.reason or ""
+    except Exception:
+        return exc.reason or ""
 
 # Byte budget for the diff sent to the LLM. Even if line-count is within cap,
 # a single line (e.g. minified file) could be huge.

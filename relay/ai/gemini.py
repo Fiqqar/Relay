@@ -13,7 +13,7 @@ import urllib.request
 
 from ..config import ai_timeout, gemini_api_key, gemini_model
 from ..errors import AIError, ConfigError
-from .base import AIManager, read_limited_response
+from .base import AIManager, extract_http_error_detail, read_limited_response
 
 _ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -89,7 +89,8 @@ class GeminiProvider(AIManager):
                 kind = "unavailable"
             else:
                 kind = "api_error"
-            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {exc.reason}") from exc
+            detail = extract_http_error_detail(exc) or exc.reason
+            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {detail}") from exc
         except TimeoutError as exc:
             # Timeout hit (a real network outage or a hung provider): treat as
             # "unavailable" so the Orchestrator falls back to manual input
