@@ -522,6 +522,8 @@ class TestStagingEdgePaths:
         assert _clean_porcelain_path("old.py -> new.py") == "new.py"
         assert _clean_porcelain_path('"old name.py" -> "new name.py"') == "new name.py"
         assert _clean_porcelain_path(r'"path\"with\"quote.py"') == 'path"with"quote.py'
+        assert _clean_porcelain_path(r'"caf\303\251.py"') == "café.py"
+        assert _clean_porcelain_path(r'"old_\303\251.py" -> "new_\303\251.py"') == "new_é.py"
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_add_interactive_invokes_git_add_p(self, mock_run, git, make_proc):

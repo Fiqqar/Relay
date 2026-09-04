@@ -10,6 +10,7 @@ Design notes
 """
 from __future__ import annotations
 
+import codecs
 import subprocess
 import urllib.parse
 from pathlib import Path
@@ -93,13 +94,18 @@ def _clean_porcelain_path(raw: str) -> str:
 
     Renames in porcelain v1 appear as ``old -> new`` (or ``"old" -> "new"``).
     Extract the destination path (``new``) and strip surrounding quotes.
+    Decodes Git C-style octal escapes (e.g. \\303\\251 -> é) for non-ASCII paths.
     """
     raw = raw.strip()
     if " -> " in raw:
         _, raw = raw.split(" -> ", 1)
         raw = raw.strip()
     if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
-        raw = raw[1:-1].replace(r'\"', '"').replace(r"\\", "\\")
+        content = raw[1:-1]
+        try:
+            raw = codecs.escape_decode(content.encode("latin-1"))[0].decode("utf-8")
+        except Exception:
+            raw = content.replace(r'\"', '"').replace(r"\\", "\\")
     return raw
 
 
