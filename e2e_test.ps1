@@ -33,10 +33,12 @@ if ($relayCmd) {
 $expect = "fix: e2e test commit"
 $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("relay-e2e-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 
-# Point Ollama at a dead port so the fallback path is deterministic even if a
-# real Ollama server happens to be running on this machine.
+# Point Ollama at a dead port and select ollama provider so the test runs
+# completely offline without requiring any third-party API keys.
 $previousOllamaUrl = $env:OLLAMA_BASE_URL
+$previousProvider = $env:RELAY_AI_PROVIDER
 $env:OLLAMA_BASE_URL = "http://127.0.0.1:9"
+$env:RELAY_AI_PROVIDER = "ollama"
 
 try {
     New-Item -ItemType Directory -Path $repo | Out-Null
@@ -85,8 +87,11 @@ try {
         # Test repo-level .relay.toml configuration
         Write-Step "testing repo-level .relay.toml configuration"
         Set-Content -LiteralPath (Join-Path $repo ".relay.toml") -Value "[relay]`nprovider = ""ollama""`n"
+        $env:RELAY_AI_PROVIDER = ""
         & $cmd doctor | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "relay doctor failed with .relay.toml present" }
+        $docCode = $LASTEXITCODE
+        $env:RELAY_AI_PROVIDER = "ollama"
+        if ($docCode -ne 0) { throw "relay doctor failed with .relay.toml present" }
         Write-Step "PASS: doctor verified .relay.toml"
     } finally {
         Pop-Location
@@ -97,6 +102,8 @@ try {
 finally {
     if ($null -eq $previousOllamaUrl) { Remove-Item Env:OLLAMA_BASE_URL -ErrorAction SilentlyContinue }
     else { $env:OLLAMA_BASE_URL = $previousOllamaUrl }
+    if ($null -eq $previousProvider) { Remove-Item Env:RELAY_AI_PROVIDER -ErrorAction SilentlyContinue }
+    else { $env:RELAY_AI_PROVIDER = $previousProvider }
     if (Test-Path -LiteralPath $repo) {
         Remove-Item -LiteralPath $repo -Recurse -Force -ErrorAction SilentlyContinue
     }

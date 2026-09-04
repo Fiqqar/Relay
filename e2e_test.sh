@@ -28,8 +28,10 @@ expect="fix: e2e test commit"
 repo="$(mktemp -d)"
 trap 'rm -rf "$repo"' EXIT
 
-# Force the offline fallback deterministically (dead port).
+# Force the offline fallback deterministically (dead port) and use ollama provider
+# so the test runs completely offline without requiring third-party API keys.
 export OLLAMA_BASE_URL="http://127.0.0.1:9"
+export RELAY_AI_PROVIDER="ollama"
 
 echo "[e2e] temp repo: $repo"
 
@@ -75,7 +77,7 @@ git -C "$repo" add .
   # Test repo-level .relay.toml configuration
   echo "[e2e] testing repo-level .relay.toml configuration"
   printf '[relay]\nprovider = "ollama"\n' >"$repo/.relay.toml"
-  "${relay_cmd[@]}" doctor >/dev/null
+  env -u RELAY_AI_PROVIDER "${relay_cmd[@]}" doctor >/dev/null
   echo "[e2e] PASS: doctor verified .relay.toml"
 )
 
