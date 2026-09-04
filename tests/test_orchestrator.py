@@ -47,6 +47,7 @@ def git():
     g.recent_subjects.return_value = []
     g.has_conflicts.return_value = False
     g.is_in_merge_or_rebase.return_value = False
+    g.config_get.return_value = ""
     return g
 
 
@@ -880,6 +881,58 @@ def test_open_in_editor_returns_none_on_editor_error():
     with mock.patch("sys.stdin.isatty", return_value=True):
         with mock.patch("subprocess.run", return_value=mock.Mock(returncode=1)):
             assert Orchestrator._open_in_editor("draft") is None
+
+
+def test_open_in_editor_respects_visual_and_core_editor(git):
+    orch = make_orchestrator(git)
+    captured_cmds = []
+
+    def fake_run(cmd, check=False):
+        captured_cmds.append(cmd)
+        return mock.Mock(returncode=0)
+
+    # 1. VISUAL should be used when EDITOR is set but VISUAL is also set
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch.dict("os.environ", {"VISUAL": "nvim", "EDITOR": "nano"}, clear=True):
+            with mock.patch("subprocess.run", side_effect=fake_run):
+                orch._open_in_editor("draft")
+                assert captured_cmds[-1][0] == "nvim"
+
+    # 2. git config core.editor should be used over VISUAL/EDITOR
+    git.config_get.return_value = "code --wait"
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch.dict("os.environ", {"VISUAL": "nvim", "EDITOR": "nano"}, clear=True):
+            with mock.patch("subprocess.run", side_effect=fake_run):
+                orch._open_in_editor("draft")
+                assert captured_cmds[-1][0] == "code"
+
+    # 3. GIT_EDITOR wins over git config core.editor
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch.dict("os.environ", {"GIT_EDITOR": "subl -w"}, clear=True):
+            with mock.patch("subprocess.run", side_effect=fake_run):
+                orch._open_in_editor("draft")
+                assert captured_cmds[-1][0] == "subl"
+
+
+def test_open_in_editor_windows_backslash_paths(git):
+    orch = make_orchestrator(git)
+    captured_cmds = []
+
+    def fake_run(cmd, check=False):
+        captured_cmds.append(cmd)
+        return mock.Mock(returncode=0)
+
+    win_editor = r"C:\Program Files\Notepad++\notepad++.exe --wait"
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch("sys.platform", "win32"):
+            with mock.patch.dict("os.environ", {"GIT_EDITOR": win_editor}, clear=True):
+                with mock.patch("subprocess.run", side_effect=fake_run):
+                    orch._open_in_editor("draft")
+                    # Backslashes must not be stripped
+                    assert captured_cmds[-1][0] == r"C:\Program"
+                    assert captured_cmds[-1][1] == r"Files\Notepad++\notepad++.exe"
+                    assert captured_cmds[-1][2] == "--wait"
+
 
 
 def test_orchestrator_passes_recent_commits_to_ai(git):

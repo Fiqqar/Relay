@@ -504,16 +504,41 @@ class Orchestrator:
                 continue
             raise UserAbort("workflow aborted by user")
 
-    @staticmethod
-    def _open_in_editor(draft: str = "") -> str | None:
-        """Open $GIT_EDITOR / $EDITOR with the draft commit message in a temporary file.
+    def _open_in_editor(self, draft: str = "") -> str | None:
+        """Open configured editor with the draft commit message in a temporary file.
+
+        Editor resolution precedence:
+        1. $GIT_EDITOR
+        2. git config core.editor
+        3. $VISUAL
+        4. $EDITOR
+        5. Default: notepad (Windows) / nano (Unix)
 
         Returns the edited content if saved and non-empty, or None if the editor
         is unavailable, exits with an error, or the terminal is not interactive.
         """
         if not sys.stdin.isatty():
             return None
-        editor = os.environ.get("GIT_EDITOR") or os.environ.get("EDITOR")
+
+        # Allow static-style invocation Orchestrator._open_in_editor("draft")
+        git_editor_cfg = ""
+        if isinstance(self, str):
+            draft = self
+        elif getattr(self, "git", None):
+            try:
+                cfg = self.git.config_get("core.editor")
+                if isinstance(cfg, str) and cfg.strip():
+                    git_editor_cfg = cfg.strip()
+            except Exception:
+                pass
+
+        raw_editor = (
+            os.environ.get("GIT_EDITOR")
+            or git_editor_cfg
+            or os.environ.get("VISUAL")
+            or os.environ.get("EDITOR")
+        )
+        editor = raw_editor.strip() if isinstance(raw_editor, str) else ""
         if not editor:
             editor = "notepad" if sys.platform == "win32" else "nano"
         tmp_path = ""
@@ -524,7 +549,15 @@ class Orchestrator:
                 if draft:
                     tmp.write(draft)
                 tmp_path = tmp.name
-            cmd = shlex.split(editor) + [tmp_path]
+
+            if sys.platform == "win32":
+                if os.path.isfile(editor):
+                    cmd = [editor, tmp_path]
+                else:
+                    cmd = [a.strip('"') for a in shlex.split(editor, posix=False)] + [tmp_path]
+            else:
+                cmd = shlex.split(editor) + [tmp_path]
+
             ret = subprocess.run(cmd, check=False)
             if ret.returncode == 0 and os.path.exists(tmp_path):
                 with open(tmp_path, encoding="utf-8") as f:
