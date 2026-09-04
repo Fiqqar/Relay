@@ -98,7 +98,7 @@ Run `relay doctor` to verify Python, Git, and credentials:
 
 ```console
 $ relay doctor
-[relay doctor] Relay 1.0.2 - gemini provider
+[relay doctor] Relay 1.1.0 - gemini provider
 
   Python 3.10+       PASS   3.11.9
   relay on PATH      PASS   /usr/local/bin/relay

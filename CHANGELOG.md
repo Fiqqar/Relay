@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-04
+
+### Added
+- **Direct Commit Flag (`-m` / `--message`)**: Pass commit messages directly via CLI, skipping AI generation while maintaining all preflight, staging, hook, and push workflows.
+- **External Editor for Manual Input**: Interactive manual input and AI fallback now open `$VISUAL` / `$EDITOR` if configured, supporting multi-line subjects and bodies.
+- **Context-Aware AI Scopes**: Injected recent commit history (`git log -n 10`) into AI generation prompts so proposed scopes align with repository conventions.
+- **Dynamic Retry Exploration**: Retrying AI proposal generation (`r`) now alters temperature and prompts to explore alternative phrasing and scopes.
+- **Repository-Local Configuration (`.relay.toml`)**: Safe loading of repository-root `.relay.toml` for project-specific rules, with strict exclusion of secrets and host URLs.
+- **Self-Hosted GitHub Enterprise Support**: Added `RELAY_TRUSTED_GITHUB_HOSTS` environment variable to securely allow Pull Request creation against internal enterprise instances.
+- **Active Authentication Probing (`relay doctor --probe`)**: Active health checks validating credentials against configured AI providers and forge APIs with response latency reporting.
+
 ## [1.0.2] - 2026-09-03
 
 ### Security
@@ -436,7 +447,8 @@ Relay 1.0.0 marks the official **General Availability (GA)** release. All core w
 - Ollama provider (local models) with manual fallback.
 - Conventional-Commits message validation.
 
-[Unreleased]: https://github.com/Fiqqar/Relay/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/Fiqqar/Relay/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Fiqqar/Relay/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/Fiqqar/Relay/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Fiqqar/Relay/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Fiqqar/Relay/compare/v0.9.1...v1.0.0
