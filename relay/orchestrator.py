@@ -350,6 +350,10 @@ class Orchestrator:
         """
         if not self.git.is_repo():
             raise GitError("not a git repository - run Relay from inside a work tree")
+        if self.git.has_conflicts() is True or self.git.is_in_merge_or_rebase() is True:
+            print("[relay] error: unresolved merge or rebase in progress.")
+            print("[relay] resolve conflicts and finish the operation before running Relay.")
+            return 1
         if not self.git.has_changes():
             print("[relay] nothing to commit, working tree clean.")
             return 0

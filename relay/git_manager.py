@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import subprocess
 import urllib.parse
+from pathlib import Path
 
 from .errors import GitError
 
@@ -174,6 +175,37 @@ class GitManager:
             return out == "true"
         except GitError:
             return False
+
+    def git_dir(self) -> Path | None:
+        """Path to the repository's .git directory (or None if not inside a repo)."""
+        proc = self._run("rev-parse", "--git-dir", check=False)
+        if proc.returncode != 0 or not proc.stdout.strip():
+            return None
+        raw = proc.stdout.strip()
+        p = Path(raw)
+        if not p.is_absolute():
+            base = Path(self.cwd) if self.cwd else Path.cwd()
+            p = (base / p).resolve()
+        return p
+
+    def has_conflicts(self) -> bool:
+        """True if there are unmerged paths or conflict markers in the index."""
+        proc = self._run("ls-files", "-u", check=False)
+        return bool(proc.stdout.strip())
+
+    def is_in_merge_or_rebase(self) -> bool:
+        """True if a merge, rebase, cherry-pick, or revert operation is in progress."""
+        gdir = self.git_dir()
+        if not gdir:
+            return False
+        indicators = [
+            gdir / "MERGE_HEAD",
+            gdir / "rebase-merge",
+            gdir / "rebase-apply",
+            gdir / "CHERRY_PICK_HEAD",
+            gdir / "REVERT_HEAD",
+        ]
+        return any(ind.exists() for ind in indicators)
 
     def has_changes(self) -> bool:
         """True if there is anything git could commit (staged or unstaged)."""

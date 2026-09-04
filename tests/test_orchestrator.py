@@ -45,6 +45,8 @@ def git():
     g.head_diff_binary_only.return_value = False
     g.write_tree.return_value = "abc123"
     g.recent_subjects.return_value = []
+    g.has_conflicts.return_value = False
+    g.is_in_merge_or_rebase.return_value = False
     return g
 
 
@@ -904,6 +906,28 @@ def test_orchestrator_passes_rejected_message_on_retry(git):
     second_call_kwargs = mock_ai.generate.call_args_list[1].kwargs
     assert second_call_kwargs.get("rejected_message") == "feat(core): first rejected idea"
     git.commit.assert_called_once_with("feat(core): second accepted idea", no_verify=False)
+
+
+def test_preflight_aborts_on_unresolved_conflicts(git, capsys):
+    git.has_conflicts.return_value = True
+    code = make_orchestrator(git).run()
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "error: unresolved merge or rebase in progress" in out
+    git.stage_all.assert_not_called()
+    git.commit.assert_not_called()
+
+
+def test_preflight_aborts_on_in_progress_merge_or_rebase(git, capsys):
+    git.has_conflicts.return_value = False
+    git.is_in_merge_or_rebase.return_value = True
+    code = make_orchestrator(git).run()
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "error: unresolved merge or rebase in progress" in out
+    git.stage_all.assert_not_called()
+    git.commit.assert_not_called()
+
 
 
 

@@ -739,3 +739,40 @@ def test_unstaged_changes_short_line(git):
         files = git.unstaged_changes()
         assert "file.py" in files
         assert len(files) == 1
+
+
+def test_git_dir_resolves_correctly(git, tmp_path):
+    git.cwd = str(tmp_path)
+    with mock.patch.object(git, "_run", return_value=FakeRun(".git\n")):
+        res = git.git_dir()
+        assert res == (tmp_path / ".git").resolve()
+
+    with mock.patch.object(git, "_run", return_value=FakeRun("", returncode=128)):
+        assert git.git_dir() is None
+
+
+def test_has_conflicts(git):
+    with mock.patch.object(git, "_run", return_value=FakeRun("100644 hash 1\tfile.py\n")):
+        assert git.has_conflicts() is True
+
+    with mock.patch.object(git, "_run", return_value=FakeRun("")):
+        assert git.has_conflicts() is False
+
+
+def test_is_in_merge_or_rebase(git, tmp_path):
+    git.cwd = str(tmp_path)
+    gdir = tmp_path / ".git"
+    gdir.mkdir()
+    with mock.patch.object(git, "git_dir", return_value=gdir):
+        assert git.is_in_merge_or_rebase() is False
+        merge_head = gdir / "MERGE_HEAD"
+        merge_head.touch()
+        assert git.is_in_merge_or_rebase() is True
+        merge_head.unlink()
+
+        rebase_merge = gdir / "rebase-merge"
+        rebase_merge.mkdir()
+        assert git.is_in_merge_or_rebase() is True
+
+    with mock.patch.object(git, "git_dir", return_value=None):
+        assert git.is_in_merge_or_rebase() is False
