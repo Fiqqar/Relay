@@ -15,7 +15,7 @@ import urllib.request
 from ..config import ai_timeout, ollama_base_url, ollama_model
 from ..errors import AIError, ConfigError
 from ..telemetry import _is_valid_ai_base_url
-from .base import AIManager, extract_http_error_detail, read_limited_response
+from .base import AIManager, decode_provider_json, extract_http_error_detail, read_limited_response
 
 
 class OllamaProvider(AIManager):
@@ -61,8 +61,8 @@ class OllamaProvider(AIManager):
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:  # nosec B310
-                data = json.loads(
-                    read_limited_response(response, self.provider_name).decode("utf-8")
+                data = decode_provider_json(
+                    read_limited_response(response, self.provider_name), self.provider_name
                 )
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
@@ -87,4 +87,7 @@ class OllamaProvider(AIManager):
 
         if data.get("error"):
             raise AIError(self.provider_name, "bad_response", data["error"])
-        return data.get("response", "")
+        text = data.get("response", "")
+        if not isinstance(text, str):
+            raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}")
+        return text

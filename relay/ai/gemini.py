@@ -13,7 +13,7 @@ import urllib.request
 
 from ..config import ai_timeout, gemini_api_key, gemini_model
 from ..errors import AIError, ConfigError
-from .base import AIManager, extract_http_error_detail, read_limited_response
+from .base import AIManager, decode_provider_json, extract_http_error_detail, read_limited_response
 
 _ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -78,8 +78,8 @@ class GeminiProvider(AIManager):
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:  # nosec B310
-                data = json.loads(
-                    read_limited_response(response, self.provider_name).decode("utf-8")
+                data = decode_provider_json(
+                    read_limited_response(response, self.provider_name), self.provider_name
                 )
         except urllib.error.HTTPError as exc:
             # Map HTTP status codes to AIError kinds the fallback understands:
@@ -110,7 +110,12 @@ class GeminiProvider(AIManager):
             raise AIError(self.provider_name, "bad_response", str(data["error"]))
 
         # Gemini wraps the answer in candidates[0].content.parts[0].text.
+        # A JSON null there yields None, not a string — reject it here so a
+        # non-string can never reach sanitize_ai_message downstream.
         try:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError) as exc:
             raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}") from exc
+        if not isinstance(text, str):
+            raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}")
+        return text

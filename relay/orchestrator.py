@@ -441,7 +441,9 @@ class Orchestrator:
                     )
                 except TypeError:
                     raw = self.ai.generate(diff, stat, branch)
-                message = sanitize_ai_message(raw)
+                # Belt and braces: providers must return str, but a None/non-str
+                # must degrade to manual input here, never crash sanitize below.
+                message = sanitize_ai_message(raw if isinstance(raw, str) else "")
                 valid, reason = validate_conventional(message)
                 if not valid:
                     # A garbage response is treated exactly like an AI failure —
@@ -502,7 +504,7 @@ class Orchestrator:
                             )
                         except TypeError:
                             raw = self.ai.generate(block, path, branch)
-                        msg = sanitize_ai_message(raw)
+                        msg = sanitize_ai_message(raw if isinstance(raw, str) else "")
                         valid, reason = validate_conventional(msg)
                         if not valid:
                             print(f"[relay] AI hunk {sanitize_terminal(path or 'unknown')} rejected ({reason}); falling back to manual input.")
