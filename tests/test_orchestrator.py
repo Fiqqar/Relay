@@ -883,6 +883,25 @@ def test_open_in_editor_returns_none_on_editor_error():
             assert Orchestrator._open_in_editor("draft") is None
 
 
+def test_open_in_editor_static_style_honors_explicit_git(git):
+    """Static-style call with an explicit git manager must honor core.editor."""
+    from relay.orchestrator import Orchestrator
+
+    git.config_get.return_value = "code --wait"
+    captured_cmds = []
+
+    def fake_run(cmd, check=False):
+        captured_cmds.append(cmd)
+        return mock.Mock(returncode=0)
+
+    with mock.patch("sys.stdin.isatty", return_value=True):
+        with mock.patch.dict("os.environ", {}, clear=True):
+            with mock.patch("subprocess.run", side_effect=fake_run):
+                Orchestrator._open_in_editor("draft", git)
+                assert captured_cmds[-1][0] == "code"
+                assert captured_cmds[-1][1] == "--wait"
+
+
 def test_open_in_editor_respects_visual_and_core_editor(git):
     orch = make_orchestrator(git)
     captured_cmds = []
@@ -895,7 +914,7 @@ def test_open_in_editor_respects_visual_and_core_editor(git):
     with mock.patch("sys.stdin.isatty", return_value=True):
         with mock.patch.dict("os.environ", {"VISUAL": "nvim", "EDITOR": "nano"}, clear=True):
             with mock.patch("subprocess.run", side_effect=fake_run):
-                orch._open_in_editor("draft")
+                orch._open_in_editor("draft", git)
                 assert captured_cmds[-1][0] == "nvim"
 
     # 2. git config core.editor should be used over VISUAL/EDITOR
@@ -903,14 +922,14 @@ def test_open_in_editor_respects_visual_and_core_editor(git):
     with mock.patch("sys.stdin.isatty", return_value=True):
         with mock.patch.dict("os.environ", {"VISUAL": "nvim", "EDITOR": "nano"}, clear=True):
             with mock.patch("subprocess.run", side_effect=fake_run):
-                orch._open_in_editor("draft")
+                orch._open_in_editor("draft", git)
                 assert captured_cmds[-1][0] == "code"
 
     # 3. GIT_EDITOR wins over git config core.editor
     with mock.patch("sys.stdin.isatty", return_value=True):
         with mock.patch.dict("os.environ", {"GIT_EDITOR": "subl -w"}, clear=True):
             with mock.patch("subprocess.run", side_effect=fake_run):
-                orch._open_in_editor("draft")
+                orch._open_in_editor("draft", git)
                 assert captured_cmds[-1][0] == "subl"
 
 
@@ -927,7 +946,7 @@ def test_open_in_editor_windows_backslash_paths(git):
         with mock.patch("sys.platform", "win32"):
             with mock.patch.dict("os.environ", {"GIT_EDITOR": win_editor}, clear=True):
                 with mock.patch("subprocess.run", side_effect=fake_run):
-                    orch._open_in_editor("draft")
+                    orch._open_in_editor("draft", git)
                     # Backslashes must not be stripped
                     assert captured_cmds[-1][0] == r"C:\Program"
                     assert captured_cmds[-1][1] == r"Files\Notepad++\notepad++.exe"

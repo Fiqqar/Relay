@@ -150,7 +150,7 @@ class Orchestrator:
                 if action == "accept":
                     message = msg
                 elif action == "edit":
-                    edited = self._open_in_editor(draft=msg)
+                    edited = self._open_in_editor(draft=msg, git=self.git)
                     message = edited if edited else self._manual_input(draft=msg)
                 else:
                     raise UserAbort("workflow aborted by user")
@@ -429,7 +429,7 @@ class Orchestrator:
             if action == "accept":
                 return message
             if action == "edit":
-                edited = self._open_in_editor(draft=message)
+                edited = self._open_in_editor(draft=message, git=self.git)
                 return edited if edited else self._manual_input(draft=message)
             if action == "retry" and user_retries < 3:
                 user_retries += 1
@@ -496,7 +496,7 @@ class Orchestrator:
             if action == "accept":
                 return combined
             if action == "edit":
-                edited = self._open_in_editor(draft=combined)
+                edited = self._open_in_editor(draft=combined, git=self.git)
                 return edited if edited else self._manual_input(draft=combined)
             if action == "retry" and user_retries < 3:
                 user_retries += 1
@@ -504,12 +504,13 @@ class Orchestrator:
                 continue
             raise UserAbort("workflow aborted by user")
 
-    def _open_in_editor(self, draft: str = "") -> str | None:
+    @staticmethod
+    def _open_in_editor(draft: str = "", git: GitManager | None = None) -> str | None:
         """Open configured editor with the draft commit message in a temporary file.
 
         Editor resolution precedence:
         1. $GIT_EDITOR
-        2. git config core.editor
+        2. git config core.editor (via the ``git`` manager, when given)
         3. $VISUAL
         4. $EDITOR
         5. Default: notepad (Windows) / nano (Unix)
@@ -520,13 +521,10 @@ class Orchestrator:
         if not sys.stdin.isatty():
             return None
 
-        # Allow static-style invocation Orchestrator._open_in_editor("draft")
         git_editor_cfg = ""
-        if isinstance(self, str):
-            draft = self
-        elif getattr(self, "git", None):
+        if git is not None:
             try:
-                cfg = self.git.config_get("core.editor")
+                cfg = git.config_get("core.editor")
                 if isinstance(cfg, str) and cfg.strip():
                     git_editor_cfg = cfg.strip()
             except Exception:
