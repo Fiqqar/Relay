@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-05
+
+### Fixed
+- **Message-Only Amend**: `relay amend` no longer stages working-tree changes or folds the index into the rewritten commit. A dirty index is refused with an actionable error unless `--staged` explicitly opts in to folding; the AI message is generated from the last commit's own diff.
+- **Branch/HEAD TOCTOU Guard**: Re-verify branch and HEAD identity right before commit/push/reset in solo, team, amend, squash, and `relay pr` flows, aborting on a concurrent `git switch` instead of mutating the wrong branch.
+- **Squash Dirty-Index Re-check**: Re-run the staged-changes refusal immediately before `reset --soft`, closing the check-then-act window across the AI call and confirmation.
+- **Null AI Responses**: A present-but-null (or blank) message field from any provider is rejected as `bad_response` in the shared wrapper, routing to manual-input fallback instead of crashing.
+- **Porcelain Arrow Parsing**: Only split `old -> new` for actual rename entries; untracked files literally named e.g. `a -> b` are no longer misparsed.
+- **Doctor Output Sanitization**: Strip terminal escape sequences from git-config values in the `relay doctor` report.
+- **Installer Robustness**: No more crash when `$HOME` has no shell profile; PowerShell PATH updates report failure honestly via a success sentinel; timeouts on all pip/PowerShell calls.
+
+### Changed
+- **Prompt Stat Cap**: The `--stat` summary sent to the LLM is capped at 50 lines, mirroring the existing diff truncation.
+- **CI Supply Chain**: Pinned GitHub Actions bumped to current majors (checkout v6, setup-python v6.3.0, upload/download-artifact v5, attest-build-provenance v3) with a new Dependabot config; `pip-audit` now also scans the installed toolchain in environment mode; mypy and Bandit cover `install.py`.
+
 ## [1.1.1] - 2026-09-04
 
 ### Fixed
