@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-09-05
+
+### Added
+- **Adversarial Security Regression Suite**: new `tests/security/` suite (58 tests) firing real payloads — shell metacharacters, `--`-prefixed option-injection strings, redirect-to-evil-host round trips, malformed provider bodies, and a zero-dependency AST invariant — plus a separate gating `security-regression` CI job so future regressions fail the merge instead of waiting for the next audit.
+
+### Fixed
+- **Branch Creation**: `git switch -c -- <name>` is an invalid invocation (git reads `--` as the branch name), which broke ALL branch creation including `relay --team`. Now `git switch -c <name>`; dash-leading names still fail closed via git's own option parser.
+- **Malformed Provider Responses**: empty, truncated, and JSON-`null` bodies (and `text: null` extractions) used to escape as raw `JSONDecodeError`/`TypeError`/`AttributeError` tracebacks. A shared `decode_provider_json` choke point plus non-string guards now normalize all of them to `AIError(bad_response)`, routing to manual-input fallback.
+
+### Changed
+- **AI Workflow**: AI contributors now work branch + PR + self-merge (never direct to `main`), aligned with the existing contributor rule; `docs/WORKING_RULES.md` and `AGENTS.md` updated.
+
 ## [1.1.2] - 2026-09-05
 
 ### Fixed

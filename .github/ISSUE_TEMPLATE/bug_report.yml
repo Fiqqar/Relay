@@ -15,7 +15,7 @@ body:
     attributes:
       label: Relay Version
       description: Run `relay --version` and paste the output here.
-      placeholder: "relay 1.1.2"
+      placeholder: "relay 1.1.3"
     validations:
       required: true
 
