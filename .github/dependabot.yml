@@ -1,0 +1,14 @@
+# Keep SHA-pinned GitHub Actions fresh: Dependabot opens one PR per action
+# (with the new SHA + version comment) when a new major/minor lands, so pin
+# staleness self-heals instead of requiring a manual audit. Review each PR
+# for breaking changes before merging — major bumps can move runners/inputs.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
