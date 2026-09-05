@@ -13,7 +13,7 @@
 | **Staged / Unstaged** | Staged = `git add` done, ready to commit. Unstaged = still in working tree | `relay --staged` commits only already-staged files |
 | **Diff (`git diff --cached`)** | Summary of changes to be committed — sent to the LLM | `+ added line` / `- removed line` |
 | **`--dry-run`** | Simulation: show plan + message, mutate nothing | `relay --dry-run` |
-| **`--yes` / `-y`** | Skip confirmation `Accept/Edit/Retry/Abort` | `relay --solo --yes` |
+| **`--yes`** | Skip confirmation `Accept/Edit/Retry/Abort` | `relay --solo --yes` |
 | **`--no-push`** | Commit only, do not push | Use when you want to review before pushing |
 | **`--staged`** | Skip `git add .`, commit only what is already staged | For manual file selection |
 | **`--allow-protected`** | Bypass protected-branch guard (`main`/`master`) — only way in team mode | `relay --team fix --allow-protected` |
@@ -25,7 +25,7 @@
 | **Token budget / truncation** | Limit on diff size sent to LLM (120 lines + 512 KiB) to stay within window | `RELAY_MAX_DIFF_LINES=250` |
 | **Forge** | Git hosting platform: GitHub / GitLab / Bitbucket | `relay pr` creates PR/MR |
 | **PR / MR** | Pull Request (GitHub/Bitbucket) / Merge Request (GitLab) — request to merge a branch | `relay pr --draft --open` |
-| **Trusted hosts (GitLab)** | Hosts allowed to receive `GITLAB_TOKEN`; prevents exfiltration via fake `origin` | `RELAY_TRUSTED_GITLAB_HOSTS=gitlab.company.com` |
+| **Trusted hosts** | Hosts allowed to receive forge tokens (`GITLAB_TOKEN`, GitHub tokens); prevents exfiltration via fake `origin` | `RELAY_TRUSTED_GITLAB_HOSTS=gitlab.company.com` |
 | **Dogfooding** | Commit the Relay project itself using `relay` — not `git commit` | `relay --solo --yes` inside Relay repo |
 | **Hermetic tests** | Tests with no network/`$HOME`/real AI — deterministic in CI | `pytest` mocks `urllib.request.urlopen` |
 | **Coverage gate 90%** | Minimum 90% branch coverage — push rejected below threshold | `pytest --cov=relay --cov-branch --cov-fail-under=90` |
