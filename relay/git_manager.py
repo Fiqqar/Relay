@@ -95,15 +95,19 @@ def parse_remote_url(url: str) -> tuple[str, str]:
     return owner, repo
 
 
-def _clean_porcelain_path(raw: str) -> str:
+def _clean_porcelain_path(raw: str, *, is_rename: bool = False) -> str:
     """Parse and unquote a path string from ``git status --porcelain``.
 
-    Renames in porcelain v1 appear as ``old -> new`` (or ``"old" -> "new"``).
-    Extract the destination path (``new``) and strip surrounding quotes.
-    Decodes Git C-style octal escapes (e.g. \\303\\251 -> é) for non-ASCII paths.
+    Renames in porcelain v1 appear as ``old -> new`` (or ``"old" -> "new"``):
+    when ``is_rename`` is set, extract the destination path (``new``).
+    Otherwise the string is a single literal path — it must NOT be split,
+    because an untracked file can itself be named e.g. ``a -> b`` and
+    splitting it would stage the wrong file. Either way, strip surrounding
+    quotes and decode Git C-style octal escapes (e.g. \\303\\251 -> é) for
+    non-ASCII paths.
     """
     raw = raw.strip()
-    if " -> " in raw:
+    if is_rename and " -> " in raw:
         _, raw = raw.split(" -> ", 1)
         raw = raw.strip()
     if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
@@ -343,7 +347,7 @@ class GitManager:
             if not line or len(line) < 3:
                 continue
             prefix, name = line[:2], line[3:]
-            cleaned = _clean_porcelain_path(name)
+            cleaned = _clean_porcelain_path(name, is_rename=(prefix[0] == "R"))
             if prefix == "??":
                 files.append(cleaned)
                 continue

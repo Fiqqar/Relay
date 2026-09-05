@@ -519,11 +519,25 @@ class TestStagingEdgePaths:
 
         assert _clean_porcelain_path("plain.py") == "plain.py"
         assert _clean_porcelain_path('"quoted with space.py"') == "quoted with space.py"
-        assert _clean_porcelain_path("old.py -> new.py") == "new.py"
-        assert _clean_porcelain_path('"old name.py" -> "new name.py"') == "new name.py"
+        assert _clean_porcelain_path("old.py -> new.py", is_rename=True) == "new.py"
+        assert _clean_porcelain_path('"old name.py" -> "new name.py"', is_rename=True) == "new name.py"
         assert _clean_porcelain_path(r'"path\"with\"quote.py"') == 'path"with"quote.py'
         assert _clean_porcelain_path(r'"caf\303\251.py"') == "café.py"
-        assert _clean_porcelain_path(r'"old_\303\251.py" -> "new_\303\251.py"') == "new_é.py"
+        assert _clean_porcelain_path(r'"old_\303\251.py" -> "new_\303\251.py"', is_rename=True) == "new_é.py"
+
+    def test_clean_porcelain_path_keeps_literal_arrow_without_rename(self):
+        """L4: an untracked file literally named `a -> b` must survive intact —
+        splitting it would stage the wrong file (`b"`)."""
+        from relay.git_manager import _clean_porcelain_path
+
+        assert _clean_porcelain_path('"a -> b"') == "a -> b"
+        assert _clean_porcelain_path("a -> b") == "a -> b"
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_unstaged_changes_keeps_literal_arrow_filename(self, mock_run, git, make_proc):
+        """L4 end-to-end: `?? "a -> b"` is one file, not a rename pair."""
+        mock_run.return_value = make_proc(stdout='?? "a -> b"\n M b\n')
+        assert git.unstaged_changes() == ["a -> b", "b"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_add_interactive_invokes_git_add_p(self, mock_run, git, make_proc):
