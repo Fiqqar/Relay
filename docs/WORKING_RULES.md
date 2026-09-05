@@ -65,6 +65,7 @@ mypy relay
 - Read this file at **the start of every work session** before touching any file.
 - Don't bundle multiple tasks into one commit — create a separate commit per
   fix/feature, per the convention above.
+- One task = one branch = one PR (rule #8); never push to `main` directly.
 - Don't "tidy up" code unrelated to your task. If you spot another bug, note it
   and report it — don't silently fix it inside an unrelated commit.
 - Never edit a file without reading the surrounding context first.
@@ -77,12 +78,27 @@ mypy relay
   `bash e2e_test.sh` (macOS/Linux) or `powershell -ExecutionPolicy Bypass -File e2e_test.ps1` (Windows).
 - Report concisely: what changed, why, and the verification results
 
-### 8. Dogfooding — commit via Relay itself (split & push straight)
+### 8. Dogfooding — commit via Relay itself (humans push straight, AI via PR)
 
-- Every logical change **must be committed and pushed with `relay` itself** (`relay --solo --yes` for `main`, `relay --team <feat> --yes` for feature) — not `git commit`. This self-tests the workflow on the repo that builds the tool.
-- **Split & push straight:** one `relay` run = one Conventional Commit = one `git push` immediately after verification (rule #2). Don't batch multiple fixes into one push; don't hold commits locally.
-- If AI is offline/rate-limited, `relay` falls back to manual input — still use it (type the Conventional subject + body, blank line to finish). Never bypass with `git commit -m`.
-- This proves the change survives the real preflight → stage → AI/manual → confirm → commit → push path, not just `pytest`.
+- Every logical change **must be committed with `relay` itself** — not `git commit`.
+  This self-tests the workflow on the repo that builds the tool and proves the
+  change survives the real preflight → stage → AI/manual → confirm → commit →
+  push path, not just `pytest`.
+- If AI is offline/rate-limited, `relay` falls back to manual input — still use
+  it (type the Conventional subject + body, blank line to finish). Never bypass
+  with `git commit -m`.
+- **Humans — split & push straight:** one `relay` run = one Conventional Commit =
+  one `git push` immediately after verification (rule #2), via `relay --solo --yes`
+  (`main`) or `relay --team <feat> --yes` (feature). Don't batch multiple fixes
+  into one push; don't hold commits locally.
+- **AI — branch + PR + self-merge, never direct to `main`:**
+  1. One task = one branch (`relay --team <feat> --yes`), one PR (`relay pr`).
+     AI must never push to `main` directly.
+  2. Push the branch, open the PR, wait for CI to go green.
+  3. AI self-reviews: re-read the full diff, re-run the rule #2 checks, confirm
+     the PR contains only the task's files.
+  4. AI merges itself (e.g. `gh pr merge --merge`) only when CI is green and the
+     review is clean — the human never has to click merge.
 
 ### 9. Release tagging — strictly 'vx.y.z' only
 
@@ -100,5 +116,6 @@ mypy relay
 - [ ] Reformatted files untouched by the task
 - [ ] Pushed before tests/lint/mypy are green
 - [ ] Committed with `git commit` instead of `relay --solo/--team --yes` (not dogfooded)
-- [ ] Batched multiple `relay` commits locally instead of push-straight per change
+- [ ] Batched multiple `relay` commits locally instead of push-straight per change (humans)
+- [ ] AI pushed directly to `main` instead of branch → PR → self-merge
 - [ ] Release tag or release title contains extra words (must be strictly 'vx.y.z' only)
