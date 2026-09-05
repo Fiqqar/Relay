@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 from . import __version__
 from .bitbucket import bitbucket_token
+from .errors import sanitize_terminal
 from .config import (
     DEFAULT_OLLAMA_BASE_URL,
     anthropic_api_key,
@@ -45,6 +46,11 @@ from .gitlab import gitlab_token
 from .protected import is_protected
 
 _MARKS = {"ok": "PASS", "warn": "WARN", "fail": "FAIL", "skip": "SKIP"}
+
+# Cap on a probe response body. A `/user` payload is a few hundred bytes;
+# anything near this is a misbehaving endpoint, matching the 10 KiB
+# diagnostic cap used by the AI providers and forge clients.
+_MAX_PROBE_BODY_BYTES = 10 * 1024
 
 
 @dataclass
@@ -176,7 +182,10 @@ def _probe_forge() -> Check | None:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
                 elapsed = int((time.perf_counter() - start) * 1000)
-                body = json.loads(resp.read().decode("utf-8", "replace"))
+                raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
+                if len(raw) > _MAX_PROBE_BODY_BYTES:
+                    return Check("Forge probe", "fail", f"GitHub response too large ({elapsed}ms)")
+                body = json.loads(raw.decode("utf-8", "replace"))
                 user = body.get("login") or "user"
                 return Check("Forge probe", "ok", f"GitHub @{user} ({elapsed}ms)")
         except urllib.error.HTTPError as exc:
@@ -194,7 +203,10 @@ def _probe_forge() -> Check | None:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
                 elapsed = int((time.perf_counter() - start) * 1000)
-                body = json.loads(resp.read().decode("utf-8", "replace"))
+                raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
+                if len(raw) > _MAX_PROBE_BODY_BYTES:
+                    return Check("Forge probe", "fail", f"GitLab response too large ({elapsed}ms)")
+                body = json.loads(raw.decode("utf-8", "replace"))
                 user = body.get("username") or "user"
                 return Check("Forge probe", "ok", f"GitLab @{user} ({elapsed}ms)")
         except urllib.error.HTTPError as exc:
@@ -212,7 +224,10 @@ def _probe_forge() -> Check | None:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
                 elapsed = int((time.perf_counter() - start) * 1000)
-                body = json.loads(resp.read().decode("utf-8", "replace"))
+                raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
+                if len(raw) > _MAX_PROBE_BODY_BYTES:
+                    return Check("Forge probe", "fail", f"Bitbucket response too large ({elapsed}ms)")
+                body = json.loads(raw.decode("utf-8", "replace"))
                 user = body.get("username") or "user"
                 return Check("Forge probe", "ok", f"Bitbucket @{user} ({elapsed}ms)")
         except urllib.error.HTTPError as exc:
@@ -394,7 +409,10 @@ def run_doctor(
     width = max(len(c.name) for c in checks) + 2
     for c in checks:
         mark = _MARKS[c.status]
-        print(f"  {c.name:<{width}}{mark:<7}{c.detail}")
+        # Details can carry attacker-controlled text (git user.name/email
+        # from a cloned repo's config) — strip terminal escapes like every
+        # other user-facing print path does.
+        print(f"  {sanitize_terminal(c.name):<{width}}{mark:<7}{sanitize_terminal(c.detail)}")
 
     counts = {"ok": 0, "warn": 0, "fail": 0}
     for c in checks:

@@ -75,6 +75,17 @@ def test_git_identity_set_passes(healthy_env, capsys):
     assert "Ada L. <ada@dev.io>" in out
 
 
+def test_report_strips_ansi_from_git_config(healthy_env, capsys):
+    """L5: user.name/user.email come from repo config (attacker-controllable
+    via a malicious clone) and must not reach the terminal raw."""
+    evil = {"user.name": "\x1b[2J\x1b[H.evil", "user.email": "e@x.io"}
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(config=evil)):
+        assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "\x1b" not in out
+    assert ".evil <e@x.io>" in out
+
+
 def test_missing_git_identity_fails(healthy_env, capsys):
     with mock.patch(
         "relay.doctor.GitManager",
@@ -509,5 +520,19 @@ def test_doctor_probe_forges_gitlab_and_bitbucket(healthy_env, capsys):
         code = run_doctor(probe=True)
         assert code == 0
         assert "Bitbucket @forge_user" in capsys.readouterr().out
+
+
+def test_doctor_probe_rejects_oversized_forge_body(healthy_env, capsys):
+    """L6: probe bodies are capped like every other HTTP read (10 KiB)."""
+    from relay.doctor import _MAX_PROBE_BODY_BYTES
+
+    mock_resp = mock.MagicMock()
+    mock_resp.read.return_value = b"x" * (_MAX_PROBE_BODY_BYTES + 100)
+    mock_resp.__enter__.return_value = mock_resp
+    with mock.patch("urllib.request.urlopen", return_value=mock_resp):
+        code = run_doctor(probe=True)
+    out = capsys.readouterr().out
+    assert "Forge probe" in out
+    assert "too large" in out
 
 
