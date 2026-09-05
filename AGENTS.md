@@ -17,7 +17,9 @@ rules. Those rules bind humans and AI alike and are summarized briefly here:
 - **All subprocesses argv-as-list; `shell=True` is forbidden.** Secrets env-only.
 - **No mass reformatting** (don't `ruff format` the whole repo), don't tidy up
   code unrelated to the task.
-- Do tasks one at a time and create a separate commit per task as instructed.
+- Do tasks one at a time: one task = one branch = one PR (AI merges itself
+  after CI is green, never pushes direct to `main`), one commit per logical
+  change as instructed.
 
 ## Repo info
 
