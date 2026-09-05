@@ -830,6 +830,44 @@ class TestGenerateWrapper:
             provider.generate("d", "s", "b")
         assert exc_info.value is original
 
+    @pytest.mark.parametrize("raw", [None, "", "   "])
+    def test_null_or_blank_result_becomes_bad_response(self, raw):
+        """L3: a present-but-null (or blank) message field must not reach
+        sanitize_ai_message() as a bare None (AttributeError on .strip())."""
+        provider = GeminiProvider(api_key="k", model="m", timeout=5)
+        provider.generate_commit_message = mock.Mock(return_value=raw)
+        with pytest.raises(AIError) as exc_info:
+            provider.generate("d", "s", "b")
+        assert exc_info.value.kind == "bad_response"
+
+    def test_ollama_null_response_field_routes_to_fallback(self):
+        """L3 end-to-end: `{"response": null}` becomes AIError, which the
+        Orchestrator's `except AIError` turns into manual input."""
+        from relay.orchestrator import Orchestrator
+
+        provider = OllamaProvider(base_url="http://localhost:11434", model="m", timeout=5)
+        fake_resp = mock.MagicMock()
+        fake_resp.read.return_value = json.dumps({"response": None}).encode()
+        fake_resp.__enter__ = lambda s: s
+        fake_resp.__exit__ = lambda *a: False
+        git = mock.Mock()
+        git.is_repo.return_value = True
+        git.has_conflicts.return_value = False
+        git.is_in_merge_or_rebase.return_value = False
+        git.has_changes.return_value = True
+        git.has_remote.return_value = True
+        git.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
+        git.staged_stat.return_value = " app.py | 1 +\n"
+        git.staged_diff_binary_only.return_value = False
+        git.write_tree.return_value = "abc123"
+        git.current_branch.return_value = "main"
+        git.recent_subjects.return_value = []
+        with mock.patch("urllib.request.urlopen", return_value=fake_resp):
+            with mock.patch("builtins.input", side_effect=["fix: typed manually", ""]):
+                code = Orchestrator(git=git, provider=provider, no_push=True).run()
+        assert code == 0
+        git.commit.assert_called_once_with("fix: typed manually", no_verify=False)
+
 
 # ---- coverage: ollama missing branches (moved from test_coverage_95) ---------
 

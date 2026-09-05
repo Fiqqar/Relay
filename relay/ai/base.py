@@ -330,9 +330,13 @@ class AIManager(ABC):
         Wraps the concrete implementation so ANY unexpected exception (network
         flake, malformed JSON, provider SDK bug) becomes a typed AIError. This
         is the exact seam the fallback logic in the Orchestrator catches.
+        A present-but-null (or otherwise non-string) message field is also
+        normalized here: without this, a bare `None` would reach
+        `sanitize_ai_message()` and crash on `.strip()` instead of falling
+        back to manual input.
         """
         try:
-            return self.generate_commit_message(
+            result = self.generate_commit_message(
                 diff,
                 stat,
                 branch,
@@ -343,3 +347,8 @@ class AIManager(ABC):
             raise
         except Exception as exc:  # noqa: BLE001 - provider internals are opaque
             raise AIError(self.provider_name, "unexpected", str(exc)) from exc
+        if not isinstance(result, str) or not result.strip():
+            raise AIError(
+                self.provider_name, "bad_response", "empty response from provider"
+            )
+        return result
