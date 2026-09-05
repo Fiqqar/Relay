@@ -45,7 +45,7 @@ jobs:
         run: ruff check .
 
       - name: Type checking (MyPy)
-        run: mypy relay
+        run: mypy relay install.py
 
       - name: Dependency vulnerability scan
         run: |
@@ -61,7 +61,7 @@ jobs:
       - name: Security scan (Bandit)
         run: |
           pip install --disable-pip-version-check "bandit>=1.7,<2"
-          bandit -r relay -ll
+          bandit -r relay install.py -ll
 
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python-version }})
