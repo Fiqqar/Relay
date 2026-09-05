@@ -8,7 +8,7 @@
 
 - **Hermetic:** tests never touch network, `$HOME`, real AI, or real git identity. Everything is faked/mocked.
 - **Same-commit tests:** new behavior + its test land in one commit (`WORKING_RULES.md` #2) — no "follow-up test PR".
-- **Branch coverage, not line:** `branch = true` in `pyproject.toml:31` catches missing `if/else` arms.
+- **Branch coverage, not line:** `branch = true` under `[tool.coverage.run]` in `pyproject.toml` catches missing `if/else` arms.
 
 ## 2. Gates (must be green before push)
 
@@ -18,7 +18,7 @@ ruff check .
 mypy relay
 ```
 
-CI mirrors this on 3 OS × 3 Python (see `.github/workflows/ci.yml`). E2E `e2e_test.sh` / `e2e_test.ps1` runs per platform.
+CI mirrors this on a 5-combo matrix — Ubuntu Python 3.10/3.11/3.12 plus macOS/Windows Python 3.12 (see `.github/workflows/ci.yml`). E2E `e2e_test.sh` / `e2e_test.ps1` runs per platform.
 
 ## 3. Test Layers
 
@@ -33,21 +33,22 @@ CI mirrors this on 3 OS × 3 Python (see `.github/workflows/ci.yml`). E2E `e2e_t
 | Version consistency | `tests/test_version.py` | `relay/__init__.py` == `pyproject.toml` version |
 | Error taxonomy & NFR-7 audit | `tests/test_error_audit.py` | Every `raise RelayError` carries actionable message (scans `relay/**/*.py`) |
 | CLI surface stability & freeze | `tests/test_cli.py` | All 9 subcommands, flags, and options match ADR-012 frozen contract |
+| Editor + manual-input helpers | `tests/test_prompt.py` | `prompt.open_in_editor` / `manual_input` via thin Orchestrator seams |
 | Performance timing harness (NFR-1) | `tests/test_performance.py` | CLI startup, config cache, and orchestrator dispatch latency < 50 ms |
 
 ### 3.2 Provider — HTTP without network
 
 | Area | File | Pattern |
 |------|------|---------|
-| Gemini / Ollama / OpenAI / Anthropic / Mistral / Groq / xAI | `tests/test_ai.py`, `tests/test_prompt.py` | `unittest.mock.patch("urllib.request.urlopen", ...)` with fake `urlopen` + canned JSON; timeout/rate-limit/bad-response via `AIError(kind=...)` |
-| Prompt building & truncation | `tests/test_prompt.py` | `build_prompt(diff, stat, branch)` + `RELAY_MAX_DIFF_LINES` mock via `monkeypatch` |
+| Gemini / Ollama / OpenAI / Anthropic / Mistral / Groq / xAI | `tests/test_ai.py` | `unittest.mock.patch("urllib.request.urlopen", ...)` with fake `urlopen` + canned JSON; timeout/rate-limit/bad-response via `AIError(kind=...)` |
+| Prompt building, truncation & hunk split | `tests/test_ai.py`, `tests/test_hunks.py` | `build_prompt(diff, stat, branch)` + `RELAY_MAX_DIFF_LINES` mock via `monkeypatch`; `truncate_diff` line/byte caps |
 
 ### 3.3 Git — subprocess without git
 
 | Area | File | Pattern |
 |------|------|---------|
-| GitManager wrappers | `tests/test_git_manager.py` | `FakeGit` / mock `subprocess.run` argv assertions; `shell=False` never appears |
-| Orchestrator state machine | `tests/test_orchestrator.py` | FakeGit + FakeAI + patched `input()` → assert `STAGE → COLLECT → GENERATE → CONFIRM → COMMIT → PUSH` & fallback paths |
+| GitManager wrappers | `tests/test_git_manager.py` | mocked `subprocess.run` argv assertions (argv-as-list, `shell=False`) |
+| Orchestrator state machine | `tests/test_orchestrator.py` | `Mock(spec=GitManager)` + StubAI + patched `input()` → assert `STAGE → COLLECT → GENERATE → CONFIRM → COMMIT → PUSH` & fallback paths |
 | Squash / Undo / Stage | `tests/test_squash.py`, `tests/test_undo.py`, `tests/test_stage.py` | `diff_range`/`stat_range` vs `staged_diff` isolation; dirty-index refusal; soft-reset semantics |
 | PR routing (GitHub/GitLab/Bitbucket) | `tests/test_github.py`, `tests/test_gitlab.py`, `tests/test_bitbucket.py`, `tests/test_pr.py` | Remote parsing, URL-encode, draft prefix, trusted-host refusal |
 
@@ -71,8 +72,9 @@ with patch("urllib.request.urlopen", return_value=fake_response):
 with patch("builtins.input", side_effect=["feat(x): add thing", ""]):
     orchestrator.run()
 
-# Mock subprocess, not real git
-# Use FakeGit from tests/conftest.py — it records argv lists and returns canned stdout
+# Fake the git layer with Mock(spec=GitManager) (see the `git` fixture in
+# tests/test_orchestrator.py) or a small per-file FakeGit double (see
+# tests/test_pr.py) — it records argv lists and returns canned stdout
 ```
 
 **Never do:** `os.environ["X"] = "..."` without cleanup, real `urlopen`, real `input()`, or `shell=True`.
