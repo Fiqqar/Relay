@@ -420,6 +420,25 @@ class GitManager:
         """SHA of the current index tree (via `git write-tree`)."""
         return self._run("write-tree").stdout.strip()
 
+    def check_branch_and_head(self, branch: str, head: str) -> None:
+        """Abort when the branch or HEAD moved since an earlier capture.
+
+        Guards the TOCTOU window between reading repo state (branch name,
+        HEAD SHA) and mutating it (commit/push/reset): a concurrent
+        `git switch` in another terminal would otherwise land the mutation
+        on the wrong branch. Callers capture `(branch, head)` up front and
+        re-check right before each mutation. Raises GitError on mismatch.
+        """
+        current = self.current_branch()
+        tip = self.rev_parse("HEAD")
+        if current != branch or tip != head:
+            raise GitError(
+                f"branch/HEAD changed while Relay was running (was "
+                f"'{branch or '(detached)'}' @ '{head or 'none'}', now "
+                f"'{current or '(detached)'}' @ '{tip or 'none'}'); review "
+                f"`git status` and retry"
+            )
+
     def staged_diff_binary_only(self) -> bool:
         """True when the staged diff consists only of binary entries.
 

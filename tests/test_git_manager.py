@@ -598,6 +598,35 @@ class TestUndoAndSquashGuards:
         assert git.has_staged_changes() is False
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_check_branch_and_head_passes_when_stable(self, mock_run, git, make_proc):
+        """L1: same branch + same HEAD must not raise."""
+        mock_run.side_effect = [
+            make_proc(stdout="main\n"),
+            make_proc(stdout="tip123\n"),
+        ]
+        git.check_branch_and_head("main", "tip123")
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_check_branch_and_head_raises_on_switch(self, mock_run, git, make_proc):
+        """L1: a concurrent `git switch` must abort with an actionable error."""
+        mock_run.side_effect = [
+            make_proc(stdout="other\n"),
+            make_proc(stdout="tip123\n"),
+        ]
+        with pytest.raises(GitError, match="changed while Relay"):
+            git.check_branch_and_head("main", "tip123")
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_check_branch_and_head_raises_on_new_commit(self, mock_run, git, make_proc):
+        """L1: a concurrent commit (HEAD moved, branch same) must abort too."""
+        mock_run.side_effect = [
+            make_proc(stdout="main\n"),
+            make_proc(stdout="newtip456\n"),
+        ]
+        with pytest.raises(GitError, match="changed while Relay"):
+            git.check_branch_and_head("main", "tip123")
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_is_ancestor_true(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc(returncode=0)
         assert git.is_ancestor("base", "tip") is True

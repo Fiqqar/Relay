@@ -135,6 +135,12 @@ def run_squash(
         print(f"[relay]     commits: {subjects or '(none)'}")
         return 0
 
+    # Branch/HEAD re-verification (shared helper): the AI call and the
+    # confirmation above leave a wide window for a concurrent `git switch`
+    # in another terminal, and resetting the wrong branch would move its
+    # HEAD. `tip`/`branch` were captured before; abort on mismatch.
+    git.check_branch_and_head(branch, tip)
+
     # Soft reset stages everything the N commits introduced; the working tree
     # itself is untouched, so nothing can be lost. Squashing the entire history
     # amends the root commit so the fold leaves a single commit behind.

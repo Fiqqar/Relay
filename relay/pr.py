@@ -308,6 +308,7 @@ def run_pr(
     head = git.current_branch()
     if not head:
         raise RelayError("HEAD is detached; check out a branch before opening a PR")
+    head_sha = git.rev_parse("HEAD")
 
     # A forge cannot open a PR/MR for a branch it has never seen: fail fast with
     # the exact push command instead of surfacing a confusing 4xx from the API.
@@ -324,6 +325,11 @@ def run_pr(
     # knows about, not a stale local branch. A failed fetch is fine —
     # log_between() then falls back to the local base ref.
     git.fetch("origin", base, check=False)
+
+    # Branch/HEAD re-verification (shared helper): the fetch above is a
+    # network call with a wide window, and a concurrent `git switch` must
+    # not open a PR for the wrong branch.
+    git.check_branch_and_head(head, head_sha)
 
     pr_title = _resolve_title(git, title=title, base=base, head=head, provider=provider)
     body = _build_body(git, base=base, head=head)

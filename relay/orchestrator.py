@@ -145,6 +145,11 @@ class Orchestrator:
 
         branch = self.git.current_branch()
 
+        # Branch/HEAD identity for the same window: a concurrent
+        # `git switch` in another terminal must not misdirect the later
+        # commit/push. Re-verified right before each mutation below.
+        head_before = self.git.rev_parse("HEAD")
+
         # GENERATE (with built-in fallback to manual input). The message is
         # produced BEFORE the team branch name is resolved, because the branch
         # prefix (feat/, fix/, docs/, ...) is derived from the commit type.
@@ -195,7 +200,7 @@ class Orchestrator:
                     raise GitError(
                         "staged changes changed while Relay was running; review the index and retry"
                     )
-            return self._run_amend(message, branch)
+            return self._run_amend(message, branch, head_before)
 
         # Resolve the team-mode branch name BEFORE any mutation so --dry-run
         # can report the plan without creating the branch.
@@ -244,10 +249,13 @@ class Orchestrator:
                     "staged changes changed while Relay was running; review the index and retry"
                 )
 
+        # TOCTOU: ensure the branch/HEAD are the same ones the AI saw —
+        # checked after the pre-commit hook too, right before mutating.
         # Custom pre_commit hook: runs before any git commit, argv-as-list.
         pre_hook = get_pre_commit_hook()
         if pre_hook:
             run_hook(pre_hook, verbose=self.verbose)
+        self.git.check_branch_and_head(branch, head_before)
 
         # BRANCH (team mode only): create & check out the feature branch.
         if self.mode == "team":
@@ -300,8 +308,13 @@ class Orchestrator:
             )
             return 1
 
-        # PUSH — if this fails the commit is already safe; report the exact
+        # PUSH — re-verify branch/HEAD against the post-commit state right
+        # before pushing: pushing the wrong ref after a concurrent switch
+        # is the one failure this flow cannot cleanly recover from.
+        # If this fails the commit is already safe; report the exact
         # command to finish the job instead of pretending nothing happened.
+        post_commit_head = self.git.rev_parse("HEAD")
+        self.git.check_branch_and_head(branch, post_commit_head)
         try:
             self.git.push(branch, set_upstream=self.mode == "team")
         except GitError as exc:
@@ -339,7 +352,7 @@ class Orchestrator:
         base = self.git.rev_parse("HEAD~1") or EMPTY_TREE
         return self.git.diff_range(base, tip), self.git.stat_range(base, tip)
 
-    def _run_amend(self, message: str, branch: str) -> int:
+    def _run_amend(self, message: str, branch: str, head: str) -> int:
         """Rewrite the last commit with the confirmed message.
 
         Deliberately never pushes: amending an already-pushed commit rewrites
@@ -357,6 +370,7 @@ class Orchestrator:
         pre = get_pre_commit_hook()
         if pre:
             run_hook(pre, verbose=self.verbose)
+        self.git.check_branch_and_head(branch, head)
         self.git.commit(message, amend=True)
         print(f"[relay] amended last commit on '{branch}'")
         if old_tip and self.git.is_ancestor(old_tip, f"origin/{branch}"):

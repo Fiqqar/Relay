@@ -677,7 +677,7 @@ def test_amend_mode_empty_last_commit_returns_0(git):
 def test_amend_mode_default_does_not_stage(mock_input, git):
     """M1: default amend is message-only — `git add .` must never run."""
     git.has_staged_changes.return_value = False
-    git.rev_parse.side_effect = ["tip123", "base123", "tip123"]
+    git.rev_parse.return_value = "tip123"
     git.diff_range.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
     git.stat_range.return_value = " app.py | 1 +\n"
     git.is_ancestor.return_value = False
@@ -685,7 +685,7 @@ def test_amend_mode_default_does_not_stage(mock_input, git):
     code = make_orchestrator(git, provider=ai, mode="amend").run()
     assert code == 0
     git.stage_all.assert_not_called()
-    git.diff_range.assert_called_once_with("base123", "tip123")
+    git.diff_range.assert_called_once_with("tip123", "tip123")
     git.commit.assert_called_once_with("fix: amend message only", amend=True)
 
 
@@ -748,6 +748,34 @@ def test_toctou_index_change_amend_raises_git_error(git):
     with pytest.raises(GitError) as exc_info:
         make_orchestrator(git, provider=ai, mode="amend", yes=True).run()
     assert "staged changes changed while Relay was running" in str(exc_info.value)
+
+
+def test_branch_switch_aborts_before_commit(git):
+    """L1: a concurrent `git switch` during AI/confirm must not misdirect commit+push.
+
+    `git` here is a Mock, so the refusal itself is simulated — the real
+    comparison is pinned in test_git_manager.py; this pins the wiring
+    (run() re-checks before mutating, and aborts without committing).
+    """
+    from relay.errors import GitError
+
+    git.current_branch.side_effect = ["main", "other"]
+    git.rev_parse.return_value = "tip123"
+
+    def _check(branch, head):
+        if git.current_branch() != branch or git.rev_parse("HEAD") != head:
+            raise GitError(
+                "branch/HEAD changed while Relay was running; "
+                "review `git status` and retry"
+            )
+
+    git.check_branch_and_head.side_effect = _check
+    ai = StubAI(responses=["feat: switched"])
+    with pytest.raises(GitError, match="changed while Relay"):
+        make_orchestrator(git, provider=ai, yes=True).run()
+    git.check_branch_and_head.assert_called_with("main", "tip123")
+    git.commit.assert_not_called()
+    git.push.assert_not_called()
 
 
 def test_initial_write_tree_giterror_gracefully_degrades(git):

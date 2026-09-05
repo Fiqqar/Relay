@@ -73,6 +73,15 @@ class FakeGit:
     def current_branch(self):
         return "main"
 
+    def check_branch_and_head(self, branch, head):
+        # Mirrors GitManager.check_branch_and_head so tests exercise the
+        # wiring (call timing + refusal propagation), not just its presence.
+        if self.current_branch() != branch or self.rev_parse("HEAD") != head:
+            raise GitError(
+                "branch/HEAD changed while Relay was running; "
+                "review `git status` and retry"
+            )
+
     def is_ancestor(self, ancestor, descendant):
         return self._pushed
 
@@ -101,6 +110,15 @@ def test_squash_resets_to_count_and_commits_once(git):
     assert run_squash(git=git, count=3, yes=True) == 0
     assert git.reset_target == "HEAD~3"
     assert len(git.commit_messages) == 1
+
+
+def test_squash_branch_switch_aborts_before_reset(git):
+    """L1: a concurrent `git switch` during AI/confirm must not reset the wrong branch."""
+    with mock.patch.object(git, "current_branch", side_effect=["main", "other"]):
+        with pytest.raises(GitError, match="changed while Relay"):
+            run_squash(git=git, count=2, yes=True)
+    assert git.reset_target is None
+    assert git.commit_messages == []
 
 
 @pytest.mark.parametrize("passed", [1, 0, -3])

@@ -5,7 +5,7 @@ import pytest
 
 from relay.bitbucket import BitbucketError
 from relay.bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
-from relay.errors import RelayError
+from relay.errors import GitError, RelayError
 from relay.github import DuplicatePullRequestError, GitHubError
 from relay.gitlab import DuplicateMergeRequestError, GitLabError
 from relay.pr import run_pr
@@ -40,6 +40,18 @@ class FakeGit:
 
     def current_branch(self):
         return self._branch
+
+    def rev_parse(self, ref):
+        return "tip123"
+
+    def check_branch_and_head(self, branch, head):
+        # Mirrors GitManager.check_branch_and_head so tests exercise the
+        # wiring (call timing + refusal propagation), not just its presence.
+        if self.current_branch() != branch or self.rev_parse("HEAD") != head:
+            raise GitError(
+                "branch/HEAD changed while Relay was running; "
+                "review `git status` and retry"
+            )
 
     def remote_has_branch(self, branch):
         return self._has_branch
@@ -94,6 +106,14 @@ class TestRunPr:
         run_pr(git=FakeGit(), draft=True)
         args = fake_client.return_value.open_pull.call_args.kwargs
         assert args["draft"] is True
+
+    def test_branch_switch_aborts_before_pr_creation(self, fake_client):
+        """L1: a concurrent `git switch` during fetch must not open a PR for the wrong branch."""
+        git = FakeGit()
+        with mock.patch.object(git, "current_branch", side_effect=["feat/login", "main"]):
+            with pytest.raises(GitError, match="changed while Relay"):
+                run_pr(git=git)
+        fake_client.return_value.open_pull.assert_not_called()
 
     def test_pr_is_not_draft_by_default(self, fake_client):
         run_pr(git=FakeGit())
