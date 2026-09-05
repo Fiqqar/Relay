@@ -49,7 +49,7 @@
 
 **Context:** Team mode `relay --team` is often run from `main` — risk of committing directly to the default branch.
 
-**Decision:** `RELAY_PROTECTED_BRANCHES` / `[team.protected] branches` default `["main","master"]` (case-insensitive). Team mode refuses when `current_branch` is protected; only `--allow-protected` bypasses. `--yes` never bypasses (decoupled in v0.5.1). Solo mode may still commit anywhere (convention).
+**Decision:** `RELAY_PROTECTED_BRANCHES` / `[team.protected] branches` default `["main","master"]` (case-insensitive). Team mode refuses when the resolved *target* branch is protected (not merely when run from a protected branch); only `--allow-protected` bypasses. `--yes` never bypasses (decoupled in v0.5.1). Solo mode may still commit anywhere (convention).
 
 **Consequences:** + Prevents the most costly mistake (push to main). − Requires an explicit escape hatch for repos that intentionally commit to main.
 
@@ -57,7 +57,7 @@
 
 **Context:** Large diffs can exceed the LLM token window or cause OOM. Line cap alone fails for a single very long line.
 
-**Decision:** `RELAY_MAX_DIFF_LINES` (default 120) + hard byte budget 512 KiB (`relay/orchestrator.py`). Truncation is reported to the user. `max_diff_lines` has tolerant parsing (bool/list → default).
+**Decision:** `RELAY_MAX_DIFF_LINES` (default 120) + hard byte budget 512 KiB (`relay/ai/base.py::truncate_diff`). Truncation is reported to the user. `max_diff_lines` has tolerant parsing (bool/list → default).
 
 **Consequences:** + Prompt always fits; no OOM from diffs. − AI message may lack context when truncated (user can raise the limit).
 
