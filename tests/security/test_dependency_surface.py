@@ -50,8 +50,17 @@ def _imported_top_levels(tree):
 
 
 def test_no_non_stdlib_imports():
-    """Every absolute import must be stdlib or the ``relay`` package itself."""
-    stdlib = set(sys.stdlib_module_names)
+    """Every absolute import must be stdlib or the ``relay`` package itself.
+
+    Exception: ``tomllib`` is stdlib only on 3.11+, so it is absent from
+    3.10's ``sys.stdlib_module_names``. It stays allowed because
+    ``relay/config.py`` imports it inside a ``try/except ModuleNotFoundError``
+    with a fallback to the bundled ``relay/toml.py`` parser on 3.10 — the
+    assertion below pins that fallback so the allowlist cannot mask a real
+    third-party dependency.
+    """
+    stdlib = set(sys.stdlib_module_names) | {"tomllib"}
+    assert (RELAY_ROOT / "toml.py").is_file(), "the 3.10 TOML fallback parser must exist"
     violations = []
     for path in _all_source_files():
         tree = ast.parse(path.read_text(encoding="utf-8"))
