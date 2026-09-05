@@ -27,8 +27,9 @@ class GeminiProvider(AIManager):
     def __init__(self, api_key: str | None = None, model: str | None = None, timeout: int | None = None):
         self.api_key = api_key or gemini_api_key()
         if not self.api_key:
-            # Fail fast with a clear, platform-specific message BEFORE the
-            # workflow mutates anything. This becomes a ConfigError -> exit 1.
+            # No key: raise ConfigError with setup instructions. The CLI
+            # catches this and degrades to manual input (ADR-004) instead of
+            # aborting — so this must stay a ConfigError, never an exit here.
             raise ConfigError(
                 "GEMINI_API_KEY is not set. Export it in your shell, e.g.\n"
                 '    set GEMINI_API_KEY=your_key        (Windows cmd)\n'
