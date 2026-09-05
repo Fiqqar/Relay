@@ -629,6 +629,7 @@ def test_multi_line_manual_message_separates_subject_and_body(mock_input, git):
 
 @mock.patch("builtins.input", side_effect=["fix: amend last commit", ""])
 def test_amend_mode_commits_with_amend_and_never_pushes(mock_input, git):
+    git.has_staged_changes.return_value = False
     git.rev_parse.return_value = "abc123"
     git.is_ancestor.return_value = False
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
@@ -641,6 +642,7 @@ def test_amend_mode_commits_with_amend_and_never_pushes(mock_input, git):
 
 @mock.patch("builtins.input", side_effect=["fix: amend it", ""])
 def test_amend_mode_warns_when_commit_already_pushed(mock_input, git, capsys):
+    git.has_staged_changes.return_value = False
     git.rev_parse.return_value = "abc123"
     git.is_ancestor.return_value = True
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
@@ -653,19 +655,60 @@ def test_amend_mode_warns_when_commit_already_pushed(mock_input, git, capsys):
 
 @mock.patch("builtins.input", side_effect=["fix: amend dry", ""])
 def test_amend_mode_dry_run_does_not_commit(mock_input, git):
+    git.has_staged_changes.return_value = False
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, mode="amend", dry_run=True).run()
     assert code == 0
     git.commit.assert_not_called()
 
 
-def test_amend_mode_empty_staged_diff_returns_0(git):
-    git.staged_diff.return_value = ""
+def test_amend_mode_empty_last_commit_returns_0(git):
+    git.has_staged_changes.return_value = False
+    git.diff_range.return_value = ""
+    git.stat_range.return_value = ""
     ai = StubAI(responses=["feat: never used"])
     code = make_orchestrator(git, provider=ai, mode="amend").run()
     assert code == 0
     assert ai.generate_calls == []
     git.commit.assert_not_called()
+
+
+@mock.patch("builtins.input", side_effect=["fix: amend message only", ""])
+def test_amend_mode_default_does_not_stage(mock_input, git):
+    """M1: default amend is message-only — `git add .` must never run."""
+    git.has_staged_changes.return_value = False
+    git.rev_parse.side_effect = ["tip123", "base123", "tip123"]
+    git.diff_range.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
+    git.stat_range.return_value = " app.py | 1 +\n"
+    git.is_ancestor.return_value = False
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="amend").run()
+    assert code == 0
+    git.stage_all.assert_not_called()
+    git.diff_range.assert_called_once_with("base123", "tip123")
+    git.commit.assert_called_once_with("fix: amend message only", amend=True)
+
+
+def test_amend_mode_dirty_index_refuses_without_staged(git):
+    """M1: unrelated staged changes must not be folded in silently."""
+    git.has_staged_changes.return_value = True
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    with pytest.raises(GitError, match="message-only"):
+        make_orchestrator(git, provider=ai, mode="amend").run()
+    git.stage_all.assert_not_called()
+    git.commit.assert_not_called()
+
+
+@mock.patch("builtins.input", side_effect=["fix: amend with staged", ""])
+def test_amend_mode_staged_folds_index_explicitly(mock_input, git):
+    """M1: --staged opts in to folding staged content into the amend."""
+    git.staged_diff.return_value = "diff --git a/app.py b/app.py\n+print(1)\n"
+    git.is_ancestor.return_value = False
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    code = make_orchestrator(git, provider=ai, mode="amend", staged_only=True).run()
+    assert code == 0
+    git.stage_all.assert_not_called()
+    git.commit.assert_called_once_with("fix: amend with staged", amend=True)
 
 
 # ---- H-12: binary-only staged diff falls back to manual input -----------------
@@ -700,6 +743,7 @@ def test_toctou_index_change_amend_raises_git_error(git):
     from relay.errors import GitError
 
     ai = StubAI(responses=["feat: toctou amend"])
+    git.has_staged_changes.return_value = False
     git.write_tree.side_effect = ["tree_1", "tree_2"]
     with pytest.raises(GitError) as exc_info:
         make_orchestrator(git, provider=ai, mode="amend", yes=True).run()

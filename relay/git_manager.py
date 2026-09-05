@@ -23,6 +23,12 @@ from .errors import GitError
 _NETWORK_COMMANDS = frozenset({"push", "fetch", "ls-remote"})
 _NETWORK_TIMEOUT_SECONDS = 60.0
 
+# The well-known empty-tree SHA: ``git diff <this>..HEAD`` includes the root
+# commit's own changes, which ``git diff <root>..HEAD`` always omits. Used
+# whenever a range must cover an entire history (squash-all, amend of the
+# root commit).
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 
 def parse_remote(url: str) -> tuple[str, str, str]:
     """Parse an HTTPS or SSH remote URL into ``(host, namespace, repo)``.

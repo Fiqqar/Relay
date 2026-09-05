@@ -20,14 +20,8 @@ from __future__ import annotations
 
 from .commit import sanitize_ai_message, validate_conventional
 from .errors import GitError, UserAbort
-from .git_manager import GitManager
+from .git_manager import EMPTY_TREE, GitManager
 from .prompt import CONFIRM_PROMPT, interpret_choice
-
-# The well-known empty-tree SHA: ``git diff <this>..HEAD`` includes the root
-# commit's own changes, which ``git diff <root>..HEAD`` always omits. Squashing
-# the entire history folds the root into the final commit, so the AI message
-# must be generated from a diff that contains the root's content too.
-EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 def _confirm(message: str, yes: bool) -> str:

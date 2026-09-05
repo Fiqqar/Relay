@@ -27,7 +27,7 @@ from .config import hook_pre_commit as get_pre_commit_hook
 from .config import ignore_paths as get_ignore_paths
 from .config import protected_branches as get_protected_branches
 from .errors import AIError, GitError, UserAbort, sanitize_terminal
-from .git_manager import GitManager
+from .git_manager import EMPTY_TREE, GitManager
 from .hooks import run_hook
 from .prompt import CONFIRM_PROMPT, interpret_choice, manual_input, open_in_editor
 from .protected import assert_branch_allowed, is_protected
@@ -80,15 +80,30 @@ class Orchestrator:
         # Skip only the staging step — the diff is still read from the index.
         # --dry-run must never mutate the index: skip `git add .` and preview
         # via HEAD diff instead.
+        # AMEND is message-only by default: it never stages working-tree
+        # changes, and describes the last commit (not the index) to the AI.
+        amend_message_only = self.mode == "amend" and not self.staged_only
+        if amend_message_only and self.git.has_staged_changes():
+            raise GitError(
+                "amend is message-only by default but the index has staged "
+                "changes; unstage or commit them first, or pass --staged to "
+                "fold them into the amended commit"
+            )
         if self.dry_run:
             if self.staged_only:
                 diff = self.git.staged_diff()
                 stat = self.git.staged_stat()
                 is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
+            elif amend_message_only:
+                diff, stat = self._amend_target_diff()
+                is_binary = False
             else:
                 diff = self.git.head_diff()
                 stat = self.git.head_stat()
                 is_binary = "Binary files" in diff and self.git.head_diff_binary_only()
+        elif amend_message_only:
+            diff, stat = self._amend_target_diff()
+            is_binary = False
         else:
             if not self.staged_only:
                 self.git.stage_all()
@@ -168,6 +183,8 @@ class Orchestrator:
 
         # AMEND (mode only): rewrite the last commit instead of adding a new
         # one. Never pushes — amending a pushed commit is a history rewrite.
+        # Message-only by default (the index must be clean); --staged folds
+        # staged content in explicitly.
         if self.mode == "amend":
             if tree_before is not None:
                 try:
@@ -308,6 +325,19 @@ class Orchestrator:
 
         print(f"[relay] done: pushed to '{branch}'")
         return 0
+
+    def _amend_target_diff(self) -> tuple[str, str]:
+        """(diff, stat) describing the last commit — what amend re-messages.
+
+        Message-only amend must not look at the index (which is guaranteed
+        clean here): the AI/manual prompt describes HEAD~1..HEAD, falling back
+        to the empty tree for a root commit. Binary detection is skipped — a
+        binary-only commit yields AI garbage that the Conventional validator
+        rejects straight into manual input.
+        """
+        tip = self.git.rev_parse("HEAD")
+        base = self.git.rev_parse("HEAD~1") or EMPTY_TREE
+        return self.git.diff_range(base, tip), self.git.stat_range(base, tip)
 
     def _run_amend(self, message: str, branch: str) -> int:
         """Rewrite the last commit with the confirmed message.

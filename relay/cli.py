@@ -252,7 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
     amend.add_argument("--yes", action="store_true",
                        help="skip the confirmation prompt")
     amend.add_argument("--staged", action="store_true",
-                       help="only amend what is already staged (skip `git add .`)")
+                       help="fold already-staged changes into the amended commit (default is message-only)")
     amend.add_argument("--dry-run", action="store_true",
                        help="show the plan; change nothing")
     amend.add_argument("--verbose", action="store_true",
