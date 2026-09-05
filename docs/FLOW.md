@@ -15,7 +15,7 @@ relay [--solo | --team [FEATURE]] [flags]
 ┌──────────────────────────────────────────────────────────────┐
 │ 1. Parse flags; resolve AI provider (--provider >            │
 │    RELAY_AI_PROVIDER > default "gemini") and construct it.   │
-│    A missing GEMINI_API_KEY fails here, before any action.   │
+│    A missing API key falls back to manual input instead.     │
 │ 2. Resolve mode: --team given → team, otherwise solo.        │
 │ 3. PREFLIGHT checks (fail fast, nothing mutated yet):        │
 │      a. inside a git work tree?                              │
@@ -48,7 +48,7 @@ SOLO
   ├─ CONFIRM      PromptUI: [Accept message] [Edit] [Retry AI] [Abort]
   │               (auto-accept only with --yes)
   │
-  ├─ COMMIT       git commit -F <message>   (message via stdin)
+  ├─ COMMIT       git commit -F -   (message piped via stdin)
   │               └─ pre-commit hook fails → surface hook output → exit 1
   │
   └─ PUSH         git push origin <current-branch>
@@ -98,11 +98,11 @@ TEAM
   │                 env RELAY_BRANCH_TEMPLATE): lowercase, spaces→"-", strip
   │                 illegal chars and '.'/'..' path segments, cap at 100 chars
   │               if branch already exists locally → git error (exit 1, with stderr)
-  │               git checkout -b <type>/<feature>
+  │               git switch -c -- <type>/<feature>
   │
   ├─ CONFIRM      same as solo
   │
-  ├─ COMMIT       git commit -F <message>
+  ├─ COMMIT       git commit -F -   (message piped via stdin)
   │
   └─ PUSH         git push -u origin <type>/<feature>   (upstream set)
                   ├─ success → "done: pushed to '<type>/<feature>'" → exit 0
@@ -143,7 +143,7 @@ Developer        relay               git                LLM
 | Provider offline / connection refused | `AIError{Unavailable}` |
 | Request timeout | context deadline exceeded |
 | Rate limited / server error (429, 5xx) | after 2 retries with backoff |
-| Missing API key (Gemini) | fails fast during GENERATE |
+| Missing API key (any provider) | lazy provider build → manual-input fallback, workflow continues |
 | Garbage / invalid output | Conventional Commit validator rejects response |
 
 ### 4.2 Fallback state machine
@@ -157,7 +157,7 @@ Developer        relay               git                LLM
                     │       ▼
                     │  ┌──────────────┐   reason banner:
                     │  │   FALLBACK   │  "AI unavailable (<reason>)..."
-                    │  └──────┬───────┘  + show diff stat (context)
+                     │  └──────┬───────┘
                     │         ▼
                     │  ┌─────────────────────────────┐
                     │  │   MANUAL INPUT (input())    │
@@ -191,8 +191,8 @@ Generated message:
 ```
 
 - **Accept** → proceed to COMMIT.
-- **Edit** → type a replacement message at the manual-message prompt.
-- **Retry AI** → re-run GENERATE (bounded, max 3 attempts total).
+- **Edit** → open the draft in the configured editor (`$GIT_EDITOR` → `core.editor` → `$VISUAL` → `$EDITOR`); when the editor is unavailable, fall back to typing at the manual-message prompt.
+- **Retry AI** → re-run GENERATE (up to 3 retries, then abort).
 - **Abort** → exit 130, no changes beyond staging (`git add .` already happened).
 
 ## 5. Mode Comparison
@@ -202,7 +202,7 @@ Generated message:
 | Stage all | `git add .` | `git add .` |
 | Collect diff | `git diff --cached` | `git diff --cached` |
 | Generate message | AI → fallback → manual | AI → fallback → manual |
-| Branch | — (stay on current) | `git checkout -b <type>/<feature>` |
+| Branch | — (stay on current) | `git switch -c -- <type>/<feature>` |
 | Commit | `git commit -F -` | `git commit -F -` |
 | Push | `git push origin <cur>` | `git push -u origin <branch>` |
 | On push failure | commit kept, retry hint shown | branch kept locally, retry hint shown |
@@ -212,26 +212,28 @@ Generated message:
 | # | Situation | Behavior | Exit |
 | --- | --- | --- | --- |
 | 1 | Not a git repository | `relay: not a git repository — run from inside a work tree` | 1 |
-| 2 | Empty repo (no HEAD) | preflight fails, hints `git commit --allow-empty` | 1 |
+| 2 | Empty repo (no HEAD) | no special case — the initial commit proceeds; with no files → "nothing to commit" | 0 |
 | 3 | Nothing to commit | `nothing to commit, working tree clean` | 0 |
 | 4 | No remote configured | warning; push fails with retry hint | 1 |
-| 5 | Branch already exists (team) | `git checkout -b` fails; git stderr surfaced | 1 |
+| 5 | Branch already exists (team) | `git switch -c` fails; git stderr surfaced | 1 |
 | 6 | AI offline | fallback → manual input → workflow continues | 0 |
 | 7 | AI rate-limited / server error | `AIError` (429/5xx) → fallback | 0 |
 | 8 | AI returns invalid format | validator rejects → fallback | 0 |
 | 9 | User aborts prompt | no commit made (staging only), exit 130 | 130 |
-| 10 | Pre-commit hook fails | abort before push; print hook output | 1 |
+| 10 | Pre-commit hook fails | abort before commit; hook output surfaced | 1 |
 | 11 | Push rejected (non-fast-forward) | commit kept; retry hint shown | 1 |
 | 12 | Commit OK, push network failure | report committed state + exact retry command | 1 |
-| 13 | Diff exceeds token budget | truncation (FR-14) deferred to v0.2 | — |
+| 13 | Diff exceeds token budget | truncated to 120 lines + 512 KiB with a notice (FR-14), workflow continues | 0 |
 | 14 | Non-TTY, AI fails | no hang; ends with exit 1, nothing committed | 1 |
-| 15 | Missing `GEMINI_API_KEY` / unknown provider | fail fast at startup, before any git action | 1 |
+| 15 | Unknown provider name | fail fast at startup (`ConfigError`), before any git action | 1 |
 | 16 | `--staged` but nothing staged | preflight passes (unstaged changes exist), staged diff is empty → "nothing to commit" | 0 |
 | 17 | `relay undo` with no commits / not a repo | clear GitError, nothing changed | 1 |
 
+| 18 | Missing API key (any provider) | lazy provider build → manual-input fallback, workflow continues | 0 |
+
 ## 7. Branch Naming Rules (Team Mode)
 
-1. Feature name resolution: `--team <name>` **>** derive from current branch (last path segment) **>** interactive prompt.
+1. Feature name resolution: `--team <name>` **>** derive from current branch (leading `<type>/` prefix stripped) **>** interactive prompt.
 2. Template expansion: `<type>/<feature>` (configurable via `RELAY_BRANCH_TEMPLATE`) → e.g. `feat/payments`.
 3. Sanitization: lowercase, whitespace → `-`, strip `~ ^ : ? * [ \`, drop `.`/`..` path segments, cap at 100 chars; `git checkout -b` is git's final authority.
 
