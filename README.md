@@ -138,6 +138,15 @@ relay pr --open
 | `relay squash` | Fold the last N commits into a single clean Conventional Commit. |
 | `relay stage` | Interactive file and hunk staging helper (`git add -p`). |
 | `relay doctor` | Diagnose environment readiness (PATH, Git, tokens, remotes). |
+| `relay completions [SHELL]` | Print a shell completion script (bash/zsh/fish/powershell). |
+| `relay man` | Print the `relay(1)` manual page (roff) to stdout. |
+| `relay telemetry [on\|off\|status]` | View or change opt-in anonymous usage telemetry (off by default). |
+| `-m`, `--message TEXT` | Use this commit message instead of generating one with AI. |
+| `--provider NAME` | AI provider override (`gemini`, `ollama`, `openai`, `anthropic`, `mistral`, `groq`, `xai`). |
+| `--timeout SECONDS` | Seconds to wait for the AI response (default 30, max 120). |
+| `--no-push` | Commit but do not push. |
+| `--no-verify` | Skip git pre-commit and commit-msg hooks. |
+| `--repo PATH` | Run on this repo path (repeatable; defaults to current dir). |
 | `--yes` | Skip the confirmation menu and proceed automatically. |
 | `--staged` | Only commit already-staged changes (skips `git add .`). |
 | `--dry-run` | Preview diff, AI message, and execution plan without making changes. |
