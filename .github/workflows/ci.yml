@@ -51,6 +51,12 @@ jobs:
         run: |
           pip install --disable-pip-version-check "pip-audit>=2.7,<3"
           pip-audit --strict .
+          # Project-path mode only resolves the (intentionally empty)
+          # runtime closure — environment mode audits the build/test/lint
+          # toolchain actually installed in this job. No --strict here:
+          # --strict fails on any unresolvable dist, including our own
+          # editable self-install; --skip-editable drops just that one.
+          python -m pip_audit --skip-editable
 
       - name: Security scan (Bandit)
         run: |
