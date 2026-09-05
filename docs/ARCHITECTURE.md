@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-Relay is a client-side CLI. It orchestrates three kinds of external systems: the **local Git repository**, an **LLM provider** (Gemini or Ollama), and the developer's **terminal** (for confirmation and fallback input). The core design goal is separation of concerns: Git mutation logic, AI communication, and user interaction are isolated behind interfaces so each is independently testable and replaceable
+Relay is a client-side CLI. It orchestrates three kinds of external systems: the **local Git repository**, an **LLM provider** (Gemini, Ollama, OpenAI, Anthropic, Mistral, Groq, or xAI), and the developer's **terminal** (for confirmation and fallback input). The core design goal is separation of concerns: Git mutation logic, AI communication, and user interaction are isolated behind interfaces so each is independently testable and replaceable
 
 Relay is **zero-dependency by design**: everything uses the Python standard library (`argparse`, `subprocess`, `urllib`). Installing it is a single `pip install -e .`, and it works on fully offline machines.
 
@@ -28,9 +28,9 @@ Relay is **zero-dependency by design**: everything uses the Python standard libr
 |   | GitManager  |     |  AIService   |      |   PromptUI   |                     |
 |   | (subprocess)|     | (AIManager)  |      |  (input())   |                     |
 |   +-------------+     |  +---------+ |      +--------------+                     |
-|            ^          |  | Gemini  | |                                          |
+|            ^          |  | Gemini+6| |                                          |
 |            |          |  +---------+ |                                          |
-|            +----------+  | Ollama  | |                                          |
+|            +----------+  |see §3.7 | |                                          |
 |                         |  +---------+ |    +--------------------+               |
 |                         +--------------+    | Message Builder /   |               |
 |                         +--------------+    | Commit Validator    |               |
@@ -55,16 +55,17 @@ Relay is **zero-dependency by design**: everything uses the Python standard libr
 - Keeps zero business logic — it only translates CLI input into an `Orchestrator` call.
 
 ### 3.2 Config Manager — `relay/config.py`
-- Responsibility: resolve configuration from **environment variables** plus an optional **TOML config file**: `GEMINI_API_KEY`, `GEMINI_MODEL`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `RELAY_AI_PROVIDER`, `RELAY_BRANCH_TEMPLATE`, `RELAY_AI_TIMEOUT`, `RELAY_MAX_DIFF_LINES`, `RELAY_PR_OPEN`.
+- Responsibility: resolve configuration from **environment variables** plus an optional **TOML config file**: `RELAY_AI_PROVIDER`, per-provider `*_MODEL` / `*_BASE_URL`, `RELAY_BRANCH_TEMPLATE`, `RELAY_AI_TIMEOUT`, `RELAY_MAX_DIFF_LINES`, `RELAY_PR_OPEN` (full key matrix in `README.md#ai-providers-and-configuration`).
 - Precedence: **flags > env vars > config file > defaults**. The file lives at `$XDG_CONFIG_HOME/relay/config.toml` (or `%APPDATA%\relay\config.toml` on Windows), overridable via `RELAY_CONFIG`; a `[relay]` table holds the non-secret keys. Secrets (`GEMINI_API_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`) are env-variable-only (NFR-3).
-- A missing `GEMINI_API_KEY` (when provider is `gemini`) raises `ConfigError` with platform-specific instructions before any git mutation. A missing or malformed config file is ignored.
+- A missing API key degrades to manual input (lazy provider build, ADR-004); only an unknown provider name raises `ConfigError` before any git mutation. A missing or malformed config file is ignored.
 - All reads flow through `_resolve(env_key, cfg_key, default)`, so call sites never change when a key's source is added or moved.
 
 ### 3.3 Preflight — `Orchestrator._preflight` (`relay/orchestrator.py`)
 - Responsibility: fail fast, before any mutation:
   1. CWD is inside a Git work tree (`git rev-parse --is-inside-work-tree`).
   2. There are staged or unstaged changes (`git status --porcelain`) — if the tree is clean it exits `0` with a message.
-  3. A remote is configured (`git remote`) — warning-only for solo mode, since the push itself will surface a real failure.
+  3. No merge, rebase, cherry-pick, or revert is in progress and there are no unmerged paths — otherwise exit `1` with a message.
+  4. A remote is configured (`git remote`) — warning-only for solo mode, since the push itself will surface a real failure.
 - Returns an early exit code or `None`; each check emits one clear, actionable message.
 
 ### 3.4 Orchestrator — `relay/orchestrator.py`
@@ -74,7 +75,7 @@ Relay is **zero-dependency by design**: everything uses the Python standard libr
 ### 3.5 Git Manager — `relay/git_manager.py`
 - Responsibility: a thin, typed wrapper over the `git` CLI via `subprocess.run`. Preferred over a pure-Python git library because it reuses the user's credential helpers, SSH agent, and hooks exactly as normal `git` does.
 - All commands run as **argv lists (`shell=False`)** so filenames with spaces or special characters can never be injected into a shell. `--verbose` prints each command before running it.
-- Commands exposed: `status`, `add .`, `diff --cached`, `diff --cached --stat`, `branch --show-current`, `checkout -b`, `commit -F -` (message piped via stdin, avoiding shell-quoting bugs), `push [-u] origin <branch>`.
+- Commands exposed: `status`, `add .`, `diff --cached`, `diff --cached --stat`, `branch --show-current`, `switch -c`, `commit -F -` (message piped via stdin, avoiding shell-quoting bugs), `push [-u] origin <branch>` — plus `write-tree` (TOCTOU guard), `ls-remote` (remote branch check), and commit-range helpers for squash/PR.
 - Every failure raises `GitError` carrying the underlying git stderr.
 
 ### 3.6 Diff Collector — `Orchestrator.run` (via GitManager)
@@ -131,9 +132,9 @@ class AIError(RelayError):
 - If validation fails, the Orchestrator treats it as an AI failure → **manual fallback** (a bad AI message is never silently committed or mangled).
 - `build_branch_name` — expands `<type>/<feature>` into a valid git ref (lowercase, whitespace → `-`, strips `~^:?*[\`, drops `.`/`..` path segments, caps at 100 chars).
 
-### 3.9 PromptUI — built into `relay/orchestrator.py`
-- Library: plain `input()` — deliberately dependency-free.
-- Responsibility: the confirmation gate (`[Accept] [Edit] [Retry] [Abort]`) for AI messages, and the manual-message fallback prompt.
+### 3.9 PromptUI — `relay/prompt.py`
+- Library: plain `input()` plus stdlib `subprocess`/`tempfile` for the editor flow — deliberately dependency-free.
+- Responsibility: the confirmation gate (`[Accept] [Edit] [Retry] [Abort]`) for AI messages, the editor draft flow (`open_in_editor`), and the manual-message fallback prompt (`manual_input`). The Orchestrator calls these through thin seams, so prompting is unit-testable without a workflow run.
 - Non-TTY (piped) environments: `input()` raises `EOFError`, which the CLI layer converts to exit `1` — the run never hangs.
 
 ### 3.10 Output / Logging — inline
@@ -180,7 +181,7 @@ Full reference lives in the [README](../README.md#configuration). Key points:
 | Preflight / workflow / git failure | friendly message + actionable hint (git stderr shown with `--verbose`) | `1` |
 | User aborts at a prompt (Ctrl-C / abort choice) | no state changes after the abort point | `130` |
 | Commit OK, push failed | reports state + exact retry command (`git push [‑u] origin <branch>`) | `1` |
-| Gemini configured without a key | `ConfigError` with setup instructions, before any git action | `1` |
+| Provider configured without a key | lazy build degrades to manual input (ADR-004); nothing fails before staging | `0` (on success) |
 | Non-TTY run with AI failure | manual prompt cannot be answered; run ends cleanly, nothing committed | `1` |
 
 Errors flow through a small taxonomy in `relay/errors.py`: `RelayError` (base) → `ConfigError`, `GitError` (with underlying git stderr), `AIError` (with `kind`), `UserAbort`. The CLI layer catches these and maps them to exit codes.
@@ -188,7 +189,7 @@ Errors flow through a small taxonomy in `relay/errors.py`: `RelayError` (base) �
 ## 7. Security
 
 1. **Keys** — env var only; never logged, never shown in `--verbose`, never included in error strings.
-2. **Repo safety** — Relay never force-pushes, never rewrites history, and only touches the working tree via `git add .`.
+2. **Repo safety** — Relay never force-pushes; history is rewritten only by the explicit local `amend` / `squash` / `undo` commands (never auto-pushed); the working tree is touched via `git add` (`.`, selected files, or `-p`), branch checkout, and the team-mode orphan-branch cleanup on commit failure.
 3. **Shell safety** — every git command runs with `shell=False` and a literal argv list, so user-controlled strings (branch names, messages) cannot be injected.
 4. **Supply chain** — zero third-party runtime dependencies; the attack surface is the Python stdlib plus the user's own `git`.
 
@@ -202,7 +203,7 @@ Errors flow through a small taxonomy in `relay/errors.py`: `RelayError` (base) �
 | Prompts | built-in `input()` | Enough for one-shot prompts; no TTY library required. |
 | Git | **subprocess.run** (list argv) | Reuses user credentials/hooks; simpler and safer than a git library. |
 | HTTP | **urllib** (stdlib) | Only two REST endpoints; no need for `requests`. |
-| Tests | **unittest** + `unittest.mock` | Stdlib; pytest can be layered on later. |
+| Tests | **pytest** + `pytest-cov` + `unittest.mock` | ~1000 hermetic tests, 90% branch gate enforced in CI. |
 | Packaging | `pyproject.toml` + setuptools | `pip install -e .` yields a global `relay` console script. |
 
 *Why not Go/Rust?* Both produce a single static binary, but Python's interpreter is already present on most developer machines, so `pip install` is the only distribution step, and provider/CLI changes don't require a rebuild. If a static binary is ever required, the stdlib-only constraint keeps a future PyInstaller/Nuitka build straightforward. *Why not `requests`/`typer`?* Zero dependencies means the tool installs and runs everywhere, even offline — the strongest property for a global CLI.
