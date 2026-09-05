@@ -135,11 +135,22 @@ def test_stage_and_unstage_pass_paths_after_separator(rgit, repo):
     assert not (repo / "pwned").exists()
 
 
+def test_create_branch_plain_name_works_end_to_end(git, repo):
+    """Regression: ``switch -c -- <name>`` broke ALL branch creation; this
+    proves the fixed argv creates and checks out a real branch."""
+    git.create_branch("feat/adversarial-login")
+    current = run_git(repo, "branch", "--show-current").stdout.strip()
+    assert current == "feat/adversarial-login"
+
+
 def test_branch_operations_pass_name_after_separator(rgit, repo):
     before = run_git(repo, "branch", "--list", "--format=%(refname:short)").stdout.split()
+    # create_branch intentionally carries NO `--`: `switch -c` consumes the next
+    # token as the new-branch value, so a separator breaks it. A dash-leading
+    # name is still fail-closed by git's own parser ("unknown option").
     with pytest.raises(GitError):
         rgit.create_branch(EVIL_BRANCH)
-    _separator_before(rgit.calls[-1], EVIL_BRANCH)
+    assert rgit.calls[-1] == ["switch", "-c", EVIL_BRANCH]
     with pytest.raises(GitError):
         rgit.checkout(EVIL_FLAG)
     _separator_before(rgit.calls[-1], EVIL_FLAG)

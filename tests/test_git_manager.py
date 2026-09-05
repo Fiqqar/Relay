@@ -228,7 +228,7 @@ class TestMutations:
     def test_create_branch(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.create_branch("status/payments")
-        assert mock_run.call_args.args[0] == ["git", "switch", "-c", "--", "status/payments"]
+        assert mock_run.call_args.args[0] == ["git", "switch", "-c", "status/payments"]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_checkout(self, mock_run, git, make_proc):

@@ -478,8 +478,16 @@ class GitManager:
         self._run(*cmd, input_text=message)
 
     def create_branch(self, name: str) -> None:
-        """Create and check out a new branch (`git switch -c`)."""
-        self._run("switch", "-c", "--", name)
+        """Create and check out a new branch (`git switch -c`).
+
+        No ``--`` separator here on purpose: ``switch -c`` consumes the very
+        next token as the new-branch value, so ``switch -c -- <name>`` makes
+        git read ``--`` as the branch name and ``<name>`` as the start point
+        ("fatal: invalid reference"). A dash-leading name is still fail-closed
+        — git's own option parser rejects it with "unknown option" (GitError),
+        never executes it.
+        """
+        self._run("switch", "-c", name)
 
     def checkout(self, branch: str) -> None:
         """Check out an existing branch (`git switch -- <branch>`)."""
