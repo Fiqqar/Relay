@@ -56,7 +56,7 @@ Relay keeps the developer in control at every meaningful checkpoint and **never 
 | FR-10 | Show generated message, request confirmation before commit (skippable via `--yes`) | P1 | done |
 | FR-11 | `--dry-run` (plan+message, no mutations) and `--no-push` | P1 | done |
 | FR-12 | Respect git pre-commit hooks; surface output, abort cleanly on failure | P1 | done |
-| FR-13 | Push rejection (non-fast-forward) with actionable guidance (`pull --rebase`) | P1 | done |
+| FR-13 | Push failure reports committed state with the exact retry command (`git push [-u] origin <branch>`) | P1 | done |
 | FR-14 | Truncate large diffs to provider budget (`RELAY_MAX_DIFF_LINES` + 512 KiB byte cap) | P2 | done |
 | FR-15 | `--verbose` logging + `relay doctor` self-diagnostic | P2 | done |
 | FR-16 | `relay pr` — create GitHub/GitLab/Bitbucket PR via REST, no deps | P1 | done |
@@ -85,7 +85,7 @@ AC: `git add .` staged, AI message validated, confirmation shown, `git commit -F
 
 **US-2 Team safety**
 > As Marcus, I run `relay --team payments` while on `main`.
-AC: Refused by protected-branch guard unless `--allow-protected`; otherwise creates `feat/payments`, commits, pushes with `-u`, exit 0. `--yes` never bypasses guard.
+AC: Proceeds — the resolved target `feat/payments` is not protected — creates the branch, commits, pushes with `-u`, exit 0. Refusal happens only when the resolved target branch itself is protected (e.g. template `<feature>` with feature `main`); then `--allow-protected` is required. `--yes` never bypasses guard.
 
 **US-3 Offline fallback**
 > As Priya, I run `relay --solo` with no API key / no network.
@@ -99,9 +99,9 @@ AC: Resolves message + branch name, prints plan, mutates nothing (`git add .` no
 > As Marcus, I run `relay pr --base main --draft --open` after pushing a feature branch.
 AC: Validates base ref, creates PR via forge REST (trusted host only), prints URL, opens browser only with `--open`/`--yes`/`RELAY_PR_OPEN=1`.
 
-## 7. Scope Boundaries (v0.9 → v1.0)
+## 7. Scope Boundaries
 
-Explicitly in scope next: GA finalization, public documentation, and distribution channels — see `docs/ROADMAP.md`.
+Planned scope is tracked in `docs/ROADMAP.md` (v1.0.0 GA shipped; see it for release history).
 Explicitly out of scope: GUI/TUI, remote model hosting, CI/CD pipeline orchestration, multi-user server.
 
 ## 8. Success Metrics
