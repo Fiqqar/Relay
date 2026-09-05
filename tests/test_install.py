@@ -44,6 +44,7 @@ def test_install_package_in_venv_skips_user_flag(monkeypatch):
         call_args = mock_run.call_args[0][0]
         assert "--user" not in call_args
         assert "-e" in call_args
+        assert mock_run.call_args.kwargs.get("timeout") == 120
 
 
 def test_update_path_unix_prefers_zsh(tmp_path, monkeypatch):
@@ -88,20 +89,61 @@ def test_update_path_windows_already_present(monkeypatch):
         assert res is True
 
 
-def test_update_path_windows_success(monkeypatch):
+def test_update_path_windows_success(monkeypatch, capsys):
     scripts_dir = Path("C:/fake/relay/scripts")
     calls = []
 
     def fake_powershell(script):
         calls.append(script)
-        if "[Environment]::GetEnvironmentVariable('Path','User')" in script:
-            return r"C:\Existing"
-        return ""
+        if "SetEnvironmentVariable('Path'" in script:
+            return "RELAY_OK"
+        return r"C:\Existing"
 
     with mock.patch("install._powershell", side_effect=fake_powershell):
         res = install.update_path_windows(scripts_dir, yes=True)
         assert res is True
         assert any("SetEnvironmentVariable" in c for c in calls)
+    assert "added" in capsys.readouterr().out
+
+
+def test_update_path_windows_failure_warns(monkeypatch, capsys):
+    """L8: a failed update must warn, not report [ok] (the old `== ""`
+    check could not tell success with empty output apart from failure)."""
+    scripts_dir = Path("C:/fake/relay/scripts")
+
+    def fake_powershell(script):
+        if "SetEnvironmentVariable('Path'" in script:
+            return None
+        return r"C:\Existing"
+
+    with mock.patch("install._powershell", side_effect=fake_powershell):
+        res = install.update_path_windows(scripts_dir, yes=True)
+        assert res is True
+    assert "could not update user PATH" in capsys.readouterr().out
+
+
+def test_update_path_unix_missing_profiles_creates_default(tmp_path, monkeypatch):
+    """L7: a $HOME with no shell profile at all must not crash read_text."""
+    monkeypatch.setenv("SHELL", "/bin/bash")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    scripts_dir = tmp_path / "bin"
+    res = install.update_path_unix(scripts_dir, yes=True)
+    assert res is True
+
+    default_profile = tmp_path / ".profile"
+    target_esc = install._escape_sh_double(str(scripts_dir))
+    assert target_esc in default_profile.read_text(encoding="utf-8")
+
+
+def test_check_pip_timeout_falls_back_to_ensurepip():
+    """L8: a hung `pip --version` must not stall the installer forever."""
+    import subprocess
+
+    timed_out = subprocess.TimeoutExpired(cmd="pip", timeout=120)
+    ready = mock.Mock(returncode=0, stdout="pip 25.0\n", stderr="")
+    with mock.patch("subprocess.run", side_effect=[timed_out, ready]):
+        assert install.check_pip() is True
 
 
 def test_escape_ps_and_sh():

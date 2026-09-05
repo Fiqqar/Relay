@@ -88,17 +88,21 @@ def check_pip() -> bool:
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pip", "--version"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=120,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         proc = None
     if proc is None or proc.returncode != 0:
         _fail("pip is not available for this Python.")
         print("       Bootstrapping pip with ensurepip ...")
-        boot = subprocess.run(
-            [sys.executable, "-m", "ensurepip", "--upgrade"],
-            capture_output=True, text=True,
-        )
+        try:
+            boot = subprocess.run(
+                [sys.executable, "-m", "ensurepip", "--upgrade"],
+                capture_output=True, text=True, timeout=120,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            _fail(f"ensurepip failed: {exc}")
+            return False
         if boot.returncode != 0:
             _fail(f"ensurepip failed: {boot.stderr.strip()}")
             return False
@@ -116,7 +120,11 @@ def install_package() -> bool:
         if user:
             args.append("--user")
         args += ["-e", str(REPO_ROOT)]
-        proc = subprocess.run(args, capture_output=True, text=True)
+        try:
+            proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            _fail("pip install timed out after 120s; check your network and retry.")
+            return False
         if proc.returncode == 0:
             _ok(f"installed editable package ({'--user' if user else 'default'})")
             return True
@@ -137,14 +145,22 @@ def scripts_dir() -> Path:
     return Path(sysconfig.get_path("scripts", scheme))
 
 
-def _powershell(script: str) -> str:
-    """Run a PowerShell one-liner, returning its trimmed stdout (or '' on error)."""
-    proc = subprocess.run(
-        ["powershell", "-NoProfile", "-Command", script],
-        capture_output=True, text=True,
-    )
+def _powershell(script: str) -> str | None:
+    """Run a PowerShell one-liner, returning trimmed stdout, or None on error.
+
+    None (instead of "") marks failure unambiguously: several PowerShell
+    commands (including SetEnvironmentVariable) succeed with empty output,
+    so an empty string can never distinguish success from failure.
+    """
+    try:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True, text=True, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if proc.returncode != 0:
-        return ""
+        return None
     return proc.stdout.strip()
 
 
@@ -158,7 +174,7 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
     target_esc = _escape_ps_single(target)
     user_path = _powershell(
         "[Environment]::GetEnvironmentVariable('Path','User')"
-    )
+    ) or ""
 
     entries = [p for p in user_path.split(";") if p]
     if target.lower().rstrip("\\") in [p.lower().rstrip("\\") for p in entries]:
@@ -172,9 +188,10 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
             return True
     script = (
         f"[Environment]::SetEnvironmentVariable('Path', "
-        f"[Environment]::GetEnvironmentVariable('Path','User') + ';{target_esc}', 'User')"
+        f"[Environment]::GetEnvironmentVariable('Path','User') + ';{target_esc}', 'User'); "
+        f"Write-Output RELAY_OK"
     )
-    if _powershell(script) == "" and not user_path:
+    if _powershell(script) != "RELAY_OK":
         _warn("could not update user PATH (PowerShell unavailable or denied).")
         _warn(f'add it manually via PowerShell:  [Environment]::SetEnvironmentVariable("Path", $env:Path + ";{target_esc}", "User")')
         _warn(f'or via System Properties -> Environment Variables -> User variables -> Path -> New -> "{target}"')
@@ -209,7 +226,9 @@ def update_path_unix(scripts: Path, yes: bool) -> bool:
 
     line = f'export PATH="{target_esc}:$PATH"'
     for profile in candidates:
-        text = profile.read_text(encoding="utf-8", errors="replace")
+        # A fallback candidate may not exist yet (fresh $HOME with no shell
+        # profiles) — treat a missing file as empty, not as a crash.
+        text = profile.read_text(encoding="utf-8", errors="replace") if profile.exists() else ""
         if line in text:
             _ok(f"{target} already in {profile}")
             return True
