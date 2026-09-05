@@ -66,6 +66,46 @@ def test_hooks_direct_list_compat(monkeypatch, tmp_path):
     assert config.hook_pre_commit() == ["echo", "hi"]
 
 
+def test_hooks_single_string_command_splits_to_argv(monkeypatch, tmp_path):
+    _write(monkeypatch, tmp_path, """
+        [hooks.pre_commit]
+        command = "echo hi"
+    """)
+    assert config.hook_pre_commit() == ["echo", "hi"]
+
+
+def test_hooks_single_string_without_args_is_single_element(monkeypatch, tmp_path):
+    _write(monkeypatch, tmp_path, """
+        [hooks.pre_commit]
+        command = "./scripts/check.sh"
+    """)
+    assert config.hook_pre_commit() == ["./scripts/check.sh"]
+
+
+def test_hooks_single_string_keeps_quoted_path_together(monkeypatch, tmp_path):
+    _write(monkeypatch, tmp_path, """
+        [hooks.pre_commit]
+        command = '"/opt/my tools/check.sh" --strict'
+    """)
+    assert config.hook_pre_commit() == ["/opt/my tools/check.sh", "--strict"]
+
+
+def test_hooks_single_string_unbalanced_quotes_returns_none(monkeypatch, tmp_path):
+    _write(monkeypatch, tmp_path, """
+        [hooks.pre_commit]
+        command = "echo 'hi"
+    """)
+    assert config.hook_pre_commit() is None
+
+
+def test_hooks_single_string_blank_returns_none(monkeypatch, tmp_path):
+    _write(monkeypatch, tmp_path, """
+        [hooks.pre_commit]
+        command = "   "
+    """)
+    assert config.hook_pre_commit() is None
+
+
 def test_hooks_empty_list_returns_none(monkeypatch, tmp_path):
     _write(monkeypatch, tmp_path, """
         [hooks.pre_commit]

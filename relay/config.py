@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -609,6 +610,18 @@ def _load_hooks() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _strip_wrapping_quotes(token: str) -> str:
+    """Remove one layer of matching surrounding quotes from a token.
+
+    Needed because hook strings are split with ``shlex.split(..., posix=False)``
+    (so backslashes survive on Windows), which keeps the quote characters in
+    the tokens. Only a matching pair wrapping the whole token is stripped.
+    """
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in ("'", '"'):
+        return token[1:-1]
+    return token
+
+
 def _parse_hook_command(raw) -> list[str] | None:
     """Normalize a hook table into an argv list or None."""
     # Supported shapes:
@@ -628,8 +641,19 @@ def _parse_hook_command(raw) -> list[str] | None:
         if isinstance(cmd, list) and cmd:
             return [str(x).strip() for x in cmd if str(x).strip()]
         if isinstance(cmd, str) and cmd.strip():
-            # Single-string form splits on whitespace (compat), but argv is still a list
-            return [cmd.strip()]
+            # Single-string form: split on whitespace into argv (compat with
+            # shell-style one-liners like `command = "echo hi"`). Quote paths
+            # containing spaces: `command = '"/opt/my tools/check.sh" --strict'`.
+            # Splitting is platform-independent (same config -> same argv on
+            # every OS) and the result is still passed argv-as-list
+            # (shell=False); an unparseable string (e.g. unbalanced quotes)
+            # disables the hook.
+            try:
+                parts = shlex.split(cmd, posix=False)
+            except ValueError:
+                return None
+            argv = [_strip_wrapping_quotes(p) for p in parts]
+            return [p for p in argv if p] or None
     return None
 
 
