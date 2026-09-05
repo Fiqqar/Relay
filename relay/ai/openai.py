@@ -15,7 +15,7 @@ import urllib.request
 from ..config import ai_timeout, openai_api_key, openai_base_url, openai_model
 from ..errors import AIError, ConfigError
 from ..telemetry import _is_valid_ai_base_url
-from .base import AIManager, extract_http_error_detail, read_limited_response
+from .base import AIManager, decode_provider_json, extract_http_error_detail, read_limited_response
 
 
 class OpenAIProvider(AIManager):
@@ -72,8 +72,8 @@ class OpenAIProvider(AIManager):
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:  # nosec B310
-                data = json.loads(
-                    read_limited_response(response, self.provider_name).decode("utf-8")
+                data = decode_provider_json(
+                    read_limited_response(response, self.provider_name), self.provider_name
                 )
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
@@ -95,6 +95,9 @@ class OpenAIProvider(AIManager):
         if "error" in data:
             raise AIError(self.provider_name, "bad_response", str(data["error"]))
         try:
-            return data["choices"][0]["message"]["content"]
+            text = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
             raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}") from exc
+        if not isinstance(text, str):
+            raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}")
+        return text

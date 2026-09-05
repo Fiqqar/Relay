@@ -92,6 +92,25 @@ def read_limited_response(response, provider: str) -> bytes:
         )
     return body
 
+
+def decode_provider_json(body: bytes, provider: str) -> dict:
+    """Parse a provider HTTP body as a JSON object, rejecting anything else.
+
+    Empty/truncated bodies raise ``JSONDecodeError`` (a ``ValueError``) and
+    non-object JSON (``null``, arrays, strings) breaks every downstream
+    ``"error" in data`` membership check — both used to escape as raw
+    tracebacks instead of triggering the manual-input fallback. Normalize all
+    of it to AIError (``bad_response``) here, at the single choke point every
+    provider shares.
+    """
+    try:
+        data = json.loads(body.decode("utf-8"))
+    except ValueError as exc:
+        raise AIError(provider, "bad_response", f"invalid JSON response: {exc}") from exc
+    if not isinstance(data, dict):
+        raise AIError(provider, "bad_response", f"unexpected JSON payload: {str(data)[:200]}")
+    return data
+
 # The single source of truth for how the AI must write commit messages.
 # It lives here (not inside a provider) so every provider produces the same
 # shape of output, which the validator in relay/commit.py can then check.
