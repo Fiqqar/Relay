@@ -118,7 +118,11 @@ jobs:
         uses: ./.github/actions/bootstrap
 
       - name: Run the adversarial security regression suite
-        run: pytest -q tests/security/ --cov=relay --cov-branch --cov-report=term-missing
+        # No --cov here on purpose: the `test` job owns the 90% coverage gate
+        # over the FULL suite. This job asserts adversarial behavior only; with
+        # --cov it would inherit fail_under=90 from pyproject and always fail
+        # (37 tests cannot cover the whole package by design).
+        run: pytest -q tests/security/ --no-cov
     # NOTE: no `continue-on-error` on purpose — this job is GATING. A single
     # mitigated-today-regressed-tomorrow payload blocks the merge, and its
     # separate report is quotable as standalone security evidence.
