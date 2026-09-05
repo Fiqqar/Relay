@@ -259,6 +259,28 @@ def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None
     return diff, was_truncated
 
 
+# Cap on the `--stat` summary lines sent to the LLM. Per-file one-liners
+# carry near-zero commit-message signal past the first screenful, while an
+# accidentally un-ignored mass-add (e.g. `node_modules`) can produce
+# megabytes of stat. Unlike the diff body, stat lines are short, so a line
+# cap alone suffices (no byte budget needed).
+MAX_STAT_LINES = 50
+
+
+def truncate_stat(stat: str, max_lines: int = MAX_STAT_LINES) -> str:
+    """Cap a ``--stat`` summary to ``max_lines`` lines plus an ellipsis marker.
+
+    Mirrors :func:`truncate_diff` for the summary block, so one shared call
+    site (``AIManager.build_prompt``) covers all providers.
+    """
+    lines = stat.splitlines()
+    if len(lines) <= max_lines:
+        return stat
+    kept = lines[:max_lines]
+    kept.append(f"... [{len(lines) - max_lines} more stat lines truncated]")
+    return "\n".join(kept) + "\n"
+
+
 class AIManager(ABC):
     """Interface every provider implements."""
 
@@ -276,9 +298,11 @@ class AIManager(ABC):
         """Compose the full prompt: repo context (branch + diffstat) + diff.
 
         The diff is truncated to a strict line budget before it is sent; the
-        ``--stat`` summary is always included in full.
+        ``--stat`` summary is capped to ``MAX_STAT_LINES`` lines (per-file
+        one-liners carry no signal past the first screenful).
         """
         diff, was_truncated = truncate_diff(diff, max_lines)
+        stat = truncate_stat(stat)
         cap = max_lines if max_lines is not None else max_diff_lines()
         notice = f"\nNote: the diff was truncated to its first {cap} lines.\n" if was_truncated else ""
         recent_section = ""

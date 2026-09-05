@@ -26,7 +26,7 @@ from relay.ai import (
     XaiProvider,
     build_provider,
 )
-from relay.ai.base import truncate_diff
+from relay.ai.base import truncate_diff, truncate_stat
 from relay.errors import AIError, ConfigError
 
 
@@ -674,6 +674,23 @@ class TestDiffTruncation:
     def test_build_prompt_small_diff_has_no_truncation_notice(self):
         prompt = AIManager.build_prompt("+small\n", "S", "main", max_lines=120)
         assert "truncated" not in prompt
+
+    def test_small_stat_is_passthrough(self):
+        small = " app.py | 1 +\n 1 file changed\n"
+        assert truncate_stat(small) == small
+
+    def test_large_stat_is_capped_with_notice(self):
+        big = "\n".join(f" file{i}.py | 1 +" for i in range(200))
+        result = truncate_stat(big, max_lines=50)
+        assert "file199.py" not in result
+        assert "150 more stat lines truncated" in result
+        assert result.endswith("\n")
+
+    def test_build_prompt_caps_huge_stat(self):
+        big_stat = "\n".join(f" file{i}.py | 1 +" for i in range(500))
+        prompt = AIManager.build_prompt("+small\n", big_stat, "main", max_lines=120)
+        assert "file499.py" not in prompt
+        assert "more stat lines truncated" in prompt
 
     def test_byte_cap_truncates_huge_line(self):
         huge = "a" * (600 * 1024)  # 600 KiB single line
