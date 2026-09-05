@@ -141,6 +141,16 @@ def run_squash(
     # HEAD. `tip`/`branch` were captured before; abort on mismatch.
     git.check_branch_and_head(branch, tip)
 
+    # Dirty-index re-verification: the same window allows a concurrent
+    # `git add`, and anything staged since the up-front refusal would be
+    # silently folded into the new commit by `reset --soft`. Re-check
+    # right before resetting.
+    if git.has_staged_changes():
+        raise GitError(
+            "the index gained staged changes while Relay was running; "
+            "commit or unstage them first (git reset -- <path>) before squashing"
+        )
+
     # Soft reset stages everything the N commits introduced; the working tree
     # itself is untouched, so nothing can be lost. Squashing the entire history
     # amends the root commit so the fold leaves a single commit behind.

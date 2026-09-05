@@ -121,6 +121,21 @@ def test_squash_branch_switch_aborts_before_reset(git):
     assert git.commit_messages == []
 
 
+def test_squash_concurrent_stage_aborts_before_reset(git):
+    """L2: changes staged after the up-front check must still abort the fold."""
+    calls = {"n": 0}
+
+    def _flaky_has_staged():
+        calls["n"] += 1
+        return calls["n"] > 1  # clean at entry, dirty by reset time
+
+    git.has_staged_changes = _flaky_has_staged
+    with pytest.raises(GitError, match="gained staged changes"):
+        run_squash(git=git, count=2, yes=True)
+    assert git.reset_target is None
+    assert git.commit_messages == []
+
+
 @pytest.mark.parametrize("passed", [1, 0, -3])
 def test_squash_rejects_count_below_two(git, passed):
     with pytest.raises(GitError, match="at least 2 commits"):
