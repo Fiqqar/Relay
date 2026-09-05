@@ -22,7 +22,6 @@ from dataclasses import dataclass
 
 from . import __version__
 from .bitbucket import bitbucket_token
-from .errors import sanitize_terminal
 from .config import (
     DEFAULT_OLLAMA_BASE_URL,
     anthropic_api_key,
@@ -40,6 +39,7 @@ from .config import (
     xai_api_key,
     xai_base_url,
 )
+from .errors import sanitize_terminal
 from .git_manager import GitManager
 from .github import github_token
 from .gitlab import gitlab_token

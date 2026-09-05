@@ -530,7 +530,7 @@ def test_doctor_probe_rejects_oversized_forge_body(healthy_env, capsys):
     mock_resp.read.return_value = b"x" * (_MAX_PROBE_BODY_BYTES + 100)
     mock_resp.__enter__.return_value = mock_resp
     with mock.patch("urllib.request.urlopen", return_value=mock_resp):
-        code = run_doctor(probe=True)
+        run_doctor(probe=True)
     out = capsys.readouterr().out
     assert "Forge probe" in out
     assert "too large" in out
