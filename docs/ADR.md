@@ -1,7 +1,7 @@
 # Relay — Architecture Decision Records (ADR)
 
 > Why Relay is built this way. Each ADR: Context → Decision → Consequences.
-> Numbers are permanent — never delete; if a decision changes, add a new ADR that supersedes it.
+> Numbers are permanent — never delete; if a decision changes, add a new ADR that supersedes it
 
 ---
 
