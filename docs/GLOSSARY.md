@@ -1,6 +1,6 @@
 # Relay — Glossary
 
-> Terms used across docs, code, and defense presentations. Concise definitions with real examples.
+> Terms used across docs, code, and defense presentations. Concise definitions with real examples
 
 | Term | Meaning | Example |
 |------|---------|---------|
