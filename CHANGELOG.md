@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-11
+
+### Added
+- **Sensitive staging confirmation**: `git add .` now prompts `[y/N]` when `.env*`/`*.pem`/`*.key`/SSH keys/`credentials.json` are about to be staged; bypass with `--yes` / `--allow-sensitive`, or `--staged` to select files. New `--allow-sensitive` flag (also in completions + CLI freeze contract).
+
 ## [2.0.0] - 2026-09-11
 
 ### Added
