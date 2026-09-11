@@ -1103,6 +1103,27 @@ def test_sensitive_lookup_failure_never_blocks(git, capsys):
     git.commit.assert_called_once()
 
 
+def test_validate_manual_warns_but_still_commits(git, capsys):
+    git.unstaged_changes.return_value = ["app.py"]
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    with mock.patch("builtins.input", side_effect=["oops not conventional", ""]):
+        code = make_orchestrator(git, provider=ai, validate_manual=True).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "is not a Conventional Commit" in out
+    git.commit.assert_called_once_with("oops not conventional", no_verify=False)
+
+
+def test_validate_manual_off_stays_silent(git, capsys):
+    git.unstaged_changes.return_value = ["app.py"]
+    ai = StubAI(error=AIError("fake", "unavailable", "down"))
+    with mock.patch("builtins.input", side_effect=["oops not conventional", ""]):
+        code = make_orchestrator(git, provider=ai, validate_manual=False).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "is not a Conventional Commit" not in out
+
+
 
 
 

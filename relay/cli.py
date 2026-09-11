@@ -17,7 +17,7 @@ import sys
 from . import __version__
 from .ai import PROVIDER_NAMES, AIManager, build_provider
 from .completions import generate as generate_completions
-from .config import branch_template, pr_open_browser
+from .config import branch_template, pr_open_browser, validate_manual_messages
 from .config import repos as config_repos
 from .doctor import run_doctor
 from .errors import ConfigError, RelayError, UserAbort, sanitize_terminal
@@ -119,6 +119,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="run on this repo path (repeatable; defaults to current dir; also [repos] in config / RELAY_REPOS)")
     parser.add_argument("--hunks", action="store_true",
                         help="generate multi-part AI message per file/hunk (hunk-level AI messages)")
+    parser.add_argument("--validate-manual", action="store_true",
+                        help="warn when a manually typed message is not a Conventional Commit")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -403,6 +405,7 @@ def main(argv: list[str] | None = None) -> int:
                 allow_protected=args.allow_protected,
                 branch_template=branch_template(),
                 message=getattr(args, "message", None),
+                validate_manual=bool(getattr(args, "validate_manual", False) or validate_manual_messages()),
             )
             try:
                 code = orchestrator.run()

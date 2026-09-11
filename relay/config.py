@@ -87,6 +87,7 @@ _CFG_KEYS = {
     "RELAY_AI_TIMEOUT": "ai_timeout",
     "RELAY_MAX_DIFF_LINES": "max_diff_lines",
     "RELAY_PR_OPEN": "pr_open",
+    "RELAY_VALIDATE_MANUAL": "validate_manual",
 }
 
 # Secret env vars that must never be resolved from the config file.
@@ -127,6 +128,7 @@ _LOCAL_ALLOWED_RELAY_KEYS = {
     "max_diff_lines",
     "ai_timeout",
     "pr_open",
+    "validate_manual",
     "gemini_model",
     "openai_model",
     "anthropic_model",
@@ -547,6 +549,18 @@ def pr_open_browser() -> bool:
     ``--open`` on every invocation.
     """
     resolved = str(_resolve("RELAY_PR_OPEN", "pr_open", "")).strip().lower()
+    return resolved in ("1", "true", "yes", "on")
+
+
+def validate_manual_messages() -> bool:
+    """Whether manually typed fallback messages get a Conventional warning.
+
+    Opt-in (default off to preserve the never-block verbatim fallback):
+    ``RELAY_VALIDATE_MANUAL=1`` or ``validate_manual = true`` in config.
+    When enabled, a non-Conventional manual message prints the same warning
+    as ``-m`` but still commits verbatim.
+    """
+    resolved = str(_resolve("RELAY_VALIDATE_MANUAL", "validate_manual", "")).strip().lower()
     return resolved in ("1", "true", "yes", "on")
 
 

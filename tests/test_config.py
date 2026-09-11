@@ -657,3 +657,17 @@ def test_repo_local_config_ignore_paths_and_protected_branches(monkeypatch, tmp_
     assert config.ignore_paths() == ["*.min.js", "dist/*"]
     assert config.protected_branches() == ["production", "release"]
 
+
+def test_validate_manual_defaults_off_then_env_and_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("RELAY_VALIDATE_MANUAL", raising=False)
+    _write_toml(monkeypatch, tmp_path, "")
+    assert config.validate_manual_messages() is False
+    monkeypatch.setenv("RELAY_VALIDATE_MANUAL", "1")
+    assert config.validate_manual_messages() is True
+    monkeypatch.delenv("RELAY_VALIDATE_MANUAL", raising=False)
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        validate_manual = true
+    """)
+    assert config.validate_manual_messages() is True
+
