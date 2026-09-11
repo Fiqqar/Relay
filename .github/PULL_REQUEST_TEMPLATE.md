@@ -10,7 +10,7 @@
 ## Verification & Testing
 
 <!-- How was this tested? E.g.: -->
-- [ ] `pytest -q --cov --cov-fail-under=90` passes locally
+- [ ] `pytest -q --cov --cov-fail-under=93` passes locally
 - [ ] `ruff check .` passes (0 errors)
 - [ ] `mypy relay` passes (0 errors)
 

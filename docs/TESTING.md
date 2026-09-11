@@ -1,6 +1,6 @@
 # Relay — Testing Strategy
 
-> How Relay stays at ≥90% branch coverage and why every commit must ship its test.
+> How Relay stays at ≥93% branch coverage and why every commit must ship its test.
 
 ---
 
@@ -13,7 +13,7 @@
 ## 2. Gates (must be green before push)
 
 ```bash
-python -m pytest -q --cov=relay --cov-branch --cov-fail-under=90
+python -m pytest -q --cov=relay --cov-branch --cov-fail-under=93
 ruff check .
 mypy relay
 ```
@@ -89,12 +89,12 @@ with patch("builtins.input", side_effect=["feat(x): add thing", ""]):
 
 1. Add behavior in `relay/` + test in `tests/test_*.py` **same commit**.
 2. Keep `pyproject.toml` dev array single-line (parser limitation).
-3. Ensure `pytest --cov-fail-under=90` passes locally before `relay --solo --yes`.
+3. Ensure `pytest --cov-fail-under=93` passes locally before `relay --solo --yes`.
 
 ## 7. Performance & Quality Guarantees
 - Performance NFR-1 (<500 ms CLI overhead) is continuously benchmarked by `tests/test_performance.py` (<50 ms pure overhead).
 - NFR-7 usability audit is enforced on every commit by `tests/test_error_audit.py`.
-- Zero-dependency stdlib purity and ≥90% branch coverage gate enforced in CI.
+- Zero-dependency stdlib purity and ≥93% branch coverage gate enforced in CI.
 
 ## 8. Quick Commands
 
