@@ -22,21 +22,11 @@ import os
 import re
 import shlex
 import sys
+import tomllib
 from pathlib import Path
 
-try:  # Python 3.11+
-    import tomllib
-
-    # Stdlib parser. tomllib.TOMLDecodeError is a ValueError subclass.
-    _load_toml = tomllib.load
-    _TOML_DECODE_ERROR = tomllib.TOMLDecodeError
-except ModuleNotFoundError:  # Python 3.10 — fall back to the bundled parser
-    from . import toml
-
-    # relay/toml.py is a tiny dependency-free parser with a tomllib-compatible
-    # load(); it raises ValueError (with a line number) on malformed TOML.
-    _load_toml = toml.load
-    _TOML_DECODE_ERROR = ValueError
+_load_toml = tomllib.load
+_TOML_DECODE_ERROR = tomllib.TOMLDecodeError
 
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"

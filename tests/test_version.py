@@ -9,9 +9,10 @@ repo (``Fiqqar/homebrew-Relay``), so its consistency is enforced by the release
 runbook instead of a local test.
 """
 import json
+import tomllib
 from pathlib import Path
 
-from relay import __version__, toml
+from relay import __version__
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,7 +28,8 @@ def test_version_is_not_empty():
 
 def test_version_matches_pyproject():
     pyproject = _REPO_ROOT / "pyproject.toml"
-    data = toml.parse(pyproject.read_text("utf-8"))
+    with open(pyproject, "rb") as fh:
+        data = tomllib.load(fh)
     assert data["project"]["version"] == __version__
 
 

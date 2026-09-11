@@ -25,7 +25,7 @@ that prides itself on clean Git history — so we take our conventions seriously
 ## Getting started
 
 - Fork the repository and clone your fork.
-- Relay targets **Python 3.10+** and has **zero runtime dependencies** —
+- Relay targets **Python 3.11+** and has **zero runtime dependencies** —
   please keep it that way. Any contribution that adds a runtime dependency
   needs a strong justification.
 - Ask before starting a large change: open an issue or a discussion so the work
@@ -65,7 +65,7 @@ The short version every change must satisfy:
 - One logical change per commit (Conventional Commits).
 - Unit tests for new behavior ship in the same commit.
 - Before pushing: `pytest` (coverage ≥ 93%), `ruff check .`, `mypy relay` all green.
-- Zero runtime dependencies; keep `pyproject.toml` dev deps as a single-line array.
+- Zero runtime dependencies (stdlib `tomllib` on Python 3.11+).
 - Never `ruff format` the whole repo; only touch code related to your task.
 
 ## Adding an AI provider

@@ -249,7 +249,7 @@ def run_doctor(
     chosen = (provider or provider_from_env()).lower()
 
     checks: list[Check] = [
-        Check("Python 3.10+", "ok" if sys.version_info >= (3, 10) else "fail",
+        Check("Python 3.11+", "ok" if sys.version_info >= (3, 11) else "fail",
               f"{sys.version.split()[0]}"),
         Check("relay on PATH", "skip", ""),
         Check("git installed", "skip", ""),

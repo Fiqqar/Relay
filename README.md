@@ -4,7 +4,7 @@
   <a href="https://github.com/Fiqqar/Relay/releases"><img src="https://img.shields.io/github/v/release/Fiqqar/Relay?style=for-the-badge&logo=github&logoColor=white" alt="Release"></a>
   <a href="https://github.com/Fiqqar/Relay/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Fiqqar/Relay/ci.yml?branch=main&label=CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
   <a href="https://github.com/Fiqqar/Relay/security/code-scanning"><img src="https://img.shields.io/badge/Security-CodeQL-success?style=for-the-badge&logo=github&logoColor=white" alt="CodeQL"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+"></a>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge" alt="Ruff"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License: MIT"></a>
 </p>
@@ -41,7 +41,7 @@ flowchart LR
 ## Key Capabilities
 
 - **Zero Runtime Dependencies**  
-  Built strictly with the Python standard library. No `requests`, no `pydantic`, no external CLI frameworks. Installs in seconds and runs anywhere Python 3.10+ is present.
+  Built strictly with the Python standard library. No `requests`, no `pydantic`, no external CLI frameworks. Installs in seconds and runs anywhere Python 3.11+ is present.
 
 - **AI-Powered Conventional Commits**  
   Inspects the actual `git diff --cached` and generates standard `type(scope): subject` commit messages. Supports Gemini, local Ollama, OpenAI, Anthropic, Mistral, Groq, and xAI.
@@ -62,7 +62,7 @@ flowchart LR
 
 ## Installation
 
-Requires **Python 3.10+** and `git` on your `PATH`.
+Requires **Python 3.11+** and `git` on your `PATH`.
 
 | Platform | Package Manager | Command |
 | :--- | :--- | :--- |
@@ -100,7 +100,7 @@ Run `relay doctor` to verify Python, Git, and credentials:
 $ relay doctor
 [relay doctor] Relay 1.1.3 - gemini provider
 
-  Python 3.10+       PASS   3.11.9
+  Python 3.11+       PASS   3.11.9
   relay on PATH      PASS   /usr/local/bin/relay
   git installed      PASS   2.43.0
   inside a git repo  PASS   branch: feat/auth, remote: yes, working tree: clean

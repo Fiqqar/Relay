@@ -42,10 +42,8 @@ mypy relay
 
 - Stdlib only. Do not add a runtime dependency without a very strong reason
   (and it must be discussed first).
-- Dev dependencies live in a single-line array in `pyproject.toml` — **do not
-  split them into multi-line**, because `tests/test_version.py` parses
-  `pyproject.toml` with Relay's internal TOML parser, which does not support
-  multi-line arrays. Breaking this = tests fail.
+- Dev dependencies live in `pyproject.toml` (`tests/test_version.py` parses
+  it with stdlib `tomllib` on Python 3.11+).
 
 ### 4. Security & Git integrity
 
@@ -111,7 +109,6 @@ mypy relay
 - [ ] Commit subject > 72 characters / not imperative
 - [ ] One commit bundles many unrelated changes
 - [ ] New test not included in the same commit
-- [ ] `pyproject.toml` changed to a multi-line array
 - [ ] Added a runtime dependency without discussion
 - [ ] Reformatted files untouched by the task
 - [ ] Pushed before tests/lint/mypy are green

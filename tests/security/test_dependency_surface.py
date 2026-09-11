@@ -1,11 +1,10 @@
 """Dependency-surface invariant tests: the zero-runtime-dependency promise,
 enforced as code instead of folklore.
 
-- ``pyproject.toml`` must keep ``dependencies = []`` (parsed with Relay's OWN
-  TOML subset parser — the same one ``test_version.py`` relies on, so this
-  also exercises the "single-line array" rule from WORKING_RULES).
+- ``pyproject.toml`` must keep ``dependencies = []`` (parsed with stdlib
+  ``tomllib`` — Python 3.11+ only since the bundled fallback was removed).
 - No module under ``relay/`` (and ``install.py``) may import anything that is
-  neither stdlib (``sys.stdlib_module_names``, Python 3.10+) nor the ``relay``
+  neither stdlib (``sys.stdlib_module_names``, Python 3.11+) nor the ``relay``
   package itself / a relative import. A new third-party import fails here
   before it ever reaches review.
 - No dynamic imports (``__import__`` / ``importlib``) that could smuggle a
@@ -13,9 +12,8 @@ enforced as code instead of folklore.
 """
 import ast
 import sys
+import tomllib
 from pathlib import Path
-
-from relay.toml import parse as parse_toml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELAY_ROOT = REPO_ROOT / "relay"
@@ -23,7 +21,8 @@ RELAY_ROOT = REPO_ROOT / "relay"
 
 def test_pyproject_runtime_dependencies_stay_empty():
     """The zero-runtime-dependency promise, asserted programmatically."""
-    data = parse_toml((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
+        data = tomllib.load(fh)
     assert data["project"]["dependencies"] == [], (
         "runtime dependencies must stay empty (stdlib only); "
         "discuss first per WORKING_RULES rule 3"
@@ -50,17 +49,8 @@ def _imported_top_levels(tree):
 
 
 def test_no_non_stdlib_imports():
-    """Every absolute import must be stdlib or the ``relay`` package itself.
-
-    Exception: ``tomllib`` is stdlib only on 3.11+, so it is absent from
-    3.10's ``sys.stdlib_module_names``. It stays allowed because
-    ``relay/config.py`` imports it inside a ``try/except ModuleNotFoundError``
-    with a fallback to the bundled ``relay/toml.py`` parser on 3.10 — the
-    assertion below pins that fallback so the allowlist cannot mask a real
-    third-party dependency.
-    """
-    stdlib = set(sys.stdlib_module_names) | {"tomllib"}
-    assert (RELAY_ROOT / "toml.py").is_file(), "the 3.10 TOML fallback parser must exist"
+    """Every absolute import must be stdlib or the ``relay`` package itself."""
+    stdlib = set(sys.stdlib_module_names)
     violations = []
     for path in _all_source_files():
         tree = ast.parse(path.read_text(encoding="utf-8"))

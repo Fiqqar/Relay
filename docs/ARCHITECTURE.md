@@ -197,13 +197,13 @@ Errors flow through a small taxonomy in `relay/errors.py`: `RelayError` (base) â
 
 | Layer | Choice | Rationale |
 | --- | --- | --- |
-| Language | **Python 3.10+** | Ubiquitous, quick iteration, trivial packaging. |
+| Language | **Python 3.11+** | Ubiquitous, quick iteration, trivial packaging. |
 | CLI | **argparse** (stdlib) | No dependency needed for flags/subcommands. |
 | Config | `os.environ` | Zero-config file management; env vars are the standard for API keys. |
 | Prompts | built-in `input()` | Enough for one-shot prompts; no TTY library required. |
 | Git | **subprocess.run** (list argv) | Reuses user credentials/hooks; simpler and safer than a git library. |
 | HTTP | **urllib** (stdlib) | Only two REST endpoints; no need for `requests`. |
-| Tests | **pytest** + `pytest-cov` + `unittest.mock` | ~1000 hermetic tests, 90% branch gate enforced in CI. |
+| Tests | **pytest** + `pytest-cov` + `unittest.mock` | ~1000 hermetic tests, 93% branch gate enforced in CI. |
 | Packaging | `pyproject.toml` + setuptools | `pip install -e .` yields a global `relay` console script. |
 
 *Why not Go/Rust?* Both produce a single static binary, but Python's interpreter is already present on most developer machines, so `pip install` is the only distribution step, and provider/CLI changes don't require a rebuild. If a static binary is ever required, the stdlib-only constraint keeps a future PyInstaller/Nuitka build straightforward. *Why not `requests`/`typer`?* Zero dependencies means the tool installs and runs everywhere, even offline â€” the strongest property for a global CLI.
