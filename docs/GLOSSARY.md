@@ -28,7 +28,7 @@
 | **Trusted hosts** | Hosts allowed to receive forge tokens (`GITLAB_TOKEN`, GitHub tokens); prevents exfiltration via fake `origin` | `RELAY_TRUSTED_GITLAB_HOSTS=gitlab.company.com` |
 | **Dogfooding** | Commit the Relay project itself using `relay` — not `git commit` | `relay --solo --yes` inside Relay repo |
 | **Hermetic tests** | Tests with no network/`$HOME`/real AI — deterministic in CI | `pytest` mocks `urllib.request.urlopen` |
-| **Coverage gate 90%** | Minimum 90% branch coverage — push rejected below threshold | `pytest --cov=relay --cov-branch --cov-fail-under=90` |
+| **Coverage gate 93%** | Minimum 93% branch coverage — push rejected below threshold | `pytest --cov=relay --cov-branch --cov-fail-under=93` |
 | **argv-as-list / `shell=False`** | Run `git` without a shell, prevents injection from filenames/branches | `subprocess.run(["git", "push", "--", branch])` |
 | **TOCTOU** | Time-of-check vs time-of-use race; Relay uses `git write-tree` guard | Check index before commit |
 | **SSRF** | Server-Side Request Forgery — block malicious URL redirects for tokens | Validate `https` + host allowlist |

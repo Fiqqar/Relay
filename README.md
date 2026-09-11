@@ -56,7 +56,7 @@ flowchart LR
   Create PRs directly from your terminal (`relay pr`) via zero-dependency REST clients for GitHub, GitLab (including self-hosted), and Bitbucket Cloud.
 
 - **Engineered for Reliability**  
-  Subprocess calls are executed with strict `argv` arrays (`shell=False`). Secrets remain environment-only. Every command is tested with a 90%+ coverage gate.
+  Subprocess calls are executed with strict `argv` arrays (`shell=False`). Secrets remain environment-only. Every command is tested with a 93%+ coverage gate.
 
 ---
 
