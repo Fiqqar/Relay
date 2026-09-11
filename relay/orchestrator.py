@@ -27,7 +27,7 @@ from .config import hook_pre_commit as get_pre_commit_hook
 from .config import ignore_paths as get_ignore_paths
 from .config import protected_branches as get_protected_branches
 from .errors import AIError, GitError, UserAbort, sanitize_terminal
-from .git_manager import EMPTY_TREE, GitManager
+from .git_manager import EMPTY_TREE, GitManager, is_sensitive_path
 from .hooks import run_hook
 from .prompt import CONFIRM_PROMPT, interpret_choice, manual_input, open_in_editor
 from .protected import assert_branch_allowed, is_protected
@@ -106,6 +106,7 @@ class Orchestrator:
             is_binary = False
         else:
             if not self.staged_only:
+                self._warn_sensitive_files()
                 self.git.stage_all()
             diff = self.git.staged_diff()
             stat = self.git.staged_stat()
@@ -399,6 +400,32 @@ class Orchestrator:
         if self.mode == "solo" and not self.git.has_remote():
             print("[relay] warning: no remote configured; push may fail.")
         return None
+
+    def _warn_sensitive_files(self) -> None:
+        """Best-effort warning when `git add .` is about to stage secrets.
+
+        Never blocks the workflow (never-block invariant): any lookup failure
+        is swallowed and the run continues to staging. Use `--staged` to
+        select files explicitly when this warning appears.
+        """
+        try:
+            candidates = self.git.unstaged_changes()
+        except Exception:
+            return
+        if not isinstance(candidates, list):
+            return
+        try:
+            flagged = [p for p in candidates if is_sensitive_path(str(p))]
+        except Exception:
+            return
+        if flagged:
+            shown = ", ".join(flagged[:5])
+            extra = f" (+{len(flagged) - 5} more)" if len(flagged) > 5 else ""
+            print(
+                "[relay] warning: potentially sensitive file(s) will be staged: "
+                f"{shown}{extra}; review with `git status` "
+                "or re-run with --staged to select files."
+            )
 
     def _obtain_message(self, diff: str, stat: str, branch: str) -> str:
         """Generate a message via AI with a hard fallback to manual input.

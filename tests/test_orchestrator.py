@@ -1073,6 +1073,36 @@ def test_preflight_aborts_on_in_progress_merge_or_rebase(git, capsys):
     git.commit.assert_not_called()
 
 
+def test_sensitive_files_warn_but_still_stage_and_commit(git, capsys):
+    git.unstaged_changes.return_value = [".env", "app.py"]
+    ai = StubAI(responses=["feat(auth): add login"])
+    code = make_orchestrator(git, provider=ai, yes=True).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "potentially sensitive file(s) will be staged" in out
+    assert ".env" in out
+    git.stage_all.assert_called_once()
+    git.commit.assert_called_once()
+
+
+def test_no_warning_for_normal_files(git, capsys):
+    git.unstaged_changes.return_value = ["app.py", "README.md"]
+    ai = StubAI(responses=["feat(auth): add login"])
+    code = make_orchestrator(git, provider=ai, yes=True).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "potentially sensitive" not in out
+
+
+def test_sensitive_lookup_failure_never_blocks(git, capsys):
+    git.unstaged_changes.side_effect = RuntimeError("git blew up")
+    ai = StubAI(responses=["feat(auth): add login"])
+    code = make_orchestrator(git, provider=ai, yes=True).run()
+    assert code == 0
+    git.stage_all.assert_called_once()
+    git.commit.assert_called_once()
+
+
 
 
 
