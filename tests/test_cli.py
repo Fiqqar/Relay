@@ -470,7 +470,7 @@ def test_cli_surface_is_frozen():
         "--yes", "--dry-run", "--no-push",
         "--staged", "--no-verify", "--allow-protected",
         "--repo", "--hunks", "--verbose",
-        "-m", "--message", "--validate-manual",
+        "-m", "--message", "--validate-manual", "--allow-sensitive",
     }
     actual_flags = {opt for action in parser._actions for opt in action.option_strings}
     assert expected_flags == actual_flags

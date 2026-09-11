@@ -1124,6 +1124,29 @@ def test_validate_manual_off_stays_silent(git, capsys):
     assert "is not a Conventional Commit" not in out
 
 
+def test_sensitive_prompt_aborts_on_no(git):
+    git.unstaged_changes.return_value = [".env", "app.py"]
+    orch = make_orchestrator(git, yes=False, allow_sensitive=False)
+    with mock.patch("builtins.input", return_value="n"):
+        with pytest.raises(UserAbort, match="sensitive files not staged"):
+            orch._warn_sensitive_files()
+
+
+def test_sensitive_prompt_continues_on_yes(git):
+    git.unstaged_changes.return_value = [".env"]
+    orch = make_orchestrator(git, yes=False, allow_sensitive=False)
+    with mock.patch("builtins.input", return_value="y"):
+        orch._warn_sensitive_files()
+
+
+def test_sensitive_prompt_skipped_with_allow_sensitive(git):
+    git.unstaged_changes.return_value = [".env"]
+    orch = make_orchestrator(git, yes=False, allow_sensitive=True)
+    with mock.patch("builtins.input") as mock_input:
+        orch._warn_sensitive_files()
+    mock_input.assert_not_called()
+
+
 
 
 
