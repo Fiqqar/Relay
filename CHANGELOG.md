@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-11
+
+### Added
+- **Sensitive-file guard**: `git add .` now warns before staging `.env*`, `*.pem`/`*.key`, OpenSSH keys, and `credentials.json`/`secrets.json` (best-effort, never blocks; re-run with `--staged` to select files).
+- **Validate-manual option**: `RELAY_VALIDATE_MANUAL=1` / `validate_manual = true` / `--validate-manual` warns when a manually typed fallback message is not a Conventional Commit (still commits verbatim).
+
+### Changed
+- **Coverage gate 93%**: branch gate raised from 90% to 93% (`pyproject.toml`, `WORKING_RULES`, CI, docs).
+- **Config split**: repo-local `.relay.toml` loading extracted to `relay/config_local.py` with zero behavior change (`relay.config` re-exports for compat).
+
+### Removed
+- **Python 3.10 support (BREAKING)**: requires Python 3.11+; deleted bundled `relay/toml.py` and `tests/test_toml.py`; stdlib `tomllib` everywhere; CI matrix 3.10 → 3.13; ADR-010 retired by ADR-013.
+
 ## [1.1.3] - 2026-09-05
 
 ### Added
