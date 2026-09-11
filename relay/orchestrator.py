@@ -26,6 +26,7 @@ from .config import hook_post_push as get_post_push_hook
 from .config import hook_pre_commit as get_pre_commit_hook
 from .config import ignore_paths as get_ignore_paths
 from .config import protected_branches as get_protected_branches
+from .config import validate_manual_messages as get_validate_manual
 from .errors import AIError, GitError, UserAbort, sanitize_terminal
 from .git_manager import EMPTY_TREE, GitManager, is_sensitive_path
 from .hooks import run_hook
@@ -52,6 +53,7 @@ class Orchestrator:
         protected_branches: list[str] | None = None,
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
         message: str | None = None,
+        validate_manual: bool | None = None,
     ):
         self.mode = mode
         self.feature = feature
@@ -68,6 +70,7 @@ class Orchestrator:
         self.protected_branches = protected_branches or get_protected_branches()
         self.branch_template = branch_template
         self.message = message
+        self.validate_manual = get_validate_manual() if validate_manual is None else validate_manual
 
     # ---- Public entry point -------------------------------------------------
 
@@ -579,7 +582,12 @@ class Orchestrator:
 
     def _manual_input(self, draft: str = "") -> str:
         """Thin seam over :func:`relay.prompt.manual_input` (canonical docs there)."""
-        return manual_input(draft=draft)
+        message = manual_input(draft=draft)
+        if self.validate_manual:
+            valid, reason = validate_conventional(message)
+            if not valid:
+                print(f"[relay] warning: '{message.splitlines()[0]}' is not a Conventional Commit ({reason})")
+        return message
 
     def _resolve_team_branch_name(self, message: str, current_branch: str = "") -> str:
         """Feature-name precedence: --team <name> > current branch > prompt.
