@@ -10,7 +10,12 @@ from unittest import mock
 import pytest
 
 from relay.errors import GitError
-from relay.git_manager import GitManager, parse_remote, parse_remote_url
+from relay.git_manager import (
+    GitManager,
+    is_sensitive_path,
+    parse_remote,
+    parse_remote_url,
+)
 
 
 @pytest.fixture
@@ -821,3 +826,22 @@ def test_is_in_merge_or_rebase(git, tmp_path):
 
     with mock.patch.object(git, "git_dir", return_value=None):
         assert git.is_in_merge_or_rebase() is False
+
+
+def test_is_sensitive_path_flags_secrets():
+    assert is_sensitive_path(".env") is True
+    assert is_sensitive_path(".env.local") is True
+    assert is_sensitive_path("config/.env.production") is True
+    assert is_sensitive_path("certs/server.pem") is True
+    assert is_sensitive_path("certs/server.key") is True
+    assert is_sensitive_path("id_rsa") is True
+    assert is_sensitive_path(".ssh/id_ed25519") is True
+    assert is_sensitive_path("credentials.json") is True
+
+
+def test_is_sensitive_path_ignores_normal_files():
+    assert is_sensitive_path("app.py") is False
+    assert is_sensitive_path("README.md") is False
+    assert is_sensitive_path("src/config.py") is False
+    assert is_sensitive_path("") is False
+    assert is_sensitive_path("docs/.env.example.txt") is False

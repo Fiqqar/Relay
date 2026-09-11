@@ -119,6 +119,46 @@ def _clean_porcelain_path(raw: str, *, is_rename: bool = False) -> str:
     return raw
 
 
+SENSITIVE_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".asc", ".gpg", ".ppk")
+
+SENSITIVE_BASENAMES = frozenset(
+    {
+        ".env",
+        "credentials.json",
+        "secrets.json",
+        "id_rsa",
+        "id_ed25519",
+        "id_ecdsa",
+        "id_dsa",
+    }
+)
+
+
+def is_sensitive_path(path: str) -> bool:
+    """True when a repo-relative path looks like a secret or credential file.
+
+    Conservative filename heuristic only (no content sniffing): `.env*`,
+    `*.pem`/`*.key`/`*.p12`/`*.pfx`, OpenSSH private keys, and well-known
+    `credentials.json`/`secrets.json` names. Case-insensitive; directory
+    components are ignored except for the basename match.
+    """
+    normalized = path.replace("\\", "/").strip().lower()
+    if not normalized:
+        return False
+    basename = normalized.rsplit("/", 1)[-1]
+    if not basename:
+        return False
+    if "example" in basename or "sample" in basename or "template" in basename:
+        return False
+    if basename in SENSITIVE_BASENAMES:
+        return True
+    if basename == ".env" or basename.startswith(".env."):
+        return True
+    if basename.endswith(SENSITIVE_SUFFIXES):
+        return True
+    return False
+
+
 class GitManager:
     def __init__(self, cwd: str | None = None, verbose: bool = False):
         self.cwd = cwd
