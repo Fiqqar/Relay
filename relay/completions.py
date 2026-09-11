@@ -28,7 +28,7 @@ GLOBAL_FLAGS = [
     "--version", "--solo", "--team", "--provider", "--timeout",
     "--yes", "--dry-run", "--no-push", "--staged", "--no-verify",
     "--allow-protected", "--hunks", "--repo", "--verbose",
-    "--validate-manual",
+    "--validate-manual", "--allow-sensitive",
 ]
 
 # One-line descriptions used by the fish generator. Fish takes a -a <name>

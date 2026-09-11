@@ -54,6 +54,7 @@ class Orchestrator:
         branch_template: str = DEFAULT_BRANCH_TEMPLATE,
         message: str | None = None,
         validate_manual: bool | None = None,
+        allow_sensitive: bool = False,
     ):
         self.mode = mode
         self.feature = feature
@@ -71,6 +72,7 @@ class Orchestrator:
         self.branch_template = branch_template
         self.message = message
         self.validate_manual = get_validate_manual() if validate_manual is None else validate_manual
+        self.allow_sensitive = allow_sensitive
 
     # ---- Public entry point -------------------------------------------------
 
@@ -405,11 +407,12 @@ class Orchestrator:
         return None
 
     def _warn_sensitive_files(self) -> None:
-        """Best-effort warning when `git add .` is about to stage secrets.
+        """Warn (and confirm) when `git add .` is about to stage secrets.
 
-        Never blocks the workflow (never-block invariant): any lookup failure
-        is swallowed and the run continues to staging. Use `--staged` to
-        select files explicitly when this warning appears.
+        Lookup failures never block the workflow (never-block invariant).
+        When flagged files exist: always print the warning; proceed silently
+        with `--yes` / `--allow-sensitive`; otherwise ask once
+        (`--staged` skips this entirely since no `git add .` runs).
         """
         try:
             candidates = self.git.unstaged_changes()
@@ -421,14 +424,20 @@ class Orchestrator:
             flagged = [p for p in candidates if is_sensitive_path(str(p))]
         except Exception:
             return
-        if flagged:
-            shown = ", ".join(flagged[:5])
-            extra = f" (+{len(flagged) - 5} more)" if len(flagged) > 5 else ""
-            print(
-                "[relay] warning: potentially sensitive file(s) will be staged: "
-                f"{shown}{extra}; review with `git status` "
-                "or re-run with --staged to select files."
-            )
+        if not flagged:
+            return
+        shown = ", ".join(flagged[:5])
+        extra = f" (+{len(flagged) - 5} more)" if len(flagged) > 5 else ""
+        print(
+            "[relay] warning: potentially sensitive file(s) will be staged: "
+            f"{shown}{extra}; review with `git status` "
+            "or re-run with --staged to select files."
+        )
+        if self.yes or self.allow_sensitive:
+            return
+        answer = input("Stage these sensitive files anyway? [y/N]: ").strip().lower()
+        if answer not in ("y", "yes"):
+            raise UserAbort("workflow aborted by user — sensitive files not staged")
 
     def _obtain_message(self, diff: str, stat: str, branch: str) -> str:
         """Generate a message via AI with a hard fallback to manual input.

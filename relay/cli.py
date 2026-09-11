@@ -121,6 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="generate multi-part AI message per file/hunk (hunk-level AI messages)")
     parser.add_argument("--validate-manual", action="store_true",
                         help="warn when a manually typed message is not a Conventional Commit")
+    parser.add_argument("--allow-sensitive", action="store_true",
+                        help="stage potentially sensitive files without prompting")
     parser.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -406,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
                 branch_template=branch_template(),
                 message=getattr(args, "message", None),
                 validate_manual=bool(getattr(args, "validate_manual", False) or validate_manual_messages()),
+                allow_sensitive=bool(getattr(args, "allow_sensitive", False)),
             )
             try:
                 code = orchestrator.run()
