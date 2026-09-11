@@ -48,30 +48,6 @@ def _write_toml(monkeypatch, tmp_path, body: str) -> None:
     monkeypatch.setenv("RELAY_CONFIG", str(p))
 
 
-def test_python_310_fallback_parser_supplies_values(monkeypatch, tmp_path):
-    """Simulate Python 3.10 (no stdlib tomllib): the bundled relay/toml.py must
-    power the config file end-to-end, exactly as tomllib does on 3.11+."""
-    from relay import toml
-
-    monkeypatch.setattr(config, "_load_toml", toml.load)
-    monkeypatch.setattr(config, "_TOML_DECODE_ERROR", ValueError)
-    _write_toml(
-        monkeypatch,
-        tmp_path,
-        """
-        [relay]
-        provider = "ollama"
-        branch_template = "release/<feature>"
-        ai_timeout = 55
-        max_diff_lines = 250
-        """,
-    )
-    assert config.provider_from_env() == "ollama"
-    assert config.branch_template() == "release/<feature>"
-    assert config.ai_timeout() == 55
-    assert config.max_diff_lines() == 250
-
-
 def test_default_timeout_is_30_seconds():
     assert config.ai_timeout() == 30
 
@@ -446,19 +422,6 @@ def test_ai_default_absent_falls_back_to_builtin(monkeypatch, tmp_path):
         branches = ["main"]
     """)
     assert config.provider_from_env() == config.DEFAULT_PROVIDER
-
-
-def test_ai_default_supported_by_internal_toml_parser(monkeypatch, tmp_path):
-    """The bundled Python 3.10 TOML fallback must handle the [ai] table too."""
-    from relay import toml
-
-    monkeypatch.setattr(config, "_load_toml", toml.load)
-    monkeypatch.setattr(config, "_TOML_DECODE_ERROR", ValueError)
-    _write_toml(monkeypatch, tmp_path, """
-        [ai]
-        default = "ollama"
-    """)
-    assert config.provider_from_env() == "ollama"
 
 
 # ---- F6: TOML config file (flags > env > file > defaults) --------------------

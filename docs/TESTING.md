@@ -18,7 +18,7 @@ ruff check .
 mypy relay
 ```
 
-CI mirrors this on a 5-combo matrix — Ubuntu Python 3.10/3.11/3.12 plus macOS/Windows Python 3.12 (see `.github/workflows/ci.yml`). E2E `e2e_test.sh` / `e2e_test.ps1` runs per platform.
+CI mirrors this on a 5-combo matrix — Ubuntu Python 3.11/3.12/3.13 plus macOS/Windows Python 3.12 (see `.github/workflows/ci.yml`). E2E `e2e_test.sh` / `e2e_test.ps1` runs per platform.
 
 ## 3. Test Layers
 
@@ -27,7 +27,7 @@ CI mirrors this on a 5-combo matrix — Ubuntu Python 3.10/3.11/3.12 plus macOS/
 | Area | File | What it pins |
 |------|------|--------------|
 | Conventional Commit validation, sanitization, branch naming | `tests/test_commit.py` | `relay/commit.py` grammar, `build_branch_name` sanitization |
-| TOML subset parser | `tests/test_toml.py` | `relay/toml.py` vs `tomllib` edge cases (escaped quotes, exponents) |
+| TOML config | stdlib `tomllib` (Python 3.11+) | `relay/config.py` flags>env>file>defaults, env-only secrets |
 | Config resolution & precedence | `tests/test_config.py` | `relay/config.py` flags>env>file>defaults, env-only secrets, `_RAW_CACHE` |
 | Protected-branch guard | `tests/test_protected.py` | `relay/protected.py` case-insensitive, env/file/default precedence |
 | Version consistency | `tests/test_version.py` | `relay/__init__.py` == `pyproject.toml` version |
@@ -88,8 +88,7 @@ with patch("builtins.input", side_effect=["feat(x): add thing", ""]):
 ## 6. Adding Tests for New Code
 
 1. Add behavior in `relay/` + test in `tests/test_*.py` **same commit**.
-2. Keep `pyproject.toml` dev array single-line (parser limitation).
-3. Ensure `pytest --cov-fail-under=93` passes locally before `relay --solo --yes`.
+2. Ensure `pytest --cov-fail-under=93` passes locally before `relay --solo --yes`.
 
 ## 7. Performance & Quality Guarantees
 - Performance NFR-1 (<500 ms CLI overhead) is continuously benchmarked by `tests/test_performance.py` (<50 ms pure overhead).

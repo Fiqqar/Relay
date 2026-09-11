@@ -101,9 +101,26 @@
 
 **Consequences:** + Stable automation and backward compatibility for all users. − New subcommands or flags require a formal design note.
 
+## ADR-013 — Drop Python 3.10, stdlib `tomllib` only (supersedes ADR-010)
+
+**Context:** ADR-010 kept `dev` arrays single-line because the bundled
+`relay/toml.py` subset parser (Python 3.10 fallback) could not parse
+multi-line arrays. Maintaining a second TOML parser doubled config risk for a
+dead interpreter: CI, docs, and installer all carried 3.10 branches.
+
+**Decision:** Require Python 3.11+ (`requires-python = ">=3.11"`); delete
+`relay/toml.py` and `tests/test_toml.py`; use stdlib `tomllib` everywhere
+(`relay/config.py`, `relay/config_local.py`, `tests/test_version.py`,
+`tests/security/test_dependency_surface.py`). CI matrix moves 3.10 → 3.13.
+ADR-010 single-line rule is retired.
+
+**Consequences:** + One parser, smaller attack surface, modern matrix.
+− Python 3.10 users must upgrade (major bump to 2.0.0).
+
 ---
 
 ## Superseded / Future
 
-- If multi-provider failover is needed, create ADR-013 (currently out of scope).
+- ADR-010 retired by ADR-013 above.
+- If multi-provider failover is needed, create ADR-014 (currently out of scope).
 - If a TUI is needed, create a new ADR that justifies deps — do not silently add deps.

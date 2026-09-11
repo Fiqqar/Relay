@@ -3,7 +3,7 @@
 
 What it does
 ------------
-1. Verifies the prerequisites: Python 3.10+ and `git` on PATH.
+1. Verifies the prerequisites: Python 3.11+ and `git` on PATH.
 2. Installs Relay as a user-level editable package:
        <python> -m pip install --user -e .
    If the --user install fails (e.g. an externally-managed environment), it
@@ -32,7 +32,7 @@ import sys
 import sysconfig
 from pathlib import Path
 
-MIN_PYTHON = (3, 10)
+MIN_PYTHON = (3, 11)
 REPO_ROOT = Path(__file__).resolve().parent
 
 

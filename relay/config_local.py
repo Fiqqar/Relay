@@ -9,18 +9,11 @@ from __future__ import annotations
 
 import os
 import sys
+import tomllib
 from pathlib import Path
 
-try:  # Python 3.11+
-    import tomllib
-
-    _load_toml = tomllib.load
-    _TOML_DECODE_ERROR = tomllib.TOMLDecodeError
-except ModuleNotFoundError:  # Python 3.10 — fall back to the bundled parser
-    from . import toml
-
-    _load_toml = toml.load
-    _TOML_DECODE_ERROR = ValueError
+_load_toml = tomllib.load
+_TOML_DECODE_ERROR = tomllib.TOMLDecodeError
 
 # Parsed repo-local cache: {(path, mtime_ns, size): document}.
 _LOCAL_CACHE: dict[tuple[str, int, int], dict] = {}
