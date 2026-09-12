@@ -27,4 +27,4 @@ rules. Those rules bind humans and AI alike and are summarized briefly here:
 - Releases: runbook in `RELEASE.md` (bump version, re-point Formula/Scoop with
   hashes from the published release assets (`RELEASE.md` step 1b — never a
   local build), tag `v*` triggers release CI;
-  tags and release titles are strictly `vx.y.z` with no extra words)
+  tags and release titles are strictly `vx.y.z` with no extra words).
