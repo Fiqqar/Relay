@@ -294,6 +294,14 @@ def _handle_doctor(args) -> int:
         return 1
 
 
+def _handle_undo(args) -> int:
+    return run_undo(verbose=args.verbose)
+
+
+def _handle_stage(args) -> int:
+    return run_stage(patch=args.patch, verbose=args.verbose)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -327,11 +335,11 @@ def main(argv: list[str] | None = None) -> int:
 
         # `relay undo` is a pure local, non-destructive git op (no AI involved).
         if getattr(args, "command", None) == "undo":
-            return run_undo(verbose=args.verbose)
+            return _handle_undo(args)
 
         # `relay stage` sculpts the index (whole files or `git add -p` hunks).
         if getattr(args, "command", None) == "stage":
-            return run_stage(patch=args.patch, verbose=args.verbose)
+            return _handle_stage(args)
 
         # `relay squash` folds the last N commits into one; never pushes.
         # The provider is built lazily: with --message the AI is never
