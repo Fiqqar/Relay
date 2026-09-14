@@ -70,7 +70,8 @@ def run_squash(
     verbose: bool = False,
 ) -> int:
     """Squash the last ``count`` commits into one. Returns the exit code."""
-    git = git or GitManager(verbose=verbose)
+    if git is None:
+        git = GitManager(verbose=verbose)
 
     if count < 2:
         raise GitError("squash needs at least 2 commits (--count N)")
