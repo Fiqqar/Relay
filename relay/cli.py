@@ -283,19 +283,23 @@ def _handle_telemetry(args) -> int:
     return _run_telemetry(args.action)
 
 
+def _handle_doctor(args) -> int:
+    try:
+        kwargs: dict = {"provider": args.provider, "verbose": args.verbose}
+        if getattr(args, "probe", False):
+            kwargs["probe"] = True
+        return run_doctor(**kwargs)
+    except Exception as exc:  # noqa: BLE001 - doctor must never traceback
+        print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     # Subcommand routing: `relay doctor` never touches the git workflow.
     if getattr(args, "command", None) == "doctor":
-        try:
-            kwargs: dict = {"provider": args.provider, "verbose": args.verbose}
-            if getattr(args, "probe", False):
-                kwargs["probe"] = True
-            return run_doctor(**kwargs)
-        except Exception as exc:  # noqa: BLE001 - doctor must never traceback
-            print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
-            return 1
+        return _handle_doctor(args)
 
     # `relay completions` prints a generated shell script to stdout and exits.
     if getattr(args, "command", None) == "completions":
