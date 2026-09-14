@@ -522,6 +522,28 @@ def test_main_doctor_probe_passes_to_run_doctor():
     mock_doc.assert_called_once_with(provider=None, probe=True, verbose=False)
 
 
+def test_main_multirepo_hides_stderr_when_not_verbose(wired, capsys):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = [
+        GitError("repo 1 error", stderr="fatal: mock failure"),
+        0,
+    ]
+    with mock.patch("relay.cli.config_repos", return_value=[]):
+        code = main(["--solo", "--repo", "repo1", "--repo", "repo2"])
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "repo repo1: error: repo 1 error" in out
+    assert "fatal: mock failure" not in out
+
+
+def test_main_multirepo_all_fail_returns_1(wired):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = [1, 1]
+    with mock.patch("relay.cli.config_repos", return_value=[]):
+        assert main(["--solo", "--repo", "repo1", "--repo", "repo2"]) == 1
+    assert orchestrator_cls.call_count == 2
+
+
 
 
 
