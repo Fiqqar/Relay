@@ -264,6 +264,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _handle_completions(args) -> int:
+    shell = args.shell or _detect_shell()
+    try:
+        print(generate_completions(shell), end="")
+        return 0
+    except ValueError as exc:
+        print(f"[relay] {exc}")
+        return 1
+
+
+def _handle_man(args) -> int:
+    print(MAN_PAGE_TEMPLATE.rstrip(), end="")
+    return 0
+
+
+def _handle_telemetry(args) -> int:
+    return _run_telemetry(args.action)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -280,22 +299,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # `relay completions` prints a generated shell script to stdout and exits.
     if getattr(args, "command", None) == "completions":
-        shell = args.shell or _detect_shell()
-        try:
-            print(generate_completions(shell), end="")
-            return 0
-        except ValueError as exc:
-            print(f"[relay] {exc}")
-            return 1
+        return _handle_completions(args)
 
     # `relay man` prints the man page source (roff) to stdout and exits.
     if getattr(args, "command", None) == "man":
-        print(MAN_PAGE_TEMPLATE.rstrip(), end="")
-        return 0
+        return _handle_man(args)
 
     # `relay telemetry` reads or flips the opt-in marker and exits.
     if getattr(args, "command", None) == "telemetry":
-        return _run_telemetry(args.action)
+        return _handle_telemetry(args)
 
     # `relay pr` posts to GitHub; errors fall through to the shared handlers
     # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
