@@ -331,6 +331,28 @@ def _handle_squash(args) -> int:
     return code
 
 
+def _handle_amend(args) -> int:
+    try:
+        ai = build_provider(args.provider, timeout=args.timeout)
+    except ConfigError as exc:
+        print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+        ai = None
+    orchestrator = Orchestrator(
+        mode="amend",
+        feature=None,
+        provider=ai,
+        yes=args.yes,
+        no_push=True,
+        staged_only=args.staged,
+        no_verify=False,
+        dry_run=args.dry_run,
+        verbose=args.verbose,
+    )
+    code = orchestrator.run()
+    _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
+    return code
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -374,25 +396,7 @@ def main(argv: list[str] | None = None) -> int:
         # `relay amend` reuses the solo workflow but rewrites the last commit
         # instead of creating a new one; it never pushes.
         if getattr(args, "command", None) == "amend":
-            try:
-                ai = build_provider(args.provider, timeout=args.timeout)
-            except ConfigError as exc:
-                print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
-                ai = None
-            orchestrator = Orchestrator(
-                mode="amend",
-                feature=None,
-                provider=ai,
-                yes=args.yes,
-                no_push=True,
-                staged_only=args.staged,
-                no_verify=False,
-                dry_run=args.dry_run,
-                verbose=args.verbose,
-            )
-            code = orchestrator.run()
-            _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
-            return code
+            return _handle_amend(args)
 
         # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
         # `--solo` / nothing leaves it None.
