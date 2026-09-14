@@ -544,6 +544,11 @@ def test_main_multirepo_all_fail_returns_1(wired):
     assert orchestrator_cls.call_count == 2
 
 
-
+def test_main_multirepo_130_propagates(wired):
+    _, orchestrator_cls = wired
+    orchestrator_cls.return_value.run.side_effect = [130, 1]
+    with mock.patch("relay.cli.config_repos", return_value=[]):
+        assert main(["--solo", "--repo", "repo1", "--repo", "repo2"]) == 130
+    assert orchestrator_cls.call_count == 2
 
 
