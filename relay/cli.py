@@ -264,177 +264,217 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _handle_completions(args) -> int:
+    shell = args.shell or _detect_shell()
+    try:
+        print(generate_completions(shell), end="")
+        return 0
+    except ValueError as exc:
+        print(f"[relay] {exc}")
+        return 1
+
+
+def _handle_man(args) -> int:
+    print(MAN_PAGE_TEMPLATE.rstrip(), end="")
+    return 0
+
+
+def _handle_telemetry(args) -> int:
+    return _run_telemetry(args.action)
+
+
+def _handle_doctor(args) -> int:
+    try:
+        kwargs: dict = {"provider": args.provider, "verbose": args.verbose}
+        if getattr(args, "probe", False):
+            kwargs["probe"] = True
+        return run_doctor(**kwargs)
+    except Exception as exc:  # noqa: BLE001 - doctor must never traceback
+        print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
+        return 1
+
+
+def _handle_undo(args) -> int:
+    return run_undo(verbose=args.verbose)
+
+
+def _handle_stage(args) -> int:
+    return run_stage(patch=args.patch, verbose=args.verbose)
+
+
+def _handle_pr(args) -> int:
+    return run_pr(
+        base=args.base,
+        title=args.title,
+        open_browser=args.open or args.yes or pr_open_browser(),
+        draft=args.draft,
+        verbose=args.verbose,
+    )
+
+
+def _handle_squash(args) -> int:
+    provider = None
+    if not args.message:
+        try:
+            provider = build_provider(args.provider, timeout=args.timeout)
+        except ConfigError:
+            provider = None
+    code = run_squash(
+        provider=provider,
+        count=args.count,
+        message=args.message,
+        yes=args.yes,
+        dry_run=args.dry_run,
+        verbose=args.verbose,
+    )
+    _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
+    return code
+
+
+def _handle_amend(args) -> int:
+    try:
+        ai = build_provider(args.provider, timeout=args.timeout)
+    except ConfigError as exc:
+        print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+        ai = None
+    orchestrator = Orchestrator(
+        mode="amend",
+        feature=None,
+        provider=ai,
+        yes=args.yes,
+        no_push=True,
+        staged_only=args.staged,
+        no_verify=False,
+        dry_run=args.dry_run,
+        verbose=args.verbose,
+    )
+    code = orchestrator.run()
+    _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
+    return code
+
+
+def _run_workflow(args) -> int:
+    # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
+    # `--solo` / nothing leaves it None.
+    mode = "team" if args.team is not None else "solo"
+    feature = args.team or None
+
+    # A missing API key must NOT abort the workflow: the Orchestrator has a
+    # manual-input fallback designed exactly for this. Build lazily and
+    # degrade to provider=None so the run continues interactively instead
+    # of dying with a ConfigError before anything happens.
+    ai_provider: AIManager | None = None
+    if not getattr(args, "message", None):
+        try:
+            ai_provider = build_provider(args.provider, timeout=args.timeout)
+        except ConfigError as exc:
+            print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+            ai_provider = None
+    # Multi-repo: --repo appends to and deduplicates [repos]/RELAY_REPOS, else current dir.
+    raw_repos: list[str | None]
+    cfg = config_repos()
+    cli_repos = getattr(args, "repo", None) or []
+    if cfg or cli_repos:
+        raw_repos = list(dict.fromkeys([*cfg, *cli_repos]))  # type: ignore[assignment]
+    else:
+        raw_repos = [None]
+    codes: list[int] = []
+    for idx, repo_path in enumerate(raw_repos):
+        cwd = str(repo_path) if repo_path else None
+        if len(raw_repos) > 1 and cwd:
+            print(f"[relay] repo {idx + 1}/{len(raw_repos)}: {cwd}")
+        git = GitManager(cwd=cwd, verbose=args.verbose) if cwd else None
+        orchestrator = Orchestrator(
+            mode=mode,
+            feature=feature,
+            provider=ai_provider,
+            git=git,
+            yes=args.yes,
+            no_push=args.no_push,
+            staged_only=args.staged,
+            no_verify=args.no_verify,
+            dry_run=args.dry_run,
+            verbose=args.verbose,
+            hunks=getattr(args, "hunks", False),
+            allow_protected=args.allow_protected,
+            branch_template=branch_template(),
+            message=getattr(args, "message", None),
+            validate_manual=bool(getattr(args, "validate_manual", False) or validate_manual_messages()),
+            allow_sensitive=bool(getattr(args, "allow_sensitive", False)),
+        )
+        try:
+            code = orchestrator.run()
+        except UserAbort:
+            raise
+        except RelayError as exc:
+            if len(raw_repos) > 1:
+                print(f"[relay] repo {cwd or '.'}: error: {sanitize_terminal(str(exc))}")
+                stderr = getattr(exc, "stderr", None)
+                if args.verbose and stderr:
+                    print(sanitize_terminal(stderr))
+                code = 1
+            else:
+                raise
+        codes.append(code)
+        _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
+        if code != 0 and len(raw_repos) > 1:
+            print(f"[relay] repo {cwd or '.'}: exited {code}")
+    if len(codes) == 1:
+        return codes[0]
+    # Multi-repo: 130 propagates, else first non-zero as 1
+    if any(c == 130 for c in codes):
+        return 130
+    if any(c != 0 for c in codes):
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     # Subcommand routing: `relay doctor` never touches the git workflow.
     if getattr(args, "command", None) == "doctor":
-        try:
-            kwargs: dict = {"provider": args.provider, "verbose": args.verbose}
-            if getattr(args, "probe", False):
-                kwargs["probe"] = True
-            return run_doctor(**kwargs)
-        except Exception as exc:  # noqa: BLE001 - doctor must never traceback
-            print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
-            return 1
+        return _handle_doctor(args)
 
     # `relay completions` prints a generated shell script to stdout and exits.
     if getattr(args, "command", None) == "completions":
-        shell = args.shell or _detect_shell()
-        try:
-            print(generate_completions(shell), end="")
-            return 0
-        except ValueError as exc:
-            print(f"[relay] {exc}")
-            return 1
+        return _handle_completions(args)
 
     # `relay man` prints the man page source (roff) to stdout and exits.
     if getattr(args, "command", None) == "man":
-        print(MAN_PAGE_TEMPLATE.rstrip(), end="")
-        return 0
+        return _handle_man(args)
 
     # `relay telemetry` reads or flips the opt-in marker and exits.
     if getattr(args, "command", None) == "telemetry":
-        return _run_telemetry(args.action)
+        return _handle_telemetry(args)
 
     # `relay pr` posts to GitHub; errors fall through to the shared handlers
     # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
     try:
         if getattr(args, "command", None) == "pr":
-            return run_pr(
-                base=args.base,
-                title=args.title,
-                open_browser=args.open or args.yes or pr_open_browser(),
-                draft=args.draft,
-                verbose=args.verbose,
-            )
+            return _handle_pr(args)
 
         # `relay undo` is a pure local, non-destructive git op (no AI involved).
         if getattr(args, "command", None) == "undo":
-            return run_undo(verbose=args.verbose)
+            return _handle_undo(args)
 
         # `relay stage` sculpts the index (whole files or `git add -p` hunks).
         if getattr(args, "command", None) == "stage":
-            return run_stage(patch=args.patch, verbose=args.verbose)
+            return _handle_stage(args)
 
         # `relay squash` folds the last N commits into one; never pushes.
         # The provider is built lazily: with --message the AI is never
         # consulted, and a missing API key must not block the fallback to the
         # top commit's message (squash.py's own degradation path).
         if getattr(args, "command", None) == "squash":
-            provider = None
-            if not args.message:
-                try:
-                    provider = build_provider(args.provider, timeout=args.timeout)
-                except ConfigError:
-                    provider = None
-            code = run_squash(
-                provider=provider,
-                count=args.count,
-                message=args.message,
-                yes=args.yes,
-                dry_run=args.dry_run,
-                verbose=args.verbose,
-            )
-            _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
-            return code
+            return _handle_squash(args)
 
         # `relay amend` reuses the solo workflow but rewrites the last commit
         # instead of creating a new one; it never pushes.
         if getattr(args, "command", None) == "amend":
-            try:
-                ai = build_provider(args.provider, timeout=args.timeout)
-            except ConfigError as exc:
-                print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
-                ai = None
-            orchestrator = Orchestrator(
-                mode="amend",
-                feature=None,
-                provider=ai,
-                yes=args.yes,
-                no_push=True,
-                staged_only=args.staged,
-                no_verify=False,
-                dry_run=args.dry_run,
-                verbose=args.verbose,
-            )
-            code = orchestrator.run()
-            _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)
-            return code
+            return _handle_amend(args)
 
-        # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
-        # `--solo` / nothing leaves it None.
-        mode = "team" if args.team is not None else "solo"
-        feature = args.team or None
-
-        # A missing API key must NOT abort the workflow: the Orchestrator has a
-        # manual-input fallback designed exactly for this. Build lazily and
-        # degrade to provider=None so the run continues interactively instead
-        # of dying with a ConfigError before anything happens.
-        ai_provider: AIManager | None = None
-        if not getattr(args, "message", None):
-            try:
-                ai_provider = build_provider(args.provider, timeout=args.timeout)
-            except ConfigError as exc:
-                print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
-                ai_provider = None
-        # Multi-repo: --repo appends to and deduplicates [repos]/RELAY_REPOS, else current dir.
-        raw_repos: list[str | None]
-        cfg = config_repos()
-        cli_repos = getattr(args, "repo", None) or []
-        if cfg or cli_repos:
-            raw_repos = list(dict.fromkeys([*cfg, *cli_repos]))  # type: ignore[assignment]
-        else:
-            raw_repos = [None]
-        codes: list[int] = []
-        for idx, repo_path in enumerate(raw_repos):
-            cwd = str(repo_path) if repo_path else None
-            if len(raw_repos) > 1 and cwd:
-                print(f"[relay] repo {idx + 1}/{len(raw_repos)}: {cwd}")
-            git = GitManager(cwd=cwd, verbose=args.verbose) if cwd else None
-            orchestrator = Orchestrator(
-                mode=mode,
-                feature=feature,
-                provider=ai_provider,
-                git=git,
-                yes=args.yes,
-                no_push=args.no_push,
-                staged_only=args.staged,
-                no_verify=args.no_verify,
-                dry_run=args.dry_run,
-                verbose=args.verbose,
-                hunks=getattr(args, "hunks", False),
-                allow_protected=args.allow_protected,
-                branch_template=branch_template(),
-                message=getattr(args, "message", None),
-                validate_manual=bool(getattr(args, "validate_manual", False) or validate_manual_messages()),
-                allow_sensitive=bool(getattr(args, "allow_sensitive", False)),
-            )
-            try:
-                code = orchestrator.run()
-            except UserAbort:
-                raise
-            except RelayError as exc:
-                if len(raw_repos) > 1:
-                    print(f"[relay] repo {cwd or '.'}: error: {sanitize_terminal(str(exc))}")
-                    stderr = getattr(exc, "stderr", None)
-                    if args.verbose and stderr:
-                        print(sanitize_terminal(stderr))
-                    code = 1
-                else:
-                    raise
-            codes.append(code)
-            _report_run(args, getattr(ai_provider, "provider_name", ""), ok=code == 0)
-            if code != 0 and len(raw_repos) > 1:
-                print(f"[relay] repo {cwd or '.'}: exited {code}")
-        if len(codes) == 1:
-            return codes[0]
-        # Multi-repo: 130 propagates, else first non-zero as 1
-        if any(c == 130 for c in codes):
-            return 130
-        if any(c != 0 for c in codes):
-            return 1
-        return 0
+        return _run_workflow(args)
     except UserAbort as exc:
         # 130 is the conventional "interrupted by user" exit code (matches Ctrl-C).
         print(f"[relay] {sanitize_terminal(str(exc))}")
