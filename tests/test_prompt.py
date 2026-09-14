@@ -3,6 +3,7 @@
 The whole point of this module is to make the `a` (Accept) vs `A` (Abort)
 distinction strict, so the case-sensitive edge cases are covered exhaustively.
 """
+import os
 from unittest import mock
 
 import pytest
@@ -124,3 +125,95 @@ class TestOpenInEditor:
                     open_in_editor("draft", git)
                     assert captured_cmds[-1][0] == "code"
                     assert captured_cmds[-1][1] == "--wait"
+
+
+class TestOpenInEditorEdgeCases:
+    def test_git_lookup_failure_falls_back_to_env_editor(self):
+        git = mock.Mock()
+        git.config_get.side_effect = RuntimeError("git gone")
+
+        def fake_run(cmd, check=False):
+            with open(cmd[-1], "w", encoding="utf-8") as f:
+                f.write("fix(core): via fallback editor")
+            return mock.Mock(returncode=0)
+
+        with mock.patch("sys.stdin.isatty", return_value=True):
+            with mock.patch.dict("os.environ", {"EDITOR": "dummy-editor"}):
+                with mock.patch("subprocess.run", side_effect=fake_run):
+                    assert open_in_editor("draft", git) == "fix(core): via fallback editor"
+
+    def test_empty_draft_leaves_empty_file_and_returns_none(self):
+        seen = {}
+
+        def fake_run(cmd, check=False):
+            seen["path"] = cmd[-1]
+            return mock.Mock(returncode=0)
+
+        with mock.patch("sys.stdin.isatty", return_value=True):
+            with mock.patch.dict("os.environ", {"EDITOR": "dummy-editor"}):
+                with mock.patch("subprocess.run", side_effect=fake_run):
+                    assert open_in_editor("") is None
+        assert not os.path.exists(seen["path"])
+
+    def test_windows_file_editor_is_invoked_directly(self):
+        seen = {}
+
+        def fake_run(cmd, check=False):
+            seen["cmd"] = cmd
+            with open(cmd[-1], "w", encoding="utf-8") as f:
+                f.write("feat(win): direct path")
+            return mock.Mock(returncode=0)
+
+        with mock.patch("sys.stdin.isatty", return_value=True):
+            with mock.patch("sys.platform", "win32"):
+                with mock.patch.dict(
+                    "os.environ", {"GIT_EDITOR": "C:\\tools\\ed.exe"}, clear=True
+                ):
+                    with mock.patch("os.path.isfile", return_value=True):
+                        with mock.patch("subprocess.run", side_effect=fake_run):
+                            result = open_in_editor("draft")
+        assert result == "feat(win): direct path"
+        assert seen["cmd"] == ["C:\\tools\\ed.exe", seen["cmd"][-1]]
+
+    def test_posix_shell_like_editor_is_split(self):
+        seen = {}
+
+        def fake_run(cmd, check=False):
+            seen["cmd"] = cmd
+            return mock.Mock(returncode=0)
+
+        with mock.patch("sys.stdin.isatty", return_value=True):
+            with mock.patch("sys.platform", "linux"):
+                with mock.patch.dict(
+                    "os.environ", {"EDITOR": "code --wait"}, clear=True
+                ):
+                    with mock.patch("subprocess.run", side_effect=fake_run):
+                        # Editor left the file untouched, so the draft is returned.
+                        assert open_in_editor("draft") == "draft"
+        assert seen["cmd"][:2] == ["code", "--wait"]
+        assert len(seen["cmd"]) == 3
+
+    def test_editor_spawn_failure_returns_none(self):
+        with mock.patch("sys.stdin.isatty", return_value=True):
+            with mock.patch.dict("os.environ", {"EDITOR": "dummy-editor"}):
+                with mock.patch(
+                    "subprocess.run", side_effect=FileNotFoundError("no editor")
+                ):
+                    assert open_in_editor("draft") is None
+
+    def test_cleanup_failure_still_returns_content(self):
+        written = {}
+
+        def fake_run(cmd, check=False):
+            written["path"] = cmd[-1]
+            with open(cmd[-1], "w", encoding="utf-8") as f:
+                f.write("feat(x): kept despite cleanup failure")
+            return mock.Mock(returncode=0)
+
+        with mock.patch("sys.stdin.isatty", return_value=True):
+            with mock.patch.dict("os.environ", {"EDITOR": "dummy-editor"}):
+                with mock.patch("subprocess.run", side_effect=fake_run):
+                    with mock.patch("os.unlink", side_effect=OSError("locked")):
+                        result = open_in_editor("draft")
+        assert result == "feat(x): kept despite cleanup failure"
+        os.unlink(written["path"])
