@@ -312,6 +312,25 @@ def _handle_pr(args) -> int:
     )
 
 
+def _handle_squash(args) -> int:
+    provider = None
+    if not args.message:
+        try:
+            provider = build_provider(args.provider, timeout=args.timeout)
+        except ConfigError:
+            provider = None
+    code = run_squash(
+        provider=provider,
+        count=args.count,
+        message=args.message,
+        yes=args.yes,
+        dry_run=args.dry_run,
+        verbose=args.verbose,
+    )
+    _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
+    return code
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -350,22 +369,7 @@ def main(argv: list[str] | None = None) -> int:
         # consulted, and a missing API key must not block the fallback to the
         # top commit's message (squash.py's own degradation path).
         if getattr(args, "command", None) == "squash":
-            provider = None
-            if not args.message:
-                try:
-                    provider = build_provider(args.provider, timeout=args.timeout)
-                except ConfigError:
-                    provider = None
-            code = run_squash(
-                provider=provider,
-                count=args.count,
-                message=args.message,
-                yes=args.yes,
-                dry_run=args.dry_run,
-                verbose=args.verbose,
-            )
-            _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
-            return code
+            return _handle_squash(args)
 
         # `relay amend` reuses the solo workflow but rewrites the last commit
         # instead of creating a new one; it never pushes.
