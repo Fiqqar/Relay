@@ -302,6 +302,16 @@ def _handle_stage(args) -> int:
     return run_stage(patch=args.patch, verbose=args.verbose)
 
 
+def _handle_pr(args) -> int:
+    return run_pr(
+        base=args.base,
+        title=args.title,
+        open_browser=args.open or args.yes or pr_open_browser(),
+        draft=args.draft,
+        verbose=args.verbose,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -325,13 +335,7 @@ def main(argv: list[str] | None = None) -> int:
     # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
     try:
         if getattr(args, "command", None) == "pr":
-            return run_pr(
-                base=args.base,
-                title=args.title,
-                open_browser=args.open or args.yes or pr_open_browser(),
-                draft=args.draft,
-                verbose=args.verbose,
-            )
+            return _handle_pr(args)
 
         # `relay undo` is a pure local, non-destructive git op (no AI involved).
         if getattr(args, "command", None) == "undo":
