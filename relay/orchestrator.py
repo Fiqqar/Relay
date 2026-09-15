@@ -437,7 +437,11 @@ class Orchestrator:
             return
         answer = input("Stage these sensitive files anyway? [y/N]: ").strip().lower()
         if answer not in ("y", "yes"):
-            raise UserAbort("workflow aborted by user — sensitive files not staged")
+            raise UserAbort(
+                "workflow aborted by user — sensitive files not staged; "
+                "re-run with --staged to select files "
+                "or --allow-sensitive to skip this check"
+            )
 
     def _obtain_message(self, diff: str, stat: str, branch: str) -> str:
         """Generate a message via AI with a hard fallback to manual input.
