@@ -1,11 +1,13 @@
 """Interactive confirmation menu for AI-generated commit messages.
 
-The Accept/Edit/Retry/Abort key mapping lives here so it can be unit-tested in
-isolation. Case-sensitivity is deliberate: the raw input is matched BEFORE any
-lowercasing, so ``a`` (Accept) and ``A`` (Abort) can never collide. Pressing
-Enter aborts — matching the capitalized ``A`` that marks Abort as the default
-choice — because a bare ``choice.lower()`` would turn Shift+A into Accept and
-accidentally commit & push.
+The Yes/Edit/Retry/No key mapping lives here so it can be unit-tested in
+isolation. The prompt shows ``(y/e/r/n)`` to match the familiar y/n habit:
+``y`` accepts, ``n`` aborts. For backward compatibility the historic ``a``
+(Accept) and ``A`` (Abort) aliases still work; case-sensitivity is
+deliberate so ``a`` (Accept) and ``A`` (Abort) can never collide. Pressing
+Enter aborts — Abort is the default choice — because a bare
+``choice.lower()`` would turn Shift+A into Accept and accidentally commit
+& push.
 
 This module also owns the other two user-interaction helpers: ``open_in_editor``
 (Edit an AI/manual draft in the developer's editor) and ``manual_input`` (the
@@ -27,7 +29,7 @@ from .errors import UserAbort
 if TYPE_CHECKING:
     from .git_manager import GitManager
 
-CONFIRM_PROMPT = "[Accept] [Edit] [Retry] [Abort] (a/e/r/A): "
+CONFIRM_PROMPT = "[Yes] [Edit] [Retry] [No] (y/e/r/n): "
 
 # Actions returned by interpret_choice().
 ACCEPT = "accept"
@@ -39,10 +41,11 @@ ABORT = "abort"
 def interpret_choice(raw: str) -> str:
     """Map a raw menu response to ``accept | edit | retry | abort``.
 
-    * ``a``, ``y``, ``accept``, ``yes`` -> accept
+    * ``y``, ``a``, ``accept``, ``yes`` -> accept
     * ``e``, ``edit``                -> edit
     * ``r``, ``retry``               -> retry
-    * ``A``, ``q``, ``c``, ``abort``, ``cancel``, Enter, or anything else -> abort
+    * ``n``, ``N``, ``no``, ``A``, ``q``, ``c``, ``abort``, ``cancel``,
+      Enter, or anything else -> abort
 
     Single letters are matched against the raw input (no lowercasing), so ``a``
     accepts while ``A`` aborts. Full words are matched case-insensitively for
@@ -53,7 +56,7 @@ def interpret_choice(raw: str) -> str:
         return ABORT
     if choice == "a" or choice.lower() in ("accept", "y", "yes"):
         return ACCEPT
-    if choice == "A" or choice.lower() in ("abort", "cancel", "q", "c"):
+    if choice == "A" or choice.lower() in ("abort", "cancel", "q", "c", "n", "no"):
         return ABORT
     if choice.lower() in ("edit", "e"):
         return EDIT

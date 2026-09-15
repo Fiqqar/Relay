@@ -12,6 +12,7 @@ from relay.errors import UserAbort
 from relay.prompt import (
     ABORT,
     ACCEPT,
+    CONFIRM_PROMPT,
     EDIT,
     RETRY,
     interpret_choice,
@@ -34,7 +35,7 @@ class TestInterpretChoice:
         assert interpret_choice(raw) == RETRY
 
     @pytest.mark.parametrize(
-        "raw", ["A", "q", "c", "abort", "cancel", "ABORT", "Q", "C"]
+        "raw", ["A", "q", "c", "abort", "cancel", "ABORT", "Q", "C", "n", "N", "no", "NO", "No"]
     )
     def test_abort_keys(self, raw):
         assert interpret_choice(raw) == ABORT
@@ -55,6 +56,9 @@ class TestInterpretChoice:
         assert interpret_choice("x") == ABORT
         assert interpret_choice("?") == ABORT
         assert interpret_choice("10") == ABORT
+
+    def test_confirm_prompt_shows_yes_no_shortcuts(self):
+        assert "(y/e/r/n)" in CONFIRM_PROMPT
 
 
 class TestManualInput:
