@@ -5,7 +5,14 @@ from unittest import mock
 
 import pytest
 
-from relay.cli import _detect_shell, build_parser, main
+from relay.cli import (
+    _READONLY_HANDLERS,
+    _WORKFLOW_HANDLERS,
+    _detect_shell,
+    _handle_workflow_error,
+    build_parser,
+    main,
+)
 from relay.errors import ConfigError, GitError, UserAbort
 
 
@@ -550,5 +557,24 @@ def test_main_multirepo_130_propagates(wired):
     with mock.patch("relay.cli.config_repos", return_value=[]):
         assert main(["--solo", "--repo", "repo1", "--repo", "repo2"]) == 130
     assert orchestrator_cls.call_count == 2
+
+
+class TestDispatchTables:
+    def test_tables_cover_every_subcommand_exactly_once(self):
+        from relay.completions import SUBCOMMANDS
+
+        assert set(_READONLY_HANDLERS) == {"doctor", "completions", "man", "telemetry"}
+        assert set(_WORKFLOW_HANDLERS) == {"pr", "undo", "stage", "squash", "amend"}
+        assert set(_READONLY_HANDLERS) | set(_WORKFLOW_HANDLERS) == set(SUBCOMMANDS)
+
+    def test_workflow_error_mapping(self, capsys):
+        args = build_parser().parse_args(["--solo"])
+        assert _handle_workflow_error(UserAbort("nope"), args) == 130
+        assert _handle_workflow_error(GitError("boom"), args) == 1
+        assert _handle_workflow_error(KeyboardInterrupt(), args) == 130
+        assert _handle_workflow_error(EOFError(), args) == 1
+        assert _handle_workflow_error(ValueError("weird"), args) == 1
+        out = capsys.readouterr().out
+        assert "unexpected error" in out
 
 
