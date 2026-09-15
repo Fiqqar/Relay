@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from collections.abc import Callable
 
 from . import __version__
 from .ai import PROVIDER_NAMES, AIManager, build_provider
@@ -353,6 +354,29 @@ def _handle_amend(args) -> int:
     return code
 
 
+# Subcommands that never touch the git workflow: handled directly, with no
+# shared error mapping beyond their own return codes.
+_READONLY_HANDLERS: dict[str, Callable[..., int]] = {
+    "doctor": _handle_doctor,
+    "completions": _handle_completions,
+    "man": _handle_man,
+    "telemetry": _handle_telemetry,
+}
+
+# Subcommands routed through the shared workflow error mapping below.
+# `pr` posts to GitHub; `undo` is a pure local, non-destructive git op (no AI
+# involved); `stage` sculpts the index; `squash` folds the last N commits (its
+# handler builds the provider lazily so --message never needs an API key);
+# `amend` rewrites the last commit via the solo workflow and never pushes.
+_WORKFLOW_HANDLERS: dict[str, Callable[..., int]] = {
+    "pr": _handle_pr,
+    "undo": _handle_undo,
+    "stage": _handle_stage,
+    "squash": _handle_squash,
+    "amend": _handle_amend,
+}
+
+
 def _run_workflow(args) -> int:
     # Resolve mode. `--team` sets args.team to "" (no feature) or a feature name;
     # `--solo` / nothing leaves it None.
@@ -429,71 +453,46 @@ def _run_workflow(args) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-
-    # Subcommand routing: `relay doctor` never touches the git workflow.
-    if getattr(args, "command", None) == "doctor":
-        return _handle_doctor(args)
-
-    # `relay completions` prints a generated shell script to stdout and exits.
-    if getattr(args, "command", None) == "completions":
-        return _handle_completions(args)
-
-    # `relay man` prints the man page source (roff) to stdout and exits.
-    if getattr(args, "command", None) == "man":
-        return _handle_man(args)
-
-    # `relay telemetry` reads or flips the opt-in marker and exits.
-    if getattr(args, "command", None) == "telemetry":
-        return _handle_telemetry(args)
-
-    # `relay pr` posts to GitHub; errors fall through to the shared handlers
-    # below (UserAbort/RelayError/KeyboardInterrupt/fallback).
-    try:
-        if getattr(args, "command", None) == "pr":
-            return _handle_pr(args)
-
-        # `relay undo` is a pure local, non-destructive git op (no AI involved).
-        if getattr(args, "command", None) == "undo":
-            return _handle_undo(args)
-
-        # `relay stage` sculpts the index (whole files or `git add -p` hunks).
-        if getattr(args, "command", None) == "stage":
-            return _handle_stage(args)
-
-        # `relay squash` folds the last N commits into one; never pushes.
-        # The provider is built lazily: with --message the AI is never
-        # consulted, and a missing API key must not block the fallback to the
-        # top commit's message (squash.py's own degradation path).
-        if getattr(args, "command", None) == "squash":
-            return _handle_squash(args)
-
-        # `relay amend` reuses the solo workflow but rewrites the last commit
-        # instead of creating a new one; it never pushes.
-        if getattr(args, "command", None) == "amend":
-            return _handle_amend(args)
-
-        return _run_workflow(args)
-    except UserAbort as exc:
+def _handle_workflow_error(exc: BaseException, args) -> int:
+    """Map a workflow exception to an exit code (shared by every command)."""
+    if isinstance(exc, UserAbort):
         # 130 is the conventional "interrupted by user" exit code (matches Ctrl-C).
         print(f"[relay] {sanitize_terminal(str(exc))}")
         return 130
-    except RelayError as exc:
+    if isinstance(exc, RelayError):
         print(f"[relay] error: {sanitize_terminal(str(exc))}")
         stderr = getattr(exc, "stderr", None)
         if args.verbose and stderr:
             print(sanitize_terminal(stderr))
         return 1
-    except KeyboardInterrupt:
+    if isinstance(exc, KeyboardInterrupt):
         print("\n[relay] aborted.")
         return 130
-    except EOFError:
+    if isinstance(exc, EOFError):
         print("[relay] non-interactive environment — cannot prompt for input (use --yes to skip confirmation).")
         return 1
+    print(f"[relay] unexpected error: {sanitize_terminal(str(exc))}")
+    return 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    command: str = getattr(args, "command", None) or ""
+
+    # Read-only subcommands never touch the git workflow.
+    readonly = _READONLY_HANDLERS.get(command)
+    if readonly is not None:
+        return readonly(args)
+
+    try:
+        workflow = _WORKFLOW_HANDLERS.get(command)
+        if workflow is not None:
+            return workflow(args)
+        return _run_workflow(args)
+    except KeyboardInterrupt as exc:
+        return _handle_workflow_error(exc, args)
     except Exception as exc:  # noqa: BLE001 - last-resort guard, never traceback
-        print(f"[relay] unexpected error: {sanitize_terminal(str(exc))}")
-        return 1
+        return _handle_workflow_error(exc, args)
 
 
 if __name__ == "__main__":  # pragma: no cover
