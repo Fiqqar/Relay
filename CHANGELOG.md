@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-15
+
+### Changed
+- **Confirmation shortcuts**: the AI-message prompt now shows `[Yes] [Edit] [Retry] [No] (y/e/r/n)` so `y` accepts and `n` aborts; the historic `a`/`A` keys still work as aliases.
+- **CLI internals**: subcommand routing in `relay/cli.py` now goes through dispatch tables with a shared error-to-exit-code mapper (no behavior change).
+
+### Fixed
+- **Sensitive-abort hint**: aborting the sensitive-files prompt now suggests the next step (`--staged` to select files or `--allow-sensitive` to skip the check) instead of dead-ending.
+
 ## [2.1.0] - 2026-09-11
 
 ### Added
