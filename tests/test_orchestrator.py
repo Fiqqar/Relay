@@ -1157,6 +1157,58 @@ def test_sensitive_prompt_skipped_with_allow_sensitive(git):
     mock_input.assert_not_called()
 
 
+# ---- target-diff resolution (extracted from run) ------------------------------
+
+
+def test_resolve_target_diff_normal_stages_then_reads_index(git):
+    orch = make_orchestrator(git)
+    diff, stat, is_binary = orch._resolve_target_diff(False)
+    git.stage_all.assert_called_once_with()
+    assert diff == "diff --git a/app.py b/app.py\n+print(1)\n"
+    assert stat == " app.py | 1 +\n"
+    assert is_binary is False
+
+
+def test_resolve_target_diff_staged_only_skips_stage_all(git):
+    orch = make_orchestrator(git, staged_only=True)
+    diff, stat, is_binary = orch._resolve_target_diff(False)
+    git.stage_all.assert_not_called()
+    assert diff == git.staged_diff.return_value
+    assert is_binary is False
+
+
+def test_resolve_target_diff_dry_run_reads_head_without_mutating(git):
+    orch = make_orchestrator(git, dry_run=True)
+    diff, stat, is_binary = orch._resolve_target_diff(False)
+    git.stage_all.assert_not_called()
+    assert diff == git.head_diff.return_value
+    assert stat == git.head_stat.return_value
+    assert is_binary is False
+
+
+def test_resolve_target_diff_dry_run_staged_reads_index(git):
+    orch = make_orchestrator(git, dry_run=True, staged_only=True)
+    diff, stat, _ = orch._resolve_target_diff(False)
+    git.stage_all.assert_not_called()
+    assert diff == git.staged_diff.return_value
+
+
+def test_resolve_target_diff_amend_uses_last_commit_range(git):
+    orch = make_orchestrator(git, mode="amend")
+    _, _, is_binary = orch._resolve_target_diff(True)
+    assert is_binary is False
+    git.diff_range.assert_called_once()
+    git.staged_diff.assert_not_called()
+    git.stage_all.assert_not_called()
+
+
+def test_resolve_target_diff_dry_run_amend_uses_last_commit_range(git):
+    orch = make_orchestrator(git, mode="amend", dry_run=True)
+    _, _, is_binary = orch._resolve_target_diff(True)
+    assert is_binary is False
+    git.diff_range.assert_called_once()
+
+
 
 
 

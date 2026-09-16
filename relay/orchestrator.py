@@ -94,28 +94,7 @@ class Orchestrator:
                 "changes; unstage or commit them first, or pass --staged to "
                 "fold them into the amended commit"
             )
-        if self.dry_run:
-            if self.staged_only:
-                diff = self.git.staged_diff()
-                stat = self.git.staged_stat()
-                is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
-            elif amend_message_only:
-                diff, stat = self._amend_target_diff()
-                is_binary = False
-            else:
-                diff = self.git.head_diff()
-                stat = self.git.head_stat()
-                is_binary = "Binary files" in diff and self.git.head_diff_binary_only()
-        elif amend_message_only:
-            diff, stat = self._amend_target_diff()
-            is_binary = False
-        else:
-            if not self.staged_only:
-                self._warn_sensitive_files()
-                self.git.stage_all()
-            diff = self.git.staged_diff()
-            stat = self.git.staged_stat()
-            is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
+        diff, stat, is_binary = self._resolve_target_diff(amend_message_only)
 
         if not diff.strip():
             label = "amend" if self.mode == "amend" else "commit"
@@ -357,6 +336,39 @@ class Orchestrator:
         tip = self.git.rev_parse("HEAD")
         base = self.git.rev_parse("HEAD~1") or EMPTY_TREE
         return self.git.diff_range(base, tip), self.git.stat_range(base, tip)
+
+    def _resolve_target_diff(self, amend_message_only: bool) -> tuple[str, str, bool]:
+        """Stage (unless --staged/--dry-run) and load (diff, stat, is_binary).
+
+        --dry-run never mutates the index: the diff comes from HEAD (or the
+        index when --staged, or the last commit for message-only amend).
+        Message-only amend describes HEAD~1..HEAD, never the index.
+        Otherwise `git add .` runs first (with the sensitive-files warning)
+        and the diff is read from the index.
+        """
+        if self.dry_run:
+            if self.staged_only:
+                diff = self.git.staged_diff()
+                stat = self.git.staged_stat()
+                is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
+            elif amend_message_only:
+                diff, stat = self._amend_target_diff()
+                is_binary = False
+            else:
+                diff = self.git.head_diff()
+                stat = self.git.head_stat()
+                is_binary = "Binary files" in diff and self.git.head_diff_binary_only()
+        elif amend_message_only:
+            diff, stat = self._amend_target_diff()
+            is_binary = False
+        else:
+            if not self.staged_only:
+                self._warn_sensitive_files()
+                self.git.stage_all()
+            diff = self.git.staged_diff()
+            stat = self.git.staged_stat()
+            is_binary = "Binary files" in diff and self.git.staged_diff_binary_only()
+        return diff, stat, is_binary
 
     def _run_amend(self, message: str, branch: str, head: str) -> int:
         """Rewrite the last commit with the confirmed message.
