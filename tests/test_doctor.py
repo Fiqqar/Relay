@@ -536,3 +536,53 @@ def test_doctor_probe_rejects_oversized_forge_body(healthy_env, capsys):
     assert "too large" in out
 
 
+# ---- keyed-provider credential table (dispatch-table refactor) --------------
+
+
+def test_keyed_provider_table_covers_all_keyed_providers():
+    """Single source of truth for keyed providers: label + key fn + env name."""
+    import relay.doctor as doctor_mod
+    from relay.doctor import _KEYED_PROVIDERS
+
+    assert set(_KEYED_PROVIDERS) == {
+        "gemini",
+        "openai",
+        "anthropic",
+        "mistral",
+        "groq",
+        "xai",
+    }
+    for prov, (label, key_attr, env) in _KEYED_PROVIDERS.items():
+        assert label, prov
+        assert callable(getattr(doctor_mod, key_attr)), prov
+        assert env == f"{prov.upper()}_API_KEY", prov
+
+
+@pytest.mark.parametrize(
+    "prov,env",
+    [
+        ("gemini", "GEMINI_API_KEY"),
+        ("openai", "OPENAI_API_KEY"),
+        ("anthropic", "ANTHROPIC_API_KEY"),
+        ("mistral", "MISTRAL_API_KEY"),
+        ("groq", "GROQ_API_KEY"),
+        ("xai", "XAI_API_KEY"),
+    ],
+)
+def test_keyed_providers_share_set_missing_message_convention(
+    healthy_env, capsys, prov, env
+):
+    """Table refactor must preserve the exact '<ENV> is set / is not set' UX."""
+    with mock.patch(
+        "relay.doctor.provider_from_env", return_value=prov
+    ), mock.patch(f"relay.doctor.{prov}_api_key", return_value="k"):
+        assert run_doctor() == 0
+    assert f"{env} is set" in capsys.readouterr().out
+
+    with mock.patch(
+        "relay.doctor.provider_from_env", return_value=prov
+    ), mock.patch(f"relay.doctor.{prov}_api_key", return_value=None):
+        assert run_doctor() == 1
+    assert f"{env} is not set" in capsys.readouterr().out
+
+
