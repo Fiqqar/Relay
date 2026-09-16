@@ -18,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from . import __version__
@@ -51,6 +52,39 @@ _MARKS = {"ok": "PASS", "warn": "WARN", "fail": "FAIL", "skip": "SKIP"}
 # anything near this is a misbehaving endpoint, matching the 10 KiB
 # diagnostic cap used by the AI providers and forge clients.
 _MAX_PROBE_BODY_BYTES = 10 * 1024
+
+
+# Keyed providers share one credential-check shape: a display label, the
+# name of a zero-arg key reader (resolved late via globals() so
+# mock.patch("relay.doctor.<name>_api_key") keeps working in tests), and
+# the env var named in the user-facing message. Ollama stays special-cased
+# (reachability probe, no key); unknown names fall through to the warn
+# branch in run_doctor.
+_KEYED_PROVIDERS: dict[str, tuple[str, str, str]] = {
+    "gemini": ("Gemini API", "gemini_api_key", "GEMINI_API_KEY"),
+    "openai": ("OpenAI-compatible API", "openai_api_key", "OPENAI_API_KEY"),
+    "anthropic": ("Anthropic API", "anthropic_api_key", "ANTHROPIC_API_KEY"),
+    "mistral": ("Mistral API", "mistral_api_key", "MISTRAL_API_KEY"),
+    "groq": ("Groq API", "groq_api_key", "GROQ_API_KEY"),
+    "xai": ("xAI API", "xai_api_key", "XAI_API_KEY"),
+}
+
+
+def _apply_keyed_provider_credential(chosen: str, checks: list[Check]) -> bool:
+    """Fill checks[5]/checks[6] from _KEYED_PROVIDERS. True when handled."""
+    entry = _KEYED_PROVIDERS.get(chosen)
+    if entry is None:
+        return False
+    label, key_attr, env = entry
+    key_fn: Callable[[], str | None] = globals()[key_attr]
+    checks[5].detail = label
+    if key_fn():
+        checks[6].status = "ok"
+        checks[6].detail = f"{env} is set"
+    else:
+        checks[6].status = "fail"
+        checks[6].detail = f"{env} is not set; see `relay --help`"
+    return True
 
 
 @dataclass
@@ -300,33 +334,8 @@ def run_doctor(
 
     # provider-specific credential checks
     checks[5].status = "ok"
-    if chosen == "gemini":
-        checks[5].detail = "Gemini API"
-        key = gemini_api_key()
-        if key:
-            checks[6].status = "ok"
-            checks[6].detail = "GEMINI_API_KEY is set"
-        else:
-            checks[6].status = "fail"
-            checks[6].detail = "GEMINI_API_KEY is not set; see `relay --help`"
-    elif chosen == "openai":
-        checks[5].detail = "OpenAI-compatible API"
-        key = openai_api_key()
-        if key:
-            checks[6].status = "ok"
-            checks[6].detail = "OPENAI_API_KEY is set"
-        else:
-            checks[6].status = "fail"
-            checks[6].detail = "OPENAI_API_KEY is not set; see `relay --help`"
-    elif chosen == "anthropic":
-        checks[5].detail = "Anthropic API"
-        key = anthropic_api_key()
-        if key:
-            checks[6].status = "ok"
-            checks[6].detail = "ANTHROPIC_API_KEY is set"
-        else:
-            checks[6].status = "fail"
-            checks[6].detail = "ANTHROPIC_API_KEY is not set; see `relay --help`"
+    if _apply_keyed_provider_credential(chosen, checks):
+        pass
     elif chosen == "ollama":
         base = ollama_base_url()
         checks[5].detail = "Ollama"
@@ -335,33 +344,6 @@ def run_doctor(
         reachable, detail = _ollama_reachable(base)
         checks[6].status = "ok" if reachable else "warn"
         checks[6].detail = detail
-    elif chosen == "mistral":
-        checks[5].detail = "Mistral API"
-        key = mistral_api_key()
-        if key:
-            checks[6].status = "ok"
-            checks[6].detail = "MISTRAL_API_KEY is set"
-        else:
-            checks[6].status = "fail"
-            checks[6].detail = "MISTRAL_API_KEY is not set; see `relay --help`"
-    elif chosen == "groq":
-        checks[5].detail = "Groq API"
-        key = groq_api_key()
-        if key:
-            checks[6].status = "ok"
-            checks[6].detail = "GROQ_API_KEY is set"
-        else:
-            checks[6].status = "fail"
-            checks[6].detail = "GROQ_API_KEY is not set; see `relay --help`"
-    elif chosen == "xai":
-        checks[5].detail = "xAI API"
-        key = xai_api_key()
-        if key:
-            checks[6].status = "ok"
-            checks[6].detail = "XAI_API_KEY is set"
-        else:
-            checks[6].status = "fail"
-            checks[6].detail = "XAI_API_KEY is not set; see `relay --help`"
     else:
         checks[6].status = "warn"
         checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic|mistral|groq|xai)"
