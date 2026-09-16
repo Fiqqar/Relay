@@ -201,7 +201,7 @@ class TestVerboseLogging:
         err_502 = urllib.error.HTTPError("url", 502, "Bad Gateway", {}, io.BytesIO(b"{}"))
         success_resp = mock.MagicMock()
         success_resp.read.return_value = b'{"id": 10, "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/10"}}}'
-        with mock.patch("relay.bitbucket.time.sleep") as mock_sleep:
+        with mock.patch("relay.forge_http.time.sleep") as mock_sleep:
             with mock.patch("urllib.request.urlopen", side_effect=[err_502, mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp))]) as mock_urlopen:
                 client = make_client()
                 res = client.open_pull(title="t", source_branch="b", destination_branch="main")

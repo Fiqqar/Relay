@@ -10,13 +10,11 @@ from __future__ import annotations
 
 import json
 import os
-import random
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 
 from .errors import RelayError
+from .forge_http import request_json
 
 API_BASE = "https://api.github.com"
 DEFAULT_TIMEOUT_SECONDS = 30
@@ -61,15 +59,6 @@ class GitHubError(RelayError):
 
 class DuplicatePullRequestError(GitHubError):
     """GitHub rejected a POST because an open PR already exists for this head."""
-
-
-def _parse_json(text: str):
-    """Best-effort JSON decode of a response body (None when it is not JSON)."""
-    try:
-        value = json.loads(text)
-    except (ValueError, TypeError):
-        return None
-    return value if isinstance(value, (dict, list)) else None
 
 
 def _extract_reason(payload) -> str:
@@ -141,33 +130,19 @@ class GitHubClient:
 
     def _request(self, request: urllib.request.Request, *, retries: int = 2):
         """Run a request, decoding JSON and normalizing failures to GitHubError."""
-        for attempt in range(retries + 1):
-            if self.verbose:
-                print(f"[relay] github {request.get_method()} {request.full_url}")
-            try:
-                with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:  # nosec B310
-                    body = resp.read(MAX_RESPONSE_BYTES + 1)
-                    if len(body) > MAX_RESPONSE_BYTES:
-                        raise GitHubError(
-                            f"GitHub API response exceeded the {MAX_RESPONSE_BYTES}-byte limit"
-                        )
-                    return json.loads(body.decode("utf-8"))
-            except urllib.error.HTTPError as exc:
-                if exc.code in (429, 502, 503, 504) and attempt < retries:
-                    time.sleep(1.0 * (attempt + 1) + random.uniform(0.1, 0.5))
-                    continue
-                body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
-                payload = _parse_json(body)
-                detail = _extract_reason(payload) or body.strip() or "unknown error"
-                raise GitHubError(
-                    f"GitHub API error {exc.code}: {detail}",
-                    status=exc.code,
-                    body=body,
-                    payload=payload,
-                    detail=detail,
-                ) from exc
-            except urllib.error.URLError as exc:
-                raise GitHubError(f"cannot reach GitHub: {exc.reason}") from exc
+        return request_json(
+            request,
+            forge="GitHub",
+            tag="github",
+            error_cls=GitHubError,
+            extract_reason=_extract_reason,
+            unreachable="cannot reach GitHub",
+            verbose=self.verbose,
+            retries=retries,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+            max_response_bytes=MAX_RESPONSE_BYTES,
+            max_error_body_bytes=_MAX_ERROR_BODY_BYTES,
+        )
 
     def find_open_pr(self, *, head: str, owner: str | None = None) -> dict | None:
         """Return the first open PR for ``head`` (``owner:branch``), else None.

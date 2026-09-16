@@ -21,13 +21,11 @@ from __future__ import annotations
 
 import json
 import os
-import random
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 
 from .errors import RelayError
+from .forge_http import request_json
 
 DEFAULT_TIMEOUT_SECONDS = 30
 _USER_AGENT = "relay-cli"
@@ -87,14 +85,6 @@ def _extract_reason(payload) -> str:
     return ""
 
 
-def _parse_json(text: str):
-    try:
-        value = json.loads(text)
-    except (ValueError, TypeError):
-        return None
-    return value if isinstance(value, (dict, list)) else None
-
-
 def _is_duplicate(body: str) -> bool:
     text = body.lower()
     return "already exists" in text or (
@@ -132,33 +122,20 @@ class GitLabClient:
         return self.token
 
     def _request(self, request: urllib.request.Request, *, retries: int = 2):
-        if self.verbose:
-            print(f"[relay] gitlab {request.get_method()} {request.full_url}")
-        for attempt in range(retries + 1):
-            try:
-                with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:  # nosec B310
-                    body = resp.read(MAX_RESPONSE_BYTES + 1)
-                    if len(body) > MAX_RESPONSE_BYTES:
-                        raise GitLabError(
-                            f"GitLab API response exceeded the {MAX_RESPONSE_BYTES}-byte limit"
-                        )
-                    return json.loads(body.decode("utf-8"))
-            except urllib.error.HTTPError as exc:
-                if exc.code in (429, 502, 503, 504) and attempt < retries:
-                    time.sleep(1.0 * (attempt + 1) + random.uniform(0.1, 0.5))
-                    continue
-                body = exc.read(_MAX_ERROR_BODY_BYTES).decode("utf-8", "replace")
-                payload = _parse_json(body)
-                detail = _extract_reason(payload) or body.strip() or "unknown error"
-                raise GitLabError(
-                    f"GitLab API error {exc.code}: {detail}",
-                    status=exc.code,
-                    body=body,
-                    payload=payload,
-                    detail=detail,
-                ) from exc
-            except urllib.error.URLError as exc:
-                raise GitLabError(f"cannot reach {self.host}: {exc.reason}") from exc
+        """Run a request, decoding JSON and normalizing failures to GitLabError."""
+        return request_json(
+            request,
+            forge="GitLab",
+            tag="gitlab",
+            error_cls=GitLabError,
+            extract_reason=_extract_reason,
+            unreachable=f"cannot reach {self.host}",
+            verbose=self.verbose,
+            retries=retries,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+            max_response_bytes=MAX_RESPONSE_BYTES,
+            max_error_body_bytes=_MAX_ERROR_BODY_BYTES,
+        )
 
     def find_open_mr(self, *, source_branch: str) -> dict | None:
         """Return the first open MR for ``source_branch``, else None."""
