@@ -361,7 +361,7 @@ class TestOpenPull:
         with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "env"}):
             assert GitHubClient("a", "b", token="explicit").token == "explicit"
 
-    @mock.patch("relay.github.time.sleep")
+    @mock.patch("relay.forge_http.time.sleep")
     @mock.patch("relay.github.urllib.request.urlopen")
     def test_transient_http_errors_retry_and_recover(self, mock_urlopen, mock_sleep):
         err_429 = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, io.BytesIO(b"{}"))

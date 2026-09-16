@@ -160,7 +160,7 @@ class TestGitLabClient:
         err_503 = urllib.error.HTTPError("url", 503, "Service Unavailable", {}, io.BytesIO(b"{}"))
         success_resp = mock.MagicMock()
         success_resp.read.return_value = b'{"iid": 1, "web_url": "https://gitlab.com/acme/widget/-/merge_requests/1"}'
-        with mock.patch("relay.gitlab.time.sleep") as mock_sleep:
+        with mock.patch("relay.forge_http.time.sleep") as mock_sleep:
             with mock.patch("urllib.request.urlopen", side_effect=[err_503, mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp))]) as mock_urlopen:
                 client = make_client()
                 res = client.open_merge_request(title="t", source_branch="b", target_branch="main")
