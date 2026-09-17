@@ -95,8 +95,13 @@ mypy relay
   2. Push the branch, open the PR, wait for CI to go green.
   3. AI self-reviews: re-read the full diff, re-run the rule #2 checks, confirm
      the PR contains only the task's files.
-  4. AI merges itself (e.g. `gh pr merge --merge`) only when CI is green and the
-     review is clean — the human never has to click merge.
+   4. AI merges itself (e.g. `gh pr merge --merge`) only when CI is green and the
+      review is clean — the human never has to click merge.
+   5. AI deletes the branch right after merging so branches never pile up:
+      `gh pr merge --merge --delete-branch` (drops the remote branch on merge),
+      then locally `git switch main`, `git fetch origin --prune`,
+      `git merge --ff-only origin/main`, `git branch -d <branch>`.
+      Humans do the same cleanup after their push-straight merges.
 
 ### 9. Release tagging — strictly 'vx.y.z' only
 
@@ -115,4 +120,5 @@ mypy relay
 - [ ] Committed with `git commit` instead of `relay --solo/--team --yes` (not dogfooded)
 - [ ] Batched multiple `relay` commits locally instead of push-straight per change (humans)
 - [ ] AI pushed directly to `main` instead of branch → PR → self-merge
+- [ ] Left a stale branch behind after merging (remote or local — see rule #8.5)
 - [ ] Release tag or release title contains extra words (must be strictly 'vx.y.z' only)
