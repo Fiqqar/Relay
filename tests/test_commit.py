@@ -4,6 +4,7 @@ import pytest
 
 from relay.commit import (
     CONVENTIONAL_TYPES,
+    _match_first_line,
     build_branch_name,
     extract_commit_type,
     sanitize_ai_message,
@@ -178,3 +179,17 @@ class TestBuildBranchName:
     def test_empty_feature_raises(self):
         with pytest.raises(ValueError):
             build_branch_name("status/<feature>", "   ")
+
+
+class TestMatchFirstLine:
+    def test_returns_match_for_valid_first_line(self):
+        match = _match_first_line("  feat(auth): add login\n\nbody here  ")
+        assert match is not None
+        assert match.group("type") == "feat"
+        assert match.group("scope") == "auth"
+
+    def test_returns_none_for_invalid_message(self):
+        assert _match_first_line("just some words") is None
+
+    def test_returns_none_for_empty_message(self):
+        assert _match_first_line("   \n  ") is None
