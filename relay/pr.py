@@ -42,21 +42,37 @@ def _safe_open_browser(url: str) -> bool:
     return False
 
 
+def _forge_kind(host: str) -> str:
+    """Classify a remote host for web-URL building.
+
+    ``github`` covers github.com plus trusted Enterprise hosts,
+    ``bitbucket`` is Bitbucket Cloud, and anything else is treated as
+    GitLab-like (gitlab.com and self-hosted instances share the
+    ``/-/merge_requests`` shape).
+    """
+    if host in trusted_github_hosts():
+        return "github"
+    if host == "bitbucket.org":
+        return "bitbucket"
+    return "gitlab"
+
+
+# Web-URL path shapes per forge kind: (list-path, item-path).
+_FORGE_WEB_PATHS = {
+    "github": ("pulls", "pull"),
+    "bitbucket": ("pull-requests", "pull-requests"),
+    "gitlab": ("-/merge_requests", "-/merge_requests"),
+}
+
+
 def _host_web_base(host: str, owner: str, repo: str) -> str:
     """Human-visible base URL a browser can open for this host's PR list."""
-    if host in trusted_github_hosts():
-        return f"https://{host}/{owner}/{repo}/pulls"
-    if host == "bitbucket.org":
-        return f"https://bitbucket.org/{owner}/{repo}/pull-requests"
-    return f"https://{host}/{owner}/{repo}/-/merge_requests"
+    return f"https://{host}/{owner}/{repo}/{_FORGE_WEB_PATHS[_forge_kind(host)][0]}"
 
 
 def _pr_web_url(host: str, owner: str, repo: str, number) -> str:
-    if host in trusted_github_hosts():
-        return f"https://{host}/{owner}/{repo}/pull/{number}"
-    if host == "bitbucket.org":
-        return f"https://bitbucket.org/{owner}/{repo}/pull-requests/{number}"
-    return f"https://{host}/{owner}/{repo}/-/merge_requests/{number}"
+    item_path = _FORGE_WEB_PATHS[_forge_kind(host)][1]
+    return f"https://{host}/{owner}/{repo}/{item_path}/{number}"
 
 
 def _existing_url(host: str, owner: str, repo: str, existing) -> str:

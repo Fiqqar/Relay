@@ -671,3 +671,11 @@ def test_build_body_empty():
     body = _build_body(git, base="main", head="feat")
     assert body == ""
 
+
+def test_forge_kind_classifies_hosts():
+    from relay.pr import _forge_kind
+
+    assert _forge_kind("github.com") == "github"
+    assert _forge_kind("bitbucket.org") == "bitbucket"
+    assert _forge_kind("gitlab.example.com") == "gitlab"
+
