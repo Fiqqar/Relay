@@ -200,77 +200,69 @@ def _probe_provider(chosen: str) -> Check:
         return Check("AI probe", "fail", f"connection failed ({exc})")
 
 
-def _probe_forge() -> Check | None:
+def _probe_forge_endpoint(
+    *,
+    label: str,
+    token: str | None,
+    url: str,
+    headers: dict,
+    user_field: str,
+) -> Check | None:
+    """Probe one forge token endpoint. None when no token is configured."""
+    if not token:
+        return None
     start = time.perf_counter()
     timeout = 5
-    token = github_token()
-    if token:
-        req = urllib.request.Request(
-            "https://api.github.com/user",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "User-Agent": "relay-cli",
-                "Accept": "application/vnd.github+json",
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-                elapsed = int((time.perf_counter() - start) * 1000)
-                raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
-                if len(raw) > _MAX_PROBE_BODY_BYTES:
-                    return Check("Forge probe", "fail", f"GitHub response too large ({elapsed}ms)")
-                body = json.loads(raw.decode("utf-8", "replace"))
-                user = body.get("login") or "user"
-                return Check("Forge probe", "ok", f"GitHub @{user} ({elapsed}ms)")
-        except urllib.error.HTTPError as exc:
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             elapsed = int((time.perf_counter() - start) * 1000)
-            return Check("Forge probe", "fail", f"GitHub HTTP {exc.code} ({elapsed}ms)")
-        except Exception as exc:
-            return Check("Forge probe", "fail", f"GitHub connection failed ({exc})")
+            raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
+            if len(raw) > _MAX_PROBE_BODY_BYTES:
+                return Check("Forge probe", "fail", f"{label} response too large ({elapsed}ms)")
+            body = json.loads(raw.decode("utf-8", "replace"))
+            user = body.get(user_field) or "user"
+            return Check("Forge probe", "ok", f"{label} @{user} ({elapsed}ms)")
+    except urllib.error.HTTPError as exc:
+        elapsed = int((time.perf_counter() - start) * 1000)
+        return Check("Forge probe", "fail", f"{label} HTTP {exc.code} ({elapsed}ms)")
+    except Exception as exc:
+        return Check("Forge probe", "fail", f"{label} connection failed ({exc})")
 
-    gl_token = gitlab_token()
-    if gl_token:
-        req = urllib.request.Request(
-            "https://gitlab.com/api/v4/user",
-            headers={"PRIVATE-TOKEN": gl_token, "User-Agent": "relay-cli"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-                elapsed = int((time.perf_counter() - start) * 1000)
-                raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
-                if len(raw) > _MAX_PROBE_BODY_BYTES:
-                    return Check("Forge probe", "fail", f"GitLab response too large ({elapsed}ms)")
-                body = json.loads(raw.decode("utf-8", "replace"))
-                user = body.get("username") or "user"
-                return Check("Forge probe", "ok", f"GitLab @{user} ({elapsed}ms)")
-        except urllib.error.HTTPError as exc:
-            elapsed = int((time.perf_counter() - start) * 1000)
-            return Check("Forge probe", "fail", f"GitLab HTTP {exc.code} ({elapsed}ms)")
-        except Exception as exc:
-            return Check("Forge probe", "fail", f"GitLab connection failed ({exc})")
 
-    bb_token = bitbucket_token()
-    if bb_token:
-        req = urllib.request.Request(
-            "https://api.bitbucket.org/2.0/user",
-            headers={"Authorization": f"Bearer {bb_token}", "User-Agent": "relay-cli"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-                elapsed = int((time.perf_counter() - start) * 1000)
-                raw = resp.read(_MAX_PROBE_BODY_BYTES + 1)
-                if len(raw) > _MAX_PROBE_BODY_BYTES:
-                    return Check("Forge probe", "fail", f"Bitbucket response too large ({elapsed}ms)")
-                body = json.loads(raw.decode("utf-8", "replace"))
-                user = body.get("username") or "user"
-                return Check("Forge probe", "ok", f"Bitbucket @{user} ({elapsed}ms)")
-        except urllib.error.HTTPError as exc:
-            elapsed = int((time.perf_counter() - start) * 1000)
-            return Check("Forge probe", "fail", f"Bitbucket HTTP {exc.code} ({elapsed}ms)")
-        except Exception as exc:
-            return Check("Forge probe", "fail", f"Bitbucket connection failed ({exc})")
-
-    return None
+def _probe_forge() -> Check | None:
+    check = _probe_forge_endpoint(
+        label="GitHub",
+        token=github_token(),
+        url="https://api.github.com/user",
+        headers={
+            "Authorization": f"Bearer {github_token()}",
+            "User-Agent": "relay-cli",
+            "Accept": "application/vnd.github+json",
+        },
+        user_field="login",
+    )
+    if check is not None:
+        return check
+    check = _probe_forge_endpoint(
+        label="GitLab",
+        token=gitlab_token(),
+        url="https://gitlab.com/api/v4/user",
+        headers={"PRIVATE-TOKEN": gitlab_token(), "User-Agent": "relay-cli"},
+        user_field="username",
+    )
+    if check is not None:
+        return check
+    return _probe_forge_endpoint(
+        label="Bitbucket",
+        token=bitbucket_token(),
+        url="https://api.bitbucket.org/2.0/user",
+        headers={
+            "Authorization": f"Bearer {bitbucket_token()}",
+            "User-Agent": "relay-cli",
+        },
+        user_field="username",
+    )
 
 
 def run_doctor(
