@@ -1209,6 +1209,199 @@ def test_resolve_target_diff_dry_run_amend_uses_last_commit_range(git):
     git.diff_range.assert_called_once()
 
 
+# ---- Miss-branch coverage: TOCTOU, hooks, warnings, hunks --------------------
+
+
+def test_amend_refuses_when_retree_fails(git):
+    """Amend TOCTOU: a failing re-tree means the index may have changed."""
+    git.has_staged_changes.return_value = False
+    git.write_tree.side_effect = ["abc123", GitError("git write-tree failed")]
+    orch = make_orchestrator(git, mode="amend", message="fix: amend it", yes=True)
+    with pytest.raises(GitError, match="staged changes changed"):
+        orch.run()
+
+
+def test_solo_refuses_when_retree_fails(git):
+    """Solo TOCTOU: the same guard protects the regular commit path."""
+    git.write_tree.side_effect = ["abc123", GitError("git write-tree failed")]
+    orch = make_orchestrator(git, message="fix: solo it", yes=True)
+    with pytest.raises(GitError, match="staged changes changed"):
+        orch.run()
+
+
+def test_solo_run_executes_pre_commit_hook(git):
+    """A configured pre_commit hook runs before the commit."""
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=["echo", "hi"]
+    ), mock.patch("relay.orchestrator.run_hook") as run_hook:
+        code = make_orchestrator(git, message="fix: hooked", yes=True).run()
+    assert code == 0
+    run_hook.assert_called_once_with(["echo", "hi"], verbose=False)
+
+
+def test_post_push_hook_failure_warns_with_stderr(git, capsys):
+    """A failing post_push hook warns (with its stderr) but keeps the push."""
+    err = GitError("hook blew", stderr="boom-err")
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=None
+    ), mock.patch(
+        "relay.orchestrator.get_post_push_hook", return_value=["lint"]
+    ), mock.patch(
+        "relay.orchestrator.run_hook", side_effect=err
+    ):
+        code = make_orchestrator(
+            git, message="fix: push it", yes=True, no_push=False
+        ).run()
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "post_push hook failed" in out
+    assert "boom-err" in out
+
+
+def test_amend_dry_run_reports_pre_commit_hook(git, capsys):
+    """Amend dry-run prints the configured pre_commit hook in the plan."""
+    git.has_staged_changes.return_value = False
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=["npx", "test"]
+    ):
+        code = make_orchestrator(
+            git, mode="amend", message="fix: amend dry hooked", yes=True, dry_run=True
+        ).run()
+    assert code == 0
+    assert "hook pre_commit: npx test" in capsys.readouterr().out
+
+
+def test_amend_runs_pre_commit_hook(git):
+    """Message-only amend executes the pre_commit hook before rewriting."""
+    git.has_staged_changes.return_value = False
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=["echo", "hi"]
+    ), mock.patch("relay.orchestrator.run_hook") as run_hook:
+        code = make_orchestrator(
+            git, mode="amend", message="fix: amend hooked", yes=True
+        ).run()
+    assert code == 0
+    run_hook.assert_called_once_with(["echo", "hi"], verbose=False)
+
+
+def test_solo_without_remote_warns_but_commits(git, capsys):
+    """Solo mode without a remote warns and still commits (--no-push)."""
+    git.has_remote.return_value = False
+    code = make_orchestrator(git, message="fix: offline work", yes=True).run()
+    assert code == 0
+    assert "no remote configured" in capsys.readouterr().out
+    git.commit.assert_called_once_with("fix: offline work", no_verify=False)
+
+
+def test_warn_sensitive_returns_when_lookup_raises(git):
+    """Sensitive-path lookup failures never block the workflow."""
+    git.unstaged_changes.return_value = ["secrets.env"]
+    orch = make_orchestrator(git)
+    with mock.patch(
+        "relay.orchestrator.is_sensitive_path", side_effect=Exception("boom")
+    ):
+        assert orch._warn_sensitive_files() is None
+
+
+def test_obtain_message_tolerates_recent_subjects_failure(git):
+    """A failing recent-subjects lookup still yields the AI message."""
+    git.recent_subjects.side_effect = Exception("no log")
+    orch = make_orchestrator(
+        git, provider=StubAI(responses=["fix: fresh work"]), yes=True
+    )
+    assert orch._obtain_message("diff", "stat", "main") == "fix: fresh work"
+
+
+def test_obtain_hunks_message_single_block(git):
+    """One hunk block yields its subject without a bullet body."""
+    git.recent_subjects.side_effect = Exception("no log")
+    orch = make_orchestrator(
+        git, provider=StubAI(responses=["fix: one hunk"]), yes=True
+    )
+    blocks = [("app.py", "diff --git a/app.py b/app.py\n+print(1)\n")]
+    assert orch._obtain_hunks_message(blocks, "main") == "fix: one hunk"
+
+
+@mock.patch("relay.orchestrator.time.sleep")
+def test_obtain_hunks_message_retries_transient_errors(mock_sleep, git):
+    """Transient hunk failures retry before succeeding."""
+    script = [AIError("fake", "rate_limited", "slow down"), "fix: retried hunk"]
+
+    class ScriptAI:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, *args, **kwargs):
+            self.calls += 1
+            item = script.pop(0)
+            if isinstance(item, AIError):
+                raise item
+            return item
+
+    ai = ScriptAI()
+    orch = make_orchestrator(git, provider=ai, yes=True)
+    blocks = [("app.py", "diff --git a/app.py b/app.py\n+print(1)\n")]
+    assert orch._obtain_hunks_message(blocks, "main") == "fix: retried hunk"
+    assert ai.calls == 2
+
+
+@mock.patch("builtins.input", side_effect=["r", "y"])
+def test_obtain_hunks_message_retry_then_accept(mock_input, git):
+    """A 'retry' answer regenerates the hunks before accepting."""
+    orch = make_orchestrator(
+        git,
+        provider=StubAI(responses=["fix: first try", "fix: second try"]),
+        yes=False,
+    )
+    blocks = [("app.py", "diff --git a/app.py b/app.py\n+print(1)\n")]
+    assert orch._obtain_hunks_message(blocks, "main") == "fix: second try"
+
+
+@mock.patch("builtins.input", side_effect=["n"])
+def test_obtain_hunks_message_abort_raises(mock_input, git):
+    """Aborting at the hunks confirmation raises without a message."""
+    orch = make_orchestrator(
+        git, provider=StubAI(responses=["fix: unwanted"]), yes=False
+    )
+    blocks = [("app.py", "diff --git a/app.py b/app.py\n+print(1)\n")]
+    with pytest.raises(UserAbort):
+        orch._obtain_hunks_message(blocks, "main")
+
+
+def test_manual_input_warns_on_non_conventional_when_validating(git, capsys):
+    """--validate-manual warns but still returns the typed message."""
+    orch = make_orchestrator(git, validate_manual=True)
+    with mock.patch("relay.orchestrator.manual_input", return_value="wip stuff"):
+        assert orch._manual_input() == "wip stuff"
+    assert "not a Conventional Commit" in capsys.readouterr().out
+
+
+def test_post_push_hook_failure_without_stderr_still_warns(git, capsys):
+    """A stderr-less post_push failure warns once and keeps the push."""
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=None
+    ), mock.patch(
+        "relay.orchestrator.get_post_push_hook", return_value=["lint"]
+    ), mock.patch(
+        "relay.orchestrator.run_hook", side_effect=GitError("hook blew")
+    ):
+        code = make_orchestrator(
+            git, message="fix: push it", yes=True, no_push=False
+        ).run()
+    assert code == 0
+    assert "post_push hook failed" in capsys.readouterr().out
+
+
+def test_manual_input_valid_message_passes_validation_quietly(git, capsys):
+    """--validate-manual stays silent for a Conventional message."""
+    orch = make_orchestrator(git, validate_manual=True)
+    with mock.patch(
+        "relay.orchestrator.manual_input", return_value="fix: proper message"
+    ):
+        assert orch._manual_input() == "fix: proper message"
+    assert "not a Conventional Commit" not in capsys.readouterr().out
+
+
 
 
 
