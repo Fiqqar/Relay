@@ -111,3 +111,24 @@ def test_config_file_cache_hit_latency(monkeypatch, tmp_path):
     elapsed = (time.perf_counter() - start) / 100
     assert elapsed < 0.005, f"Config cache hit took {elapsed*1000:.2f} ms (budget 5 ms)"
 
+
+def test_truncate_diff_large_input_latency():
+    """A multi-megabyte diff must truncate within budget (fast-path guard)."""
+    from relay.ai.base import MAX_DIFF_BYTES, truncate_diff
+
+    big = ("+" + "x" * 200 + "\n") * 12000  # ~2.4 MiB of added lines
+    # Line-budget path: keeps the head lines plus a notice.
+    start = time.perf_counter()
+    out, truncated = truncate_diff(big)
+    elapsed = time.perf_counter() - start
+    assert truncated is True
+    assert "more diff lines truncated" in out
+    assert elapsed < 0.5, f"line truncation took {elapsed*1000:.2f} ms (budget 500 ms)"
+    # Byte-budget path: slices the UTF-8 payload without decoding per line.
+    start = time.perf_counter()
+    out, truncated = truncate_diff(big, max_lines=20000)
+    elapsed = time.perf_counter() - start
+    assert truncated is True
+    assert len(out.encode("utf-8")) <= MAX_DIFF_BYTES + 200
+    assert elapsed < 0.5, f"byte truncation took {elapsed*1000:.2f} ms (budget 500 ms)"
+
