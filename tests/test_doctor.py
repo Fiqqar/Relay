@@ -9,6 +9,7 @@ from relay.doctor import (
     _git_version,
     _ollama_reachable,
     _probe_forge,
+    _probe_forge_endpoint,
     _probe_provider,
     run_doctor,
 )
@@ -739,5 +740,36 @@ def test_probe_forge_bitbucket_connection_failure():
     assert check is not None
     assert check.status == "fail"
     assert "Bitbucket connection failed" in check.detail
+
+
+# ---- _probe_forge_endpoint: shared forge-probe reader --------------------------
+
+
+def test_probe_forge_endpoint_skips_without_token():
+    """No token means no probe for that forge."""
+    check = _probe_forge_endpoint(
+        label="GitHub",
+        token=None,
+        url="https://api.github.com/user",
+        headers={},
+        user_field="login",
+    )
+    assert check is None
+
+
+def test_probe_forge_endpoint_reports_user():
+    """A reachable endpoint reports the forge user."""
+    resp = _ok_probe_response(b'{"login": "octo"}')
+    with mock.patch("urllib.request.urlopen", return_value=resp):
+        check = _probe_forge_endpoint(
+            label="GitHub",
+            token="tok",
+            url="https://api.github.com/user",
+            headers={},
+            user_field="login",
+        )
+    assert check is not None
+    assert check.status == "ok"
+    assert "GitHub @octo" in check.detail
 
 
