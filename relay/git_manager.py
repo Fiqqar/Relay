@@ -420,41 +420,37 @@ class GitManager:
         """Short diffstat of staged changes (context for the AI prompt)."""
         return self._run("diff", "--cached", "--stat").stdout
 
+    def _diff_with_head_fallback(self, *args: str) -> str:
+        """Run `git diff HEAD <args>`; fall back to staged+unstaged on failure.
+
+        HEAD may not exist (empty repo) or be ambiguous: combine the staged
+        and unstaged diffs with newline separation so callers still see the
+        working-tree changes. The combined result is stripped like the HEAD
+        path, which is a no-op for the line-parsing callers.
+        """
+        proc = self._run("diff", "HEAD", *args, check=False)
+        if proc.returncode == 0:
+            return proc.stdout
+        staged = self._run("diff", "--cached", *args, check=False).stdout
+        unstaged = self._run("diff", *args, check=False).stdout
+        sep = "\n" if staged and unstaged and not staged.endswith("\n") else ""
+        return (staged + sep + unstaged).strip()
+
     def head_diff(self) -> str:
         """Diff of HEAD vs working tree + index (what `git add .` would stage).
 
         Used for `--dry-run` preview so the index is never mutated. When HEAD
         does not exist yet (empty repo), falls back to the staged + unstaged diff.
         """
-        proc = self._run("diff", "HEAD", "--unified=0", check=False)
-        if proc.returncode == 0:
-            return proc.stdout
-        # Empty repo or ambiguous HEAD: combine staged and unstaged
-        staged = self._run("diff", "--cached", "--unified=0", check=False).stdout
-        unstaged = self._run("diff", "--unified=0", check=False).stdout
-        sep = "\n" if staged and unstaged and not staged.endswith("\n") else ""
-        return (staged + sep + unstaged).strip()
+        return self._diff_with_head_fallback("--unified=0")
 
     def head_stat(self) -> str:
         """Stat of HEAD vs working tree + index."""
-        proc = self._run("diff", "HEAD", "--stat", check=False)
-        if proc.returncode == 0:
-            return proc.stdout
-        staged = self._run("diff", "--cached", "--stat", check=False).stdout
-        unstaged = self._run("diff", "--stat", check=False).stdout
-        sep = "\n" if staged and unstaged and not staged.endswith("\n") else ""
-        return (staged + sep + unstaged).strip()
+        return self._diff_with_head_fallback("--stat")
 
     def head_diff_binary_only(self) -> bool:
         """True when the HEAD diff consists only of binary entries."""
-        proc = self._run("diff", "HEAD", "--numstat", check=False)
-        if proc.returncode == 0:
-            out = proc.stdout
-        else:
-            a = self._run("diff", "--cached", "--numstat", check=False).stdout
-            b = self._run("diff", "--numstat", check=False).stdout
-            sep = "\n" if a and b and not a.endswith("\n") else ""
-            out = a + sep + b
+        out = self._diff_with_head_fallback("--numstat")
         lines = [line for line in out.splitlines() if line.strip()]
         if not lines:
             return False
