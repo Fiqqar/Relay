@@ -176,15 +176,7 @@ class Orchestrator:
         # Message-only by default (the index must be clean); --staged folds
         # staged content in explicitly.
         if self.mode == "amend":
-            if tree_before is not None:
-                try:
-                    tree_after = self.git.write_tree()
-                except GitError:
-                    tree_after = ""
-                if tree_after != tree_before:
-                    raise GitError(
-                        "staged changes changed while Relay was running; review the index and retry"
-                    )
+            self._assert_index_unchanged(tree_before)
             return self._run_amend(message, branch, head_before)
 
         # Resolve the team-mode branch name BEFORE any mutation so --dry-run
@@ -224,15 +216,7 @@ class Orchestrator:
             )
 
         # TOCTOU: ensure the index is the same one the AI approved
-        if tree_before is not None:
-            try:
-                tree_after = self.git.write_tree()
-            except GitError:
-                tree_after = ""
-            if tree_after != tree_before:
-                raise GitError(
-                    "staged changes changed while Relay was running; review the index and retry"
-                )
+        self._assert_index_unchanged(tree_before)
 
         # TOCTOU: ensure the branch/HEAD are the same ones the AI saw —
         # checked after the pre-commit hook too, right before mutating.
@@ -323,6 +307,23 @@ class Orchestrator:
 
         print(f"[relay] done: pushed to '{branch}'")
         return 0
+
+    def _assert_index_unchanged(self, tree_before: str | None) -> None:
+        """Re-read the index tree; refuse when it moved mid-run (TOCTOU).
+
+        A None snapshot means the tree could not be captured up front, so
+        there is nothing to compare against.
+        """
+        if tree_before is None:
+            return
+        try:
+            tree_after = self.git.write_tree()
+        except GitError:
+            tree_after = ""
+        if tree_after != tree_before:
+            raise GitError(
+                "staged changes changed while Relay was running; review the index and retry"
+            )
 
     def _amend_target_diff(self) -> tuple[str, str]:
         """(diff, stat) describing the last commit — what amend re-messages.

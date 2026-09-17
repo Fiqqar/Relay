@@ -1402,6 +1402,28 @@ def test_manual_input_valid_message_passes_validation_quietly(git, capsys):
     assert "not a Conventional Commit" not in capsys.readouterr().out
 
 
+# ---- _assert_index_unchanged: shared TOCTOU index guard -------------------------
+
+
+def test_assert_index_unchanged_passes_when_stable(git):
+    orch = make_orchestrator(git)
+    assert orch._assert_index_unchanged("abc123") is None
+
+
+def test_assert_index_unchanged_skips_without_snapshot(git):
+    git.write_tree.side_effect = GitError("boom")
+    orch = make_orchestrator(git)
+    assert orch._assert_index_unchanged(None) is None
+    git.write_tree.assert_not_called()
+
+
+def test_assert_index_unchanged_refuses_on_retree_failure(git):
+    git.write_tree.side_effect = GitError("boom")
+    orch = make_orchestrator(git)
+    with pytest.raises(GitError, match="staged changes changed"):
+        orch._assert_index_unchanged("abc123")
+
+
 
 
 
