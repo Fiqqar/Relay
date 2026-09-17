@@ -845,3 +845,28 @@ def test_is_sensitive_path_ignores_normal_files():
     assert is_sensitive_path("src/config.py") is False
     assert is_sensitive_path("") is False
     assert is_sensitive_path("docs/.env.example.txt") is False
+
+
+# ---- _diff_with_head_fallback: shared HEAD/fallback reader ---------------------
+
+
+def test_diff_with_head_fallback_prefers_head(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--stat"):
+            return FakeRun("head stat\n")
+        raise AssertionError(f"unexpected git call: {args}")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git._diff_with_head_fallback("--stat") == "head stat\n"
+
+
+def test_diff_with_head_fallback_joins_with_newline_separator(git):
+    def fake_run(*args, **kw):
+        if args == ("diff", "HEAD", "--stat"):
+            return FakeRun("", returncode=128)
+        if args == ("diff", "--cached", "--stat"):
+            return FakeRun("cached-part")  # no trailing newline
+        if args == ("diff", "--stat"):
+            return FakeRun("unstaged-part")
+        return FakeRun("")
+    with mock.patch.object(git, "_run", side_effect=fake_run):
+        assert git._diff_with_head_fallback("--stat") == "cached-part\nunstaged-part"
