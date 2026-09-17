@@ -16,6 +16,7 @@ from relay.bitbucket import (
     BitbucketClient,
     BitbucketError,
     DuplicatePullRequestError,
+    _extract_reason,
     bitbucket_token,
 )
 
@@ -209,5 +210,40 @@ class TestVerboseLogging:
                 assert mock_urlopen.call_count == 2
                 assert mock_sleep.call_count == 1
                 assert 1.0 <= mock_sleep.call_args.args[0] <= 1.6
+
+
+# ---- _extract_reason miss-branch coverage --------------------------------------
+
+
+def test_extract_reason_error_without_message_falls_through():
+    """An error object without a message keeps looking at other shapes."""
+    assert _extract_reason({"error": {"detail": "only detail"}}) == ""
+
+
+def test_extract_reason_skips_non_dict_error_entries():
+    """Non-dict entries in the errors list are skipped, not crashed on."""
+    payload = {"errors": ["raw string", {"message": "bad request"}]}
+    assert _extract_reason(payload) == "bad request"
+
+
+def test_extract_reason_skips_non_string_messages():
+    """Non-string messages in the errors list are skipped."""
+    payload = {"errors": [{"message": 42}, {"message": "real problem"}]}
+    assert _extract_reason(payload) == "real problem"
+
+
+def test_extract_reason_top_level_message():
+    """A top-level message is the last shape before giving up."""
+    assert _extract_reason({"message": "top boom"}) == "top boom"
+
+
+def test_extract_reason_empty_payload():
+    """An empty payload yields an empty reason."""
+    assert _extract_reason({}) == ""
+
+
+def test_extract_reason_unusable_errors_list_falls_through():
+    """An errors list with no usable message yields an empty reason."""
+    assert _extract_reason({"errors": ["raw", {"message": 42}]}) == ""
 
 
