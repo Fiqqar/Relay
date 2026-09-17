@@ -5,7 +5,13 @@ from unittest import mock
 import pytest
 
 from relay.cli import build_parser, main
-from relay.doctor import _git_version, _ollama_reachable, run_doctor
+from relay.doctor import (
+    _git_version,
+    _ollama_reachable,
+    _probe_forge,
+    _probe_provider,
+    run_doctor,
+)
 
 
 class FakeGit:
@@ -584,5 +590,154 @@ def test_keyed_providers_share_set_missing_message_convention(
     ), mock.patch(f"relay.doctor.{prov}_api_key", return_value=None):
         assert run_doctor() == 1
     assert f"{env} is not set" in capsys.readouterr().out
+
+
+# ---- probe miss-branch coverage -------------------------------------------
+
+
+def _ok_probe_response(body: bytes = b"{}"):
+    """A context-manager HTTP response stub for probe tests (no network)."""
+    resp = mock.MagicMock()
+    resp.read.return_value = body
+    resp.__enter__.return_value = resp
+    return resp
+
+
+def test_probe_gemini_aq_key_uses_bearer_auth():
+    """Gemini keys starting with 'AQ.' authenticate via a Bearer header."""
+    with mock.patch("relay.doctor.gemini_api_key", return_value="AQ.test-token"), \
+         mock.patch("urllib.request.urlopen", return_value=_ok_probe_response()) as urlopen:
+        check = _probe_provider("gemini")
+    assert check.status == "ok"
+    headers = {k.lower(): v for k, v in urlopen.call_args.args[0].header_items()}
+    assert headers.get("authorization") == "Bearer AQ.test-token"
+
+
+def test_probe_groq_missing_key_skips():
+    """OpenAI-compatible providers skip the probe when their key is missing."""
+    with mock.patch("relay.doctor.groq_api_key", return_value=None):
+        check = _probe_provider("groq")
+    assert check.status == "skip"
+    assert "GROQ_API_KEY is not set" in check.detail
+
+
+def test_probe_anthropic_missing_key_skips():
+    """The Anthropic probe skips when its key is missing."""
+    with mock.patch("relay.doctor.anthropic_api_key", return_value=None):
+        check = _probe_provider("anthropic")
+    assert check.status == "skip"
+    assert "ANTHROPIC_API_KEY is not set" in check.detail
+
+
+def test_probe_unknown_provider_skips():
+    """Unknown provider names skip the probe instead of probing anything."""
+    check = _probe_provider("watson")
+    assert check.status == "skip"
+    assert "unknown provider 'watson'" in check.detail
+
+
+def test_probe_ai_connection_failure_fails():
+    """Non-HTTP probe errors degrade to FAIL, never raise out of the probe."""
+    with mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), \
+         mock.patch("urllib.request.urlopen", side_effect=OSError("dns boom")):
+        check = _probe_provider("gemini")
+    assert check.status == "fail"
+    assert "connection failed" in check.detail
+
+
+def test_probe_forge_github_connection_failure():
+    """The GitHub probe maps transport errors to FAIL."""
+    with mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("urllib.request.urlopen", side_effect=OSError("reset")):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "GitHub connection failed" in check.detail
+
+
+def test_probe_forge_gitlab_oversized_body_fails():
+    """The GitLab probe rejects bodies over the probe cap."""
+    from relay.doctor import _MAX_PROBE_BODY_BYTES
+
+    big = _ok_probe_response(b"x" * (_MAX_PROBE_BODY_BYTES + 1))
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("urllib.request.urlopen", return_value=big):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "GitLab response too large" in check.detail
+
+
+def test_probe_forge_gitlab_http_error_fails():
+    """The GitLab probe maps HTTP errors to FAIL."""
+    import urllib.error
+
+    err = urllib.error.HTTPError("https://gitlab.test", 403, "Forbidden", {}, None)
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("urllib.request.urlopen", side_effect=err):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "GitLab HTTP 403" in check.detail
+
+
+def test_probe_forge_gitlab_connection_failure():
+    """The GitLab probe maps transport errors to FAIL."""
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"), \
+         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
+         mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "GitLab connection failed" in check.detail
+
+
+def test_probe_forge_bitbucket_oversized_body_fails():
+    """The Bitbucket probe rejects bodies over the probe cap."""
+    from relay.doctor import _MAX_PROBE_BODY_BYTES
+
+    big = _ok_probe_response(b"x" * (_MAX_PROBE_BODY_BYTES + 1))
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"), \
+         mock.patch("urllib.request.urlopen", return_value=big):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "Bitbucket response too large" in check.detail
+
+
+def test_probe_forge_bitbucket_http_error_fails():
+    """The Bitbucket probe maps HTTP errors to FAIL."""
+    import urllib.error
+
+    err = urllib.error.HTTPError(
+        "https://bitbucket.test", 401, "Unauthorized", {}, None
+    )
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"), \
+         mock.patch("urllib.request.urlopen", side_effect=err):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "Bitbucket HTTP 401" in check.detail
+
+
+def test_probe_forge_bitbucket_connection_failure():
+    """The Bitbucket probe maps transport errors to FAIL."""
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.gitlab_token", return_value=None), \
+         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"), \
+         mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
+        check = _probe_forge()
+    assert check is not None
+    assert check.status == "fail"
+    assert "Bitbucket connection failed" in check.detail
 
 
