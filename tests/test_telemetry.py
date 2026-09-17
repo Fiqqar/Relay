@@ -321,3 +321,40 @@ def test_report_with_private_url(monkeypatch, capsys):
         kwargs = report.call_args.kwargs
         assert kwargs["mode"] == "solo"
         assert kwargs["ok"] is True
+
+
+def test_is_local_or_private_host_unwraps_mapped_ipv6():
+    """IPv4-mapped IPv6 inherits the embedded address's classification."""
+    assert telemetry._is_local_or_private_host("::ffff:127.0.0.1") is True
+    assert telemetry._is_local_or_private_host("::ffff:10.0.0.1") is True
+
+
+def test_is_https_rejects_hostless_url():
+    """A URL with no parseable hostname (e.g. a bare port) is rejected."""
+    assert telemetry._is_https("https://:8080/collect") is False
+
+
+def test_is_valid_ai_base_url_rejects_hostless_url():
+    """A URL with no parseable hostname is never a safe AI endpoint."""
+    assert telemetry._is_valid_ai_base_url("https://:8080/v1") is False
+
+
+def test_is_valid_ai_base_url_allows_mapped_loopback():
+    """IPv4-mapped loopback over http is a local model server."""
+    assert telemetry._is_valid_ai_base_url("http://[::ffff:127.0.0.1]:11434") is True
+
+
+def test_is_valid_ai_base_url_allows_public_ip_over_https():
+    """A public IP literal over https is not a private endpoint."""
+    assert telemetry._is_valid_ai_base_url("https://8.8.8.8/v1") is True
+
+
+def test_safe_redirect_handler_follows_public_https():
+    """Redirects to public https endpoints are followed, not dropped."""
+    import urllib.request
+
+    handler = telemetry._SafeRedirectHandler()
+    req = urllib.request.Request("https://example.com/start")
+    nxt = handler.redirect_request(req, None, 302, "Found", {}, "https://example.com/other")
+    assert nxt is not None
+    assert nxt.full_url == "https://example.com/other"
