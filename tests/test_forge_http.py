@@ -13,6 +13,7 @@ from unittest import mock
 import pytest
 
 from relay.errors import RelayError
+from relay.forge_http import join_error_messages
 
 
 class StubForgeError(RelayError):
@@ -120,3 +121,26 @@ def test_quiet_mode_prints_nothing(capsys):
     with mock.patch("urllib.request.urlopen", return_value=fake_http(b"[]")):
         call_helper(req, verbose=False)
     assert capsys.readouterr().out == ""
+
+
+# ---- join_error_messages: shared errors-list reader ---------------------------
+
+
+def test_join_error_messages_collects_dict_and_string_entries():
+    errors = [{"message": "first problem"}, "second problem", {"message": "third"}]
+    assert join_error_messages(errors, bare_strings=True) == (
+        "first problem; second problem; third"
+    )
+
+
+def test_join_error_messages_skips_unusable_entries():
+    assert join_error_messages(["raw", {"message": 42}, {"other": 1}, None]) == ""
+    assert join_error_messages(
+        ["raw", {"message": 42}, {"other": 1}, None], bare_strings=True
+    ) == "raw"
+
+
+def test_join_error_messages_empty_and_non_list():
+    assert join_error_messages([]) == ""
+    assert join_error_messages(None) == ""
+    assert join_error_messages({"message": "not a list"}) == ""

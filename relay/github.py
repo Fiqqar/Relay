@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 
 from .errors import RelayError
-from .forge_http import request_json
+from .forge_http import join_error_messages, request_json
 
 API_BASE = "https://api.github.com"
 DEFAULT_TIMEOUT_SECONDS = 30
@@ -70,17 +70,9 @@ def _extract_reason(payload) -> str:
     if not isinstance(payload, dict):
         return ""
     detail = payload.get("message") or ""
-    errors = payload.get("errors")
-    if errors:
-        reasons = []
-        for err in errors:
-            if isinstance(err, dict) and err.get("message"):
-                reasons.append(err["message"])
-            elif isinstance(err, str) and err:
-                reasons.append(err)
-        if reasons:
-            joined = "; ".join(reasons)
-            detail = f"{detail} ({joined})" if detail else joined
+    joined = join_error_messages(payload.get("errors"), bare_strings=True)
+    if joined:
+        detail = f"{detail} ({joined})" if detail else joined
     return detail
 
 
