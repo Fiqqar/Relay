@@ -13,7 +13,7 @@ import urllib.request
 
 from ..config import ai_timeout, gemini_api_key, gemini_model
 from ..errors import AIError, ConfigError
-from .base import AIManager, decode_provider_json, extract_http_error_detail, read_limited_response
+from .base import AIManager, decode_provider_json, normalize_transport_error, read_limited_response
 
 _ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -81,30 +81,15 @@ class GeminiProvider(AIManager):
                 data = decode_provider_json(
                     read_limited_response(response, self.provider_name), self.provider_name
                 )
-        except urllib.error.HTTPError as exc:
-            # Map HTTP status codes to AIError kinds the fallback understands:
-            # 429 = rate limited (transient), 5xx = server unavailable.
-            if exc.code == 429:
-                kind = "rate_limited"
-            elif exc.code >= 500:
-                kind = "unavailable"
-            else:
-                kind = "api_error"
-            detail = extract_http_error_detail(exc) or exc.reason
-            raise AIError(self.provider_name, kind, f"HTTP {exc.code}: {detail}") from exc
-        except TimeoutError as exc:
-            # Timeout hit (a real network outage or a hung provider): treat as
-            # "unavailable" so the Orchestrator falls back to manual input
-            # instead of hanging.
-            raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
-        except urllib.error.URLError as exc:
-            # urllib wraps socket.timeout (and other OSErrors) in URLError; a
-            # wrapped timeout must be treated identically to a direct one.
-            if isinstance(exc.reason, TimeoutError):
-                raise AIError(self.provider_name, "unavailable", f"timeout after {self.timeout}s") from exc
-            raise AIError(self.provider_name, "unavailable", f"network error: {exc}") from exc
-        except ConnectionError as exc:
-            raise AIError(self.provider_name, "unavailable", f"connection error: {exc}") from exc
+        except (
+            urllib.error.HTTPError,
+            TimeoutError,
+            urllib.error.URLError,
+            ConnectionError,
+        ) as exc:
+            raise normalize_transport_error(
+                exc, provider=self.provider_name, timeout=self.timeout
+            ) from exc
 
         if "error" in data:
             raise AIError(self.provider_name, "bad_response", str(data["error"]))
