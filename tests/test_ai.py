@@ -1069,6 +1069,60 @@ def test_truncate_diff_preserves_multibyte_utf8_boundary():
     assert result.startswith("prefix-caf")
     assert f"... [diff truncated to {cut_idx} bytes]" in result
 
+
+# ---- Provider base-URL + header/connection miss branches -----------------------
+
+
+def test_openai_rejects_public_http_base_url():
+    """Public hosts must use https; http is localhost-only."""
+    with pytest.raises(ConfigError, match="invalid AI base URL"):
+        OpenAIProvider(api_key="k", model="m", base_url="http://example.com/v1")
+
+
+def test_groq_rejects_public_http_base_url():
+    with pytest.raises(ConfigError, match="invalid AI base URL"):
+        GroqProvider(api_key="k", model="m", base_url="http://example.com/v1")
+
+
+def test_mistral_rejects_public_http_base_url():
+    with pytest.raises(ConfigError, match="invalid AI base URL"):
+        MistralProvider(api_key="k", model="m", base_url="http://example.com/v1")
+
+
+def test_xai_rejects_public_http_base_url():
+    with pytest.raises(ConfigError, match="invalid AI base URL"):
+        XaiProvider(api_key="k", model="m", base_url="http://example.com/v1")
+
+
+def test_anthropic_rejects_public_http_base_url():
+    with pytest.raises(ConfigError, match="invalid AI base URL"):
+        AnthropicProvider(api_key="k", model="m", base_url="http://example.com/v1")
+
+
+def test_gemini_aq_key_uses_bearer_auth(sample_diff, sample_stat):
+    """Gemini keys starting with 'AQ.' authenticate via a Bearer header."""
+    provider = GeminiProvider(api_key="AQ.test-token", model="m", timeout=5)
+    resp = mock.MagicMock()
+    resp.read.return_value = json.dumps(GEMINI_SUCCESS).encode("utf-8")
+    resp.__enter__.return_value = resp
+    with mock.patch("urllib.request.urlopen", return_value=resp) as urlopen:
+        assert provider.generate_commit_message(sample_diff, sample_stat, "main") == (
+            "feat(api): add login"
+        )
+    headers = {k.lower(): v for k, v in urlopen.call_args.args[0].header_items()}
+    assert headers.get("authorization") == "Bearer AQ.test-token"
+
+
+def test_gemini_connection_error_is_unavailable(sample_diff, sample_stat):
+    """A dropped Gemini connection degrades to unavailable, never raises."""
+    provider = GeminiProvider(api_key="test-key", model="m", timeout=5)
+    with mock.patch(
+        "urllib.request.urlopen", side_effect=ConnectionError("reset")
+    ):
+        with pytest.raises(AIError) as exc_info:
+            provider.generate_commit_message(sample_diff, sample_stat, "main")
+    assert exc_info.value.kind == "unavailable"
+
     # 4-byte UTF-8 character: U+1F680 (rocket) is b'\xf0\x9f\x9a\x80'
     rocket = "\U0001F680"
     base_prefix = "commit-"
