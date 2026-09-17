@@ -12,6 +12,7 @@ from relay.ai.base import (
     _path_matches,
     extract_http_error_detail,
     filter_ignored_diff,
+    normalize_transport_error,
     split_diff_by_file,
     truncate_diff,
 )
@@ -90,3 +91,60 @@ def test_truncate_diff_small_unicode_is_passthrough():
 def test_build_prompt_omits_recent_section_when_all_blank():
     prompt = AIManager.build_prompt("D", "S", "main", recent_commits=["", "   "])
     assert "Recent commit" not in prompt
+
+
+# ---- normalize_transport_error: shared provider failure mapping ----------------
+
+
+def test_normalize_rate_limited():
+    err = normalize_transport_error(
+        _http_error(b'{"error": {"message": "slow down"}}', code=429, reason="Too Many"),
+        provider="gemini",
+        timeout=30,
+    )
+    assert (err.provider, err.kind) == ("gemini", "rate_limited")
+    assert "HTTP 429" in str(err)
+
+
+def test_normalize_server_error_is_unavailable():
+    err = normalize_transport_error(
+        _http_error(b"boom", code=503), provider="ollama", timeout=30
+    )
+    assert err.kind == "unavailable"
+
+
+def test_normalize_client_error_is_api_error():
+    err = normalize_transport_error(
+        _http_error(b"nope", code=400, reason="Bad Request"),
+        provider="openai",
+        timeout=30,
+    )
+    assert err.kind == "api_error"
+
+
+def test_normalize_timeout():
+    err = normalize_transport_error(TimeoutError("hung"), provider="x", timeout=7)
+    assert err.kind == "unavailable"
+    assert "timeout after 7s" in str(err)
+
+
+def test_normalize_wrapped_timeout():
+    wrapped = urllib.error.URLError(TimeoutError("hung"))
+    err = normalize_transport_error(wrapped, provider="x", timeout=7)
+    assert err.kind == "unavailable"
+    assert "timeout after 7s" in str(err)
+
+
+def test_normalize_network_error():
+    wrapped = urllib.error.URLError("connection refused")
+    err = normalize_transport_error(wrapped, provider="x", timeout=7)
+    assert err.kind == "unavailable"
+    assert "network error" in str(err)
+
+
+def test_normalize_connection_error():
+    err = normalize_transport_error(
+        ConnectionError("reset"), provider="x", timeout=7
+    )
+    assert err.kind == "unavailable"
+    assert "connection error" in str(err)

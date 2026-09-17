@@ -70,6 +70,31 @@ def extract_http_error_detail(exc: urllib.error.HTTPError) -> str:
     except Exception:
         return exc.reason or ""
 
+
+def normalize_transport_error(exc: BaseException, *, provider: str, timeout: int) -> AIError:
+    """Map stdlib transport failures to the AIError the fallback understands.
+
+    429 = rate limited (transient, retried), 5xx = server unavailable, and
+    everything else = unavailable so the Orchestrator falls back to manual
+    input. HTTPError is checked before URLError because it subclasses it.
+    """
+    if isinstance(exc, urllib.error.HTTPError):
+        if exc.code == 429:
+            kind = "rate_limited"
+        elif exc.code >= 500:
+            kind = "unavailable"
+        else:
+            kind = "api_error"
+        detail = extract_http_error_detail(exc) or exc.reason
+        return AIError(provider, kind, f"HTTP {exc.code}: {detail}")
+    if isinstance(exc, TimeoutError):
+        return AIError(provider, "unavailable", f"timeout after {timeout}s")
+    if isinstance(exc, urllib.error.URLError):
+        if isinstance(exc.reason, TimeoutError):
+            return AIError(provider, "unavailable", f"timeout after {timeout}s")
+        return AIError(provider, "unavailable", f"network error: {exc}")
+    return AIError(provider, "unavailable", f"connection error: {exc}")
+
 # Byte budget for the diff sent to the LLM. Even if line-count is within cap,
 # a single line (e.g. minified file) could be huge.
 MAX_DIFF_BYTES = 512 * 1024  # 512 KiB
