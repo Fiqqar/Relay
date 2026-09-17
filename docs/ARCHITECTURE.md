@@ -51,7 +51,7 @@ Relay is **zero-dependency by design**: everything uses the Python standard libr
 
 ### 3.1 CLI Parser — `relay/cli.py`
 - Library: **argparse** (stdlib).
-- Responsibility: parse flags (`--solo`, `--team [FEATURE]`, `--provider`, `--yes`, `--no-push`, `--dry-run`, `--verbose`, `--version`); resolve the mode; construct the AI provider; wire the Orchestrator; map exceptions to exit codes (`0` success, `1` error, `130` user abort).
+- Responsibility: parse flags (`--solo`, `--team [FEATURE]`, `-m`/`--message`, `--provider`, `--timeout`, `--yes`, `--no-push`, `--dry-run`, `--staged`, `--no-verify`, `--allow-protected`, `--allow-sensitive`, `--validate-manual`, `--repo`, `--hunks`, `--verbose`, `--version`); resolve the mode; construct the AI provider; wire the Orchestrator; map exceptions to exit codes (`0` success, `1` error, `130` user abort).
 - Keeps zero business logic — it only translates CLI input into an `Orchestrator` call.
 
 ### 3.2 Config Manager — `relay/config.py`
@@ -117,7 +117,9 @@ class AIManager(ABC):
 Each model/base URL is overridable via `<PROVIDER>_MODEL` / `<PROVIDER>_BASE_URL`; the
 full provider list lives in `_PROVIDERS` (`relay/ai/__init__.py`). A new provider is a
 drop-in: subclass `OpenAIProvider`, register it, add a config getter + doctor branch.
-- Shared behavior: HTTP timeouts and typed errors:
+- Shared behavior: HTTP timeouts and typed errors (transport failures normalize
+  through `normalize_transport_error()` in `relay/ai/base.py`, shared by the
+  Gemini/OpenAI/Anthropic/Ollama providers):
 
 ```python
 # relay/errors.py
@@ -126,18 +128,33 @@ class AIError(RelayError):
     provider
 ```
 
-### 3.8 Message Builder / Validator — `relay/commit.py`
+### 3.8 Forge Clients — `relay/pr.py` + `relay/{github,gitlab,bitbucket}.py`
+
+- Responsibility: open PRs/MRs (`relay pr`) against GitHub (`github.com` +
+  trusted Enterprise hosts), GitLab (`gitlab.com` + self-hosted), and
+  Bitbucket Cloud — all over stdlib `urllib`, no SDKs.
+- Shared transport lives in `relay/forge_http.py` (`request_json`: capped
+  reads, transient 429/5xx retry with backoff+jitter, normalized errors);
+  per-forge differences arrive as parameters (error class, reason extractor,
+  display names). Shared payload readers live there too
+  (`parse_json_body`, `join_error_messages` for `errors`-list shapes).
+- Web URLs (PR list / single PR) come from one table keyed by forge kind
+  (`_FORGE_WEB_PATHS`: github `pulls`/`pull`, bitbucket `pull-requests`,
+  gitlab `-/merge_requests`).
+
+### 3.9 Message Builder / Validator — `relay/commit.py`
 - `sanitize_ai_message` — trims raw LLM output, strips markdown code fences, keeps the first non-empty line.
-- `validate_conventional` — validates the subject line against the Conventional Commits grammar (`type(scope): subject`, type ∈ `feat|fix|refactor|docs|style|test|chore|perf|build|ci|revert`).
+- `validate_conventional` and `extract_commit_type` share one first-line
+  matcher (`_match_first_line`) against the Conventional Commits grammar (`type(scope): subject`, type ∈ `feat|fix|refactor|docs|style|test|chore|perf|build|ci|revert`).
 - If validation fails, the Orchestrator treats it as an AI failure → **manual fallback** (a bad AI message is never silently committed or mangled).
 - `build_branch_name` — expands `<type>/<feature>` into a valid git ref (lowercase, whitespace → `-`, strips `~^:?*[\`, drops `.`/`..` path segments, caps at 100 chars).
 
-### 3.9 PromptUI — `relay/prompt.py`
+### 3.10 PromptUI — `relay/prompt.py`
 - Library: plain `input()` plus stdlib `subprocess`/`tempfile` for the editor flow — deliberately dependency-free.
 - Responsibility: the confirmation gate (`[Accept] [Edit] [Retry] [Abort]`) for AI messages, the editor draft flow (`open_in_editor`), and the manual-message fallback prompt (`manual_input`). The Orchestrator calls these through thin seams, so prompting is unit-testable without a workflow run.
 - Non-TTY (piped) environments: `input()` raises `EOFError`, which the CLI layer converts to exit `1` — the run never hangs.
 
-### 3.10 Output / Logging — inline
+### 3.11 Output / Logging — inline
 - Milestones and errors print to stdout/stderr with a `[relay]` prefix. `--verbose` prints each git command. The diff contents are never logged (NFR-3).
 
 ## 4. Data Flow (Solo mode example)
@@ -203,7 +220,7 @@ Errors flow through a small taxonomy in `relay/errors.py`: `RelayError` (base) �
 | Prompts | built-in `input()` | Enough for one-shot prompts; no TTY library required. |
 | Git | **subprocess.run** (list argv) | Reuses user credentials/hooks; simpler and safer than a git library. |
 | HTTP | **urllib** (stdlib) | Only two REST endpoints; no need for `requests`. |
-| Tests | **pytest** + `pytest-cov` + `unittest.mock` | ~1000 hermetic tests, 93% branch gate enforced in CI. |
+| Tests | **pytest** + `pytest-cov` + `unittest.mock` | ~1180 hermetic tests, 93% branch gate enforced in CI. |
 | Packaging | `pyproject.toml` + setuptools | `pip install -e .` yields a global `relay` console script. |
 
 *Why not Go/Rust?* Both produce a single static binary, but Python's interpreter is already present on most developer machines, so `pip install` is the only distribution step, and provider/CLI changes don't require a rebuild. If a static binary is ever required, the stdlib-only constraint keeps a future PyInstaller/Nuitka build straightforward. *Why not `requests`/`typer`?* Zero dependencies means the tool installs and runs everywhere, even offline — the strongest property for a global CLI.
