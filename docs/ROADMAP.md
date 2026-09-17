@@ -1,7 +1,8 @@
 # Relay Roadmap
 
-Ordered plan from the initial release to **v1.0.0 (GA)**. Versions `0.1.0`
-through `1.0.0` are shipped and closed; Relay is now in stable General Availability.
+Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
+history since. Versions `0.1.0` through `2.1.1` are shipped and closed;
+Relay is in stable General Availability with hardening releases on top.
 
 ## Legend
 
@@ -379,6 +380,95 @@ of the prompt. ✅
 - [x] Backward compatibility and CLI surface stability guaranteed under SemVer (ADR-012)
 
 **Exit:** `v1.0.0` released; Homebrew + Scoop point at it; all systems verified production-ready. ✅
+
+---
+
+## Shipped post-GA history (`1.0.1` → `2.1.1`)
+
+### v1.0.1 — Supply-chain hardening
+
+- [x] Native `gh release create` replaces the third-party release action;
+      SHA256SUMS + CycloneDX SBOM + SLSA provenance attestation
+- [x] Bandit SAST with SARIF upload; POSIX bash defaults on all runners
+- [x] CI matrix trimmed 9 → 5 configs; docs-path ignore rules; non-destructive
+      concurrency (no in-flight cancellation on `main`)
+
+**Exit:** releases are built and attested with stdlib/native tooling only. ✅
+
+### v1.0.2 — Correctness patch
+
+- [x] Git option-injection guards on the remaining dynamic invocations
+- [x] Ollama 429/5xx kind mapping fix; Gemini structured `"error"` check
+- [x] Nested team-branch truncation fix; single-char Conventional subjects
+- [x] Scoop hash CI guard; jitter on all retry backoffs
+
+**Exit:** provider error kinds agree across all backends; release hashes gated. ✅
+
+### v1.1.0 — Workflow depth II
+
+- [x] `-m` / `--message` direct commit flag (AI skipped, workflow intact)
+- [x] External editor (`$VISUAL` / `$EDITOR`) for manual input
+- [x] Recent-commit context injected into AI prompts (scope alignment)
+- [x] Retry explores alternatives (temperature + prompt variation)
+- [x] Repo-local `.relay.toml` (secrets/host URLs excluded by allowlist)
+- [x] Self-hosted GitHub Enterprise via `RELAY_TRUSTED_GITHUB_HOSTS`
+- [x] `relay doctor --probe` — live credential checks with latency
+
+**Exit:** scripted (`-m`), editor-driven, and repo-configured flows all green. ✅
+
+### v1.1.1 — Robustness patch
+
+- [x] Preflight conflict guard (merge/rebase in progress halts before `add`)
+- [x] Windows editor-path backslashes; non-ASCII porcelain decoding
+- [x] UTF-8 truncation backtracks across partial multi-byte sequences
+- [x] Installer venv/shell detection; AI gateway error diagnostics
+- [x] Headless offline fallback provider for the e2e suite
+
+**Exit:** conflicted trees, non-ASCII paths, and headless CI all handled. ✅
+
+### v1.1.2 — Safety patch
+
+- [x] Message-only `relay amend` (dirty index refused unless `--staged`)
+- [x] Branch/HEAD TOCTOU re-verification before every mutation
+- [x] Squash dirty-index re-check before `reset --soft`
+- [x] Null/blank AI message fields degrade to manual input
+- [x] Porcelain renames only split `old -> new` on real rename entries
+
+**Exit:** concurrent `git switch` and dirty indexes can no longer misdirect a run. ✅
+
+### v1.1.3 — Security regression suite
+
+- [x] `tests/security/` adversarial suite (58 tests) + separate gating CI job
+- [x] `git switch -c <name>` branch-creation fix (all team flows)
+- [x] Malformed provider bodies normalize to `AIError(bad_response)`
+- [x] AI contributors work branch + PR + self-merge (never direct to `main`)
+
+**Exit:** regressions fail the merge; AI and human flows share one gate. ✅
+
+### v2.0.0 — Guards + gates (BREAKING: Python 3.11+)
+
+- [x] Sensitive-file guard on `git add .` (`.env*`, keys, credentials)
+- [x] `--validate-manual` warns on non-Conventional manual messages
+- [x] Branch coverage gate raised 90% → 93%
+- [x] Repo-local config split into `relay/config_local.py`
+- [x] Dropped Python 3.10 (stdlib `tomllib` everywhere)
+
+**Exit:** secrets are warned before staging; suite gates at 93% branch. ✅
+
+### v2.1.0 — Staging confirmation
+
+- [x] Sensitive staging confirmation prompt (`[y/N]`) with `--allow-sensitive`
+      bypass and `--staged` file-selection escape hatch
+
+**Exit:** no secret is staged silently; every bypass is explicit. ✅
+
+### v2.1.1 — Prompt + CLI polish
+
+- [x] Confirmation shortcuts `[Yes] [Edit] [Retry] [No] (y/e/r/n)`
+- [x] CLI subcommand routing via dispatch tables (no behavior change)
+- [x] Sensitive-abort hint points at `--staged` / `--allow-sensitive`
+
+**Exit:** `v2.1.1` released; prompts and routing tightened with zero regressions. ✅
 
 ---
 
