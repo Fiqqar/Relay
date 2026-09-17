@@ -239,6 +239,17 @@ def _resolve(env_key: str, cfg_key: str, default):
     return default
 
 
+# Provider-name sources in precedence order (highest first). Each loader
+# returns the configured name or None when its layer does not set one.
+_PROVIDER_LOADERS = (
+    lambda: os.environ.get("RELAY_AI_PROVIDER"),
+    lambda: _load_local_config().get("provider"),
+    lambda: _load_local_ai().get("default"),
+    lambda: _load_config().get("provider"),
+    lambda: _load_ai().get("default"),
+)
+
+
 def provider_from_env() -> str:
     """The default AI provider, lowercased.
 
@@ -246,21 +257,10 @@ def provider_from_env() -> str:
     > ``[relay] provider`` in user config > ``[ai] default`` in user config
     > the built-in default (``gemini``).
     """
-    env_val = os.environ.get("RELAY_AI_PROVIDER")
-    if env_val is not None:
-        return str(env_val).lower()
-    local_provider = _load_local_config().get("provider")
-    if local_provider is not None:
-        return str(local_provider).lower()
-    local_ai_default = _load_local_ai().get("default")
-    if local_ai_default is not None:
-        return str(local_ai_default).lower()
-    relay_provider = _load_config().get("provider")
-    if relay_provider is not None:
-        return str(relay_provider).lower()
-    ai_default = _load_ai().get("default")
-    if ai_default is not None:
-        return str(ai_default).lower()
+    for load in _PROVIDER_LOADERS:
+        value = load()
+        if value is not None:
+            return str(value).lower()
     return DEFAULT_PROVIDER
 
 

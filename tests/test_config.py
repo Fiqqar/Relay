@@ -634,3 +634,24 @@ def test_validate_manual_defaults_off_then_env_and_file(monkeypatch, tmp_path):
     """)
     assert config.validate_manual_messages() is True
 
+
+def test_provider_resolution_follows_layer_order(monkeypatch):
+    """provider_from_env precedence: env > local [relay] > local [ai] >
+    user [relay] > user [ai] > built-in default."""
+    monkeypatch.setattr(config, "_load_local_config", lambda: {"provider": "groq"})
+    monkeypatch.setattr(config, "_load_local_ai", lambda: {"default": "mistral"})
+    monkeypatch.setattr(config, "_load_config", lambda: {"provider": "xai"})
+    monkeypatch.setattr(config, "_load_ai", lambda: {"default": "openai"})
+    monkeypatch.delenv("RELAY_AI_PROVIDER", raising=False)
+    assert config.provider_from_env() == "groq"
+    monkeypatch.setattr(config, "_load_local_config", lambda: {})
+    assert config.provider_from_env() == "mistral"
+    monkeypatch.setattr(config, "_load_local_ai", lambda: {})
+    assert config.provider_from_env() == "xai"
+    monkeypatch.setattr(config, "_load_config", lambda: {})
+    assert config.provider_from_env() == "openai"
+    monkeypatch.setattr(config, "_load_ai", lambda: {})
+    assert config.provider_from_env() == config.DEFAULT_PROVIDER
+    monkeypatch.setenv("RELAY_AI_PROVIDER", "Anthropic")
+    assert config.provider_from_env() == "anthropic"
+
