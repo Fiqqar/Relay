@@ -37,6 +37,19 @@
 | **Exit codes** | `0` success, `1` workflow error, `130` user abort (Ctrl-C) | Used by CI & scripts |
 | **NFR** | Non-Functional Requirement — performance, security, portability | NFR-3 secrets env-only |
 | **ADR** | Architecture Decision Record — log of why a design was chosen | `docs/ADR.md` |
+| **Amend** | `relay amend` — rewrite the last commit's message (message-only by default; never pushes) | `relay amend -m "fix: typo"` |
+| **Squash** | `relay squash` — fold the last N commits into one locally (never pushes) | `relay squash --count 3` |
+| **Undo** | `relay undo` — soft-reset the last commit, changes stay staged | `relay undo` |
+| **Stage** | `relay stage` — interactively stage files/hunks before committing | `relay stage` |
+| **Hunks** | `relay --hunks` — per-file AI subjects combined into one multi-part message | `relay --solo --hunks` |
+| **Multi-repo** | One invocation across repos via repeatable `--repo <path>` / `[repos]` / `RELAY_REPOS` | `relay --solo --repo ../other` |
+| **Ignore paths** | `[relay.ignore] paths` / `RELAY_IGNORE_PATHS` — keep generated files out of the AI prompt (git still commits them) | lockfiles, `dist/` |
+| **Hooks** | `[hooks.pre_commit]` / `[hooks.post_push]` TOML argv lists run with `shell=False`, 60s timeout | `pre_commit = ["npx", "test"]` |
+| **Sensitive guard** | `git add .` warns on `.env*`/`*.pem`/`*.key`/SSH keys/`credentials.json`; bypass `--allow-sensitive`, select via `--staged` | `[y/N]` prompt before staging |
+| **Validate manual** | `RELAY_VALIDATE_MANUAL=1` / `--validate-manual` warns when a typed message is not Conventional (still commits verbatim) | manual-input quality net |
+| **Confirm shortcuts** | AI-message prompt answers: `y` accept, `e` edit, `r` retry, `n` abort (`a`/`A` still alias accept/abort) | `[Yes] [Edit] [Retry] [No]` |
+| **Direct message** | `-m` / `--message` commits with the given message, skipping AI entirely | `relay --solo -m "fix: typo"` |
+| **Doctor probe** | `relay doctor --probe` — live credential checks against AI/forge APIs with latency | `AI probe … authenticated (42ms)` |
 
 ## Quick Abbreviations
 
