@@ -43,14 +43,24 @@ def sanitize_ai_message(raw: str) -> str:
     return lines[0] if lines else ""
 
 
+def _match_first_line(message: str):
+    """Match the Conventional grammar against the message's first line.
+
+    Returns the regex match (with ``type`` / ``scope`` groups) or None when
+    the first line does not parse, so validators and extractors share one
+    first-line rule instead of each re-splitting the message.
+    """
+    first_line = message.strip().splitlines()[0] if message.strip() else ""
+    return _CONVENTIONAL_RE.match(first_line)
+
+
 def validate_conventional(message: str):
     """Validate the subject line against the Conventional Commits grammar.
 
     Returns (is_valid, reason). The optional body of a manual message is left
     untouched — only the first line must obey the format.
     """
-    first_line = message.strip().splitlines()[0] if message.strip() else ""
-    match = _CONVENTIONAL_RE.match(first_line)
+    match = _match_first_line(message)
     if not match:
         return False, "expected format: type(scope): subject"
     if match.group("type").lower() not in CONVENTIONAL_TYPES:
@@ -65,8 +75,7 @@ def extract_commit_type(message: str) -> str | None:
     ``fix``. Returns None when the first line has no valid type, so callers can
     fall back to a default.
     """
-    first_line = message.strip().splitlines()[0] if message.strip() else ""
-    match = _CONVENTIONAL_RE.match(first_line)
+    match = _match_first_line(message)
     if not match:
         return None
     commit_type = match.group("type").lower()
