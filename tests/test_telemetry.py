@@ -310,6 +310,14 @@ def test_report_with_private_url(monkeypatch, capsys):
     telemetry.report(mode="solo", provider="gemini", ok=True)
     assert "warning" in capsys.readouterr().err.lower()
 
+
+def test_report_with_malformed_url_never_raises(monkeypatch, capsys):
+    """A bracket-malformed URL warns and skips — report() never raises."""
+    monkeypatch.setenv("RELAY_TELEMETRY", "1")
+    monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://[::1")
+    telemetry.report(mode="solo", provider="gemini", ok=True)  # must not raise
+    assert "warning" in capsys.readouterr().err.lower()
+
     def test_main_reports_after_workflow(self):
         with mock.patch("relay.cli.build_provider"), mock.patch(
             "relay.cli.Orchestrator"
@@ -337,6 +345,11 @@ def test_is_https_rejects_hostless_url():
 def test_is_valid_ai_base_url_rejects_hostless_url():
     """A URL with no parseable hostname is never a safe AI endpoint."""
     assert telemetry._is_valid_ai_base_url("https://:8080/v1") is False
+
+
+def test_is_valid_ai_base_url_rejects_malformed_url():
+    """A bracket-malformed URL is rejected, never an exception."""
+    assert telemetry._is_valid_ai_base_url("https://[::1") is False
 
 
 def test_is_valid_ai_base_url_allows_mapped_loopback():
