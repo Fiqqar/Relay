@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Coverage 96% → 99% branch**: previously missed probe, AI provider,
+  forge-client, telemetry, orchestrator, and git-manager branches are now
+  pinned by hermetic unit tests (incl. Gemini `AQ.` Bearer auth, forge
+  oversized/error/transport probe paths, TOCTOU re-tree refusal, hunks
+  retry/abort, and post-push hook failure diagnostics).
+- **Full provider-resolution precedence test**: env > local `[relay]` >
+  local `[ai]` > user `[relay]` > user `[ai]` > default is now asserted
+  layer by layer.
+
+### Changed
+- **Shared helpers, no behavior change**: forge `errors`-list joining
+  (`forge_http.join_error_messages`), git HEAD-fallback diff reader
+  (`GitManager._diff_with_head_fallback`), doctor forge-probe endpoint
+  reader, config provider loader table, orchestrator TOCTOU index guard,
+  commit first-line matcher, AI transport-error normalization
+  (`ai.base.normalize_transport_error` across Gemini/OpenAI/Anthropic/Ollama),
+  and table-driven forge web URLs (`relay pr`).
+- **Demo assets**: shell demo scripts and refreshed demo GIF with the
+  `y/e/r/n` prompt.
+- **ROADMAP**: post-GA shipped history (`v1.0.1` → `v2.1.1`) recorded.
+
 ## [2.1.1] - 2026-09-15
 
 ### Changed
