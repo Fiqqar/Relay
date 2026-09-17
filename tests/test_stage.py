@@ -64,6 +64,12 @@ class TestParseSelection:
         with pytest.raises(GitError):
             _parse_selection("banana", 3)
 
+    def test_non_numeric_range_raises(self):
+        with pytest.raises(GitError, match="invalid range"):
+            _parse_selection("a-b", 3)
+        with pytest.raises(GitError, match="invalid range"):
+            _parse_selection("2-", 3)
+
 
 # ---- run_stage ----------------------------------------------------------------
 
