@@ -101,8 +101,15 @@ def _is_https(url: str) -> bool:
     telemetry carries only non-secret run metadata, but it must never travel
     over cleartext HTTP or hit a local/private endpoint that a misconfigured
     operator URL could point at.
+
+    A bracket-malformed URL (``https://[::1``) makes ``urlsplit`` raise
+    ``ValueError``; that is also a rejection, never an exception, so
+    ``report()`` keeps its never-raises contract.
     """
-    parts = urllib.parse.urlsplit(url)
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
     if parts.scheme != "https" or not parts.netloc:
         return False
     host = parts.hostname
@@ -114,12 +121,16 @@ def _is_https(url: str) -> bool:
 def _is_valid_ai_base_url(url: str) -> bool:
     """True for an AI base URL that is safe to send a key to.
 
-    Public hosts must be ``https://`` and not private/link-local. ``http://``
+    Public hosts must be ``https://`` and not private/link-local.     ``http://``
     is only allowed for ``localhost`` / loopback (Ollama and local
     llama.cpp/vLLM). Private IPs (10.x, 192.168.x, etc) are rejected even over
-    https to avoid SSRF to internal metadata services.
+    https to avoid SSRF to internal metadata services. Bracket-malformed URLs
+    are rejected (``urlsplit`` raises ``ValueError`` on those).
     """
-    parts = urllib.parse.urlsplit(url)
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
     if parts.scheme not in ("http", "https") or not parts.netloc:
         return False
     host = parts.hostname
