@@ -42,6 +42,27 @@ def parse_json_body(text: str):
     return value if isinstance(value, (dict, list)) else None
 
 
+def join_error_messages(errors, *, bare_strings: bool = False) -> str:
+    """Collect human-readable messages from an ``errors`` list payload.
+
+    Entries are dicts carrying a string ``message``; when ``bare_strings``
+    is set (GitHub's shape), bare non-empty strings count too. Anything
+    else is skipped so a malformed entry can never crash error reporting.
+    Returns the messages joined with "; " ("" when nothing usable).
+    """
+    if not isinstance(errors, list):
+        return ""
+    reasons = []
+    for entry in errors:
+        if isinstance(entry, dict):
+            message = entry.get("message")
+            if isinstance(message, str) and message:
+                reasons.append(message)
+        elif bare_strings and isinstance(entry, str) and entry:
+            reasons.append(entry)
+    return "; ".join(reasons)
+
+
 def request_json(
     request: urllib.request.Request,
     *,

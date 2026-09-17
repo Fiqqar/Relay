@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 
 from .errors import RelayError
-from .forge_http import request_json
+from .forge_http import join_error_messages, request_json
 
 DEFAULT_TIMEOUT_SECONDS = 30
 _USER_AGENT = "relay-cli"
@@ -86,15 +86,9 @@ def _extract_reason(payload) -> str:
             return f"{message}: {detail}" if detail else message
     errors = payload.get("errors")
     if isinstance(errors, list):
-        reasons: list[str] = []
-        for entry in errors:
-            if not isinstance(entry, dict):
-                continue
-            message = entry.get("message")
-            if isinstance(message, str):
-                reasons.append(message)
-        if reasons:
-            return "; ".join(reasons)
+        joined = join_error_messages(errors)
+        if joined:
+            return joined
     message = payload.get("message")
     if isinstance(message, str):
         return message
