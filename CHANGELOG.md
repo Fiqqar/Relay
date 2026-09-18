@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-18
+
 ### Added
 - **Coverage 96% → 99% branch**: previously missed probe, AI provider,
   forge-client, telemetry, orchestrator, and git-manager branches are now
@@ -31,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and table-driven forge web URLs (`relay pr`).
 - **Demo assets**: shell demo scripts and refreshed demo GIF with the
   `y/e/r/n` prompt.
-- **ROADMAP**: post-GA shipped history (`v1.0.1` → `v2.1.1`) recorded.
+- **ROADMAP**: post-GA shipped history (`v1.0.1` → `v2.2.0`) recorded.
 
 ## [2.1.1] - 2026-09-15
 
