@@ -1,9 +1,9 @@
 # Relay Roadmap
 
 Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
-history since. Versions `0.1.0` through `2.1.1` are shipped and closed;
-`v2.2.0` is in progress; `v3.0.0` is a TBD placeholder with no promised
-features. Relay is in stable General Availability with hardening releases
+history since. Versions `0.1.0` through `2.2.0` are shipped and closed;
+the next minor is not yet scoped; `v3.0.0` is a reserved placeholder with no
+promised features. Relay is in stable General Availability with hardening releases
 on top.
 
 ## Legend
@@ -385,7 +385,7 @@ of the prompt. ✅
 
 ---
 
-## Shipped post-GA history (`1.0.1` → `2.1.1`)
+## Shipped post-GA history (`1.0.1` → `2.2.0`)
 
 ### v1.0.1 — Supply-chain hardening
 
@@ -472,35 +472,43 @@ of the prompt. ✅
 
 **Exit:** `v2.1.1` released; prompts and routing tightened with zero regressions. ✅
 
----
-
-## In progress (`2.2.0`)
-
 ### v2.2.0 — Test & refactor hardening
 
-- [~] **Coverage 96% → 99% branch**: pin previously missed probe, AI
+- [x] **Coverage 96% → 99% branch**: pin previously missed probe, AI
       provider, forge-client, telemetry, orchestrator, and git-manager
       branches with hermetic unit tests (Gemini `AQ.` Bearer auth, forge
       oversized/error/transport probe paths, TOCTOU re-tree refusal, hunks
       retry/abort, post-push hook failure diagnostics)
-- [~] **Full provider-resolution precedence test**: env > local `[relay]` >
+- [x] **Full provider-resolution precedence test**: env > local `[relay]` >
       local `[ai]` > user `[relay]` > user `[ai]` > default, asserted layer
       by layer
-- [~] **Shared helpers, no behavior change**: forge `errors`-list joining
+- [x] **Shared helpers, no behavior change**: forge `errors`-list joining
       (`forge_http.join_error_messages`), shared forge HTTP transport,
       git HEAD-fallback diff reader, doctor forge-probe endpoint reader,
       table-driven doctor credential checks, config provider loader table,
       orchestrator TOCTOU index guard + target-diff extraction, commit
       first-line matcher, AI transport-error normalization, table-driven
       forge web URLs
-- [~] **Test guards**: stage non-numeric range rejection, large-diff
+- [x] **Test guards**: stage non-numeric range rejection, large-diff
       truncation latency, bracket-malformed telemetry URLs without raising
-- [~] **Docs & demo assets**: glossary terms, architecture forge section,
+- [x] **Docs & demo assets**: glossary terms, architecture forge section,
       changelog Unreleased record, demo shell scripts + refreshed demo GIF
       (`y/e/r/n` prompt), branch-cleanup rule
 
 **Exit:** suite green with the branch-coverage gate (≥ 93%) passing;
-`v2.2.0` released per `RELEASE.md`.
+`v2.2.0` released per `RELEASE.md`. ✅ (1188 tests, 98.99% branch coverage.)
+
+---
+
+## In progress (next minor — scope not yet decided)
+
+### v2.3.0 — Scope not yet decided
+
+- [ ] No feature is promised under this version; this section is filled in
+      before any `2.3.0` work starts.
+
+**Exit:** scope proposed, agreed, and recorded here before any `2.3.0`
+work starts.
 
 ---
 
