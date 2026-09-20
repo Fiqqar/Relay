@@ -100,6 +100,8 @@ _arguments \\
   '--hunks[generate multi-part AI message per file/hunk]' \\
   '--repo=[run on this repo path]:repo:_files -/' \\
   '--verbose[print the git commands being run]' \\
+  '--validate-manual[warn when a manually typed message is not a Conventional Commit]' \\
+  '--allow-sensitive[stage potentially sensitive files without prompting]' \\
   '--version[print the relay version]' \\
   '1:subcommand:({subs})' \\
   '*::arg:->args'
@@ -133,6 +135,9 @@ def fish_script() -> str:
         "complete -c relay -n '__fish_use_subcommand' -l hunks -d 'generate multi-part AI message per file/hunk'",
         "complete -c relay -n '__fish_use_subcommand' -l repo -r -d 'run on this repo path'",
         "complete -c relay -n '__fish_use_subcommand' -l verbose -d 'print the git commands'",
+        "complete -c relay -n '__fish_use_subcommand' -l validate-manual -d 'warn on non-conventional manual message'",
+        "complete -c relay -n '__fish_use_subcommand' -l allow-sensitive -d 'stage sensitive files without prompting'",
+        "complete -c relay -n '__fish_use_subcommand' -l version -d 'print the relay version'",
     ]
     return "\n".join(lines) + "\n"
 
