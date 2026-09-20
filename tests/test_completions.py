@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from relay.cli import build_parser, main
-from relay.completions import SHELLS, SUBCOMMANDS, generate
+from relay.completions import GLOBAL_FLAGS, SHELLS, SUBCOMMANDS, generate
 
 
 class TestParser:
@@ -52,11 +52,12 @@ class TestGenerate:
     @pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "powershell"])
     def test_every_global_flag_appears_in_every_shell(self, shell):
         out = generate(shell)
-        for flag in ("hunks", "repo", "solo", "team", "verbose"):
+        for flag in GLOBAL_FLAGS:
+            raw = flag.lstrip("-")
             if shell == "fish":
-                assert f"-l {flag}" in out, f"{shell} completion is missing '-l {flag}'"
+                assert f"-l {raw}" in out, f"{shell} completion is missing '-l {raw}'"
             else:
-                assert f"--{flag}" in out, f"{shell} completion is missing '--{flag}'"
+                assert f"--{raw}" in out, f"{shell} completion is missing '--{raw}'"
 
     def test_bash_has_complete_directive(self):
         assert "complete -F" in generate("bash")
