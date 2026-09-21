@@ -92,7 +92,10 @@ mypy relay
 - **AI — branch + PR + self-merge, never direct to `main`:**
   1. One task = one branch (`relay --team <feat> --yes`), one PR (`relay pr`).
      AI must never push to `main` directly.
-  2. Push the branch, open the PR, wait for CI to go green.
+  2. Push the branch, open the PR, wait for CI to go green. Open it with
+     `relay pr --base main --title "..."` — **never `--open`** (nor `--yes`,
+     which implies it): the human is usually watching the terminal, and hijacking
+     their browser is not part of the job. Print the URL; let them click it.
   3. AI self-reviews: re-read the full diff, re-run the rule #2 checks, confirm
      the PR contains only the task's files.
    4. AI merges itself (e.g. `gh pr merge --merge`) only when CI is green and the
@@ -120,5 +123,6 @@ mypy relay
 - [ ] Committed with `git commit` instead of `relay --solo/--team --yes` (not dogfooded)
 - [ ] Batched multiple `relay` commits locally instead of push-straight per change (humans)
 - [ ] AI pushed directly to `main` instead of branch → PR → self-merge
+- [ ] Opened a PR with `--open`/`--yes` and hijacked the human's browser (rule #8.2)
 - [ ] Left a stale branch behind after merging (remote or local — see rule #8.5)
 - [ ] Release tag or release title contains extra words (must be strictly 'vx.y.z' only)
