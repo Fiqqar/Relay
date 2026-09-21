@@ -11,6 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-21
+
+### Added
+- **PR description control**: `relay pr --body`, `--body-file`, and `--edit`
+  (`-e`), plus repo template auto-discovery (`pull_request_template.md` /
+  `PULL_REQUEST_TEMPLATE.md` under `.github/`, `docs/`, and GitLab's
+  `.gitlab/merge_request_templates/Default.md`). Precedence: `--body` >
+  `--body-file` > discovered template > commit list.
+- **Commit sign-off & signing**: `--signoff` / `-s` on `relay`, `relay squash`,
+  and `relay amend`, with a `[commit] signoff = true` config key
+  (`RELAY_COMMIT_SIGNOFF`). `git config commit.gpgSign` is honored automatically
+  (`git commit -S`).
+- **Glob protected branches**: `[team.protected] branches` now accepts `fnmatch`
+  patterns (`release/*`, `hotfix/*`, `v[0-9]*`) next to exact branch names.
+- **Staged sensitive-files guard**: `--staged` runs now re-check the index, and
+  `relay stage` shows `[M]`/`[?]`/`[D]` badges plus a `[y/N]` confirmation before
+  staging a path that looks sensitive (`--allow-sensitive` skips the prompt).
+- **`relay doctor`**: audits the user config and the repo `.relay.toml` (resolved
+  path + parse status), verifies configured hook executables, and gains `--json`
+  for CI consumption (same checks, same exit code).
+- **`relay squash` parity**: `$EDITOR` for the `edit` choice, `pre_commit` hook
+  support, and `--no-verify` to skip it.
+- **Gemini base URL**: `GEMINI_BASE_URL` for proxies and enterprise gateways,
+  matching every other provider.
+- **Custom commit types**: `[commit] types = ["sec", "deps"]` extends the
+  Conventional Commit types Relay validates against and advertises to the AI
+  prompt.
+
+### Changed
+- **Completions & man page**: bash/zsh/fish subcommand flags are generated from
+  one table (the suite asserts it matches the parser exactly, both directions);
+  the man page documents every current flag, the new subcommand options, and the
+  provider base-URL overrides.
+- **Suite**: 1325 tests at 99.02% branch coverage (gate unchanged at 93%).
+
 ## [2.2.0] - 2026-09-18
 
 ### Added
