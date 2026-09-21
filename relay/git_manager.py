@@ -406,6 +406,47 @@ class GitManager:
         proc = subprocess.run(["git", "add", "-p"], cwd=self.cwd)
         return proc.returncode
 
+    def staged_sensitive_paths(self) -> list[str]:
+        """Staged paths that match the sensitive-file heuristics.
+
+        ``git diff --cached --name-only`` lists every path in the index that
+        differs from HEAD (including the ``--staged`` workflow's selection), so
+        filtering it through :func:`is_sensitive_path` gives the caller the
+        same "a secret is about to be committed" signal that the pre-``add``
+        warning gives for the working tree.
+        """
+        out = self._run("diff", "--cached", "--name-only", "--", ".").stdout
+        return [
+            path
+            for path in (line.strip() for line in out.splitlines())
+            if path and is_sensitive_path(path)
+        ]
+
+    def unstaged_badges(self) -> dict[str, str]:
+        """Map each stageable path to a one-letter status badge.
+
+        Derived from the same ``git status --porcelain`` (v1) output as
+        :meth:`unstaged_changes`, so the interactive picker can label every row
+        it offers: ``?`` untracked, ``A`` added, ``D`` deleted, ``M`` modified
+        (any other worktree code — type change, rename, copy — also reads as
+        ``M``). Only paths that could still be staged appear, so the badge table
+        and the offered file list always agree.
+        """
+        out = self._run("status", "--porcelain").stdout
+        badges: dict[str, str] = {}
+        for line in out.splitlines():
+            if not line or len(line) < 3:
+                continue
+            prefix, name = line[:2], line[3:]
+            cleaned = _clean_porcelain_path(name, is_rename=(prefix[0] == "R"))
+            if prefix == "??":
+                badges[cleaned] = "?"
+                continue
+            if prefix[1] == " ":
+                continue  # index-only change: already staged, not offered
+            badges[cleaned] = {"D": "D", "A": "A"}.get(prefix[1], "M")
+        return badges
+
     def staged_diff(self) -> str:
         """Optimized staged diff for the AI: changed lines only (``--unified=0``).
 

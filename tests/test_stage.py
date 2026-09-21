@@ -9,8 +9,13 @@ from relay.stage import _parse_selection, run_stage
 
 
 class FakeGit:
-    def __init__(self, files=("app.py", "notes.md", "scratch.txt")):
+    def __init__(self, files=("app.py", "notes.md", "scratch.txt"), badges=None):
         self.files = list(files)
+        self.badges = (
+            badges
+            if badges is not None
+            else {"app.py": "M", "notes.md": "M", "scratch.txt": "?"}
+        )
         self.staged = []
         self.add_interactive_calls = 0
         self.interactive_returncode = 0
@@ -21,6 +26,9 @@ class FakeGit:
 
     def unstaged_changes(self):
         return self.files
+
+    def unstaged_badges(self):
+        return dict(self.badges)
 
     def stage_files(self, *paths):
         self.staged.extend(paths)
@@ -133,7 +141,7 @@ def test_parser_stage_patch_flag():
 def test_main_routes_stage():
     with mock.patch("relay.cli.run_stage", return_value=0) as run:
         assert main(["stage"]) == 0
-    run.assert_called_once_with(patch=False, verbose=False)
+    run.assert_called_once_with(patch=False, verbose=False, allow_sensitive=False)
 
 
 def test_main_forwards_patch_flag():
@@ -162,4 +170,95 @@ def test_stage_input_wrapper():
 
     with mock.patch("builtins.input", return_value="hello"):
         assert _input("prompt: ") == "hello"
+
+
+# ---- status badges ---------------------------------------------------------------
+
+
+def test_stage_shows_status_badges(git, capsys):
+    with mock.patch("relay.stage._input", return_value="none"):
+        assert run_stage(git=git) == 0
+    out = capsys.readouterr().out
+    assert "[M] app.py" in out
+    assert "[M] notes.md" in out
+    assert "[?] scratch.txt" in out
+
+
+def test_stage_badges_fall_back_when_git_cannot_provide_them(git, capsys):
+    git.unstaged_badges = None  # not callable -> neutral badge for every row
+    with mock.patch("relay.stage._input", return_value="none"):
+        assert run_stage(git=git) == 0
+    assert "[?] app.py" in capsys.readouterr().out
+
+
+def test_stage_badges_survive_a_lookup_failure(git, capsys):
+    with mock.patch.object(git, "unstaged_badges", side_effect=RuntimeError("boom")):
+        with mock.patch("relay.stage._input", return_value="none"):
+            assert run_stage(git=git) == 0
+    assert "[?] app.py" in capsys.readouterr().out
+
+
+def test_stage_badges_survive_a_non_dict_result(git, capsys):
+    with mock.patch.object(git, "unstaged_badges", return_value=["nope"]):
+        with mock.patch("relay.stage._input", return_value="none"):
+            assert run_stage(git=git) == 0
+    assert "[?] app.py" in capsys.readouterr().out
+
+
+# ---- sensitive-file guard ---------------------------------------------------------
+
+
+def test_stage_sensitive_selection_asks_and_aborts_on_no(git, capsys):
+    git.files = [".env", "app.py"]
+    with mock.patch("relay.stage._input", side_effect=["1", "n"]):
+        assert run_stage(git=git) == 0
+    assert git.staged == []
+    out = capsys.readouterr().out
+    assert "look sensitive" in out
+    assert ".env" in out
+    assert "sensitive file(s) not staged" in out
+
+
+def test_stage_sensitive_selection_proceeds_on_yes(git):
+    git.files = [".env", "app.py"]
+    with mock.patch("relay.stage._input", side_effect=["1", "yes"]):
+        assert run_stage(git=git) == 0
+    assert git.staged == [".env"]
+
+
+def test_stage_allow_sensitive_skips_the_prompt(git):
+    git.files = [".env"]
+    with mock.patch("relay.stage._input", return_value="all") as inp:
+        assert run_stage(git=git, allow_sensitive=True) == 0
+    assert git.staged == [".env"]
+    assert inp.call_count == 1  # only the selection prompt
+
+
+def test_stage_non_sensitive_selection_never_prompts(git):
+    with mock.patch("relay.stage._input", return_value="all") as inp:
+        assert run_stage(git=git) == 0
+    assert inp.call_count == 1
+
+
+def test_stage_sensitive_check_ignores_example_files(git):
+    git.files = ["docs/.env.example"]
+    with mock.patch("relay.stage._input", return_value="all") as inp:
+        assert run_stage(git=git) == 0
+    assert git.staged == ["docs/.env.example"]
+    assert inp.call_count == 1
+
+
+# ---- CLI wiring for --allow-sensitive ---------------------------------------------
+
+
+def test_main_forwards_allow_sensitive_to_stage():
+    with mock.patch("relay.cli.run_stage", return_value=0) as run:
+        main(["stage", "--allow-sensitive"])
+    assert run.call_args.kwargs["allow_sensitive"] is True
+
+
+def test_main_forwards_allow_sensitive_given_before_subcommand():
+    with mock.patch("relay.cli.run_stage", return_value=0) as run:
+        main(["--allow-sensitive", "stage"])
+    assert run.call_args.kwargs["allow_sensitive"] is True
 

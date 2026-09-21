@@ -10,11 +10,17 @@ Staging gate of the blocking workflow:
 This covers the "commit the red file, not the scratch notes" case the one-shot
 solo flow cannot express. A plain ``relay`` run afterwards commits exactly what
 was staged (like ``--staged``).
+
+Every offered row carries a git status badge (``[?]`` untracked, ``[M]``
+modified, ``[D]`` deleted, ``[A]`` added) and a selection that contains a
+sensitive path (``.env``, ``*.pem``, …) asks for confirmation before it touches
+the index — the same guard the one-shot flow applies, applied here where the
+choice is explicit.
 """
 from __future__ import annotations
 
 from .errors import GitError, sanitize_terminal
-from .git_manager import GitManager
+from .git_manager import GitManager, is_sensitive_path
 
 
 def _parse_selection(spec: str, total: int) -> set[int] | None:
@@ -73,11 +79,53 @@ def _input(prompt: str) -> str:
     return builtins.input(prompt)
 
 
+def _status_badges(git: GitManager) -> dict[str, str]:
+    """Best-effort path -> badge table (empty when git cannot provide one).
+
+    The picker still works without badges, so a lookup failure must never stop
+    the staging flow — it just falls back to a neutral ``?`` for every row.
+    """
+    lookup = getattr(git, "unstaged_badges", None)
+    if not callable(lookup):
+        return {}
+    try:
+        table = lookup()
+    except Exception:
+        return {}
+    if not isinstance(table, dict):
+        return {}
+    return {str(path): str(badge) for path, badge in table.items()}
+
+
+def _confirm_sensitive(paths: list[str], allow_sensitive: bool) -> bool:
+    """True when staging may proceed over the selected sensitive paths.
+
+    Warns once and asks ``[y/N]``; ``--allow-sensitive`` (or a non-interactive
+    caller that already consented to sensitive files) skips the prompt. A "no"
+    answer reports the cancellation and stages nothing.
+    """
+    flagged = [p for p in paths if is_sensitive_path(p)]
+    if not flagged or allow_sensitive:
+        return True
+    shown = ", ".join(sanitize_terminal(p) for p in flagged[:5])
+    extra = f" (+{len(flagged) - 5} more)" if len(flagged) > 5 else ""
+    print(
+        "[relay] warning: selected file(s) look sensitive: "
+        f"{shown}{extra}; the next relay run would commit them."
+    )
+    answer = _input("Stage these sensitive files anyway? [y/N]: ").strip().lower()
+    if answer in ("y", "yes"):
+        return True
+    print("[relay] stage canceled - sensitive file(s) not staged.")
+    return False
+
+
 def run_stage(
     *,
     git: GitManager | None = None,
     patch: bool = False,
     verbose: bool = False,
+    allow_sensitive: bool = False,
 ) -> int:
     """Interactively stage a subset (or hunks) of the working tree."""
     git = git or GitManager(verbose=verbose)
@@ -92,9 +140,11 @@ def run_stage(
         print("[relay] nothing to stage; working tree has no unstaged changes.")
         return 0
 
+    badges = _status_badges(git)
     print("[relay] unstaged / untracked files:")
     for i, name in enumerate(files, start=1):
-        print(f"    {i:>3}. {sanitize_terminal(name)}")
+        badge = badges.get(name, "?")
+        print(f"    {i:>3}. [{badge}] {sanitize_terminal(name)}")
 
     selection = _input("Select files to stage (e.g. '1,2', '3-5', 'all', 'none'): ")
     picked = _parse_selection(selection, len(files))
@@ -102,6 +152,8 @@ def run_stage(
         print("[relay] stage canceled - nothing changed.")
         return 0
     paths = [files[i - 1] for i in picked]
+    if not _confirm_sensitive(paths, allow_sensitive):
+        return 0
     git.stage_files(*paths)
     safe = ", ".join(sanitize_terminal(p) for p in paths)
     print(f"[relay] staged {len(paths)} file(s): {safe}")
