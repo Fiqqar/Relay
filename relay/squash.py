@@ -67,6 +67,7 @@ def run_squash(
     message: str | None = None,
     yes: bool = False,
     dry_run: bool = False,
+    signoff: bool = False,
     verbose: bool = False,
 ) -> int:
     """Squash the last ``count`` commits into one. Returns the exit code."""
@@ -158,7 +159,7 @@ def run_squash(
     reset_target = base if squash_all else f"HEAD~{count}"
     git.reset_soft(reset_target)
     try:
-        git.commit(final_message, amend=squash_all)
+        git.commit(final_message, amend=squash_all, signoff=signoff)
     except GitError:
         # The reset already moved HEAD; a failed commit (e.g. a rejecting hook)
         # must not leave the branch mid-reset. `git reset --soft <tip>` moves

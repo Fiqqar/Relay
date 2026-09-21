@@ -417,6 +417,39 @@ def validate_manual_messages() -> bool:
     return resolved in ("1", "true", "yes", "on")
 
 
+def _is_truthy(value) -> bool:
+    """True for booleans and the usual truthy strings (``1/true/yes/on``)."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _load_commit() -> dict:
+    """Parse the ``[commit]`` table from the user config file (or {} when absent).
+
+    Deliberately user-config-only: the repo-local ``.relay.toml`` allowlist has
+    no ``[commit]`` section, so cloning an untrusted repository can never turn
+    signing or sign-off on for your commits.
+    """
+    section = _load_raw().get("commit")
+    return section if isinstance(section, dict) else {}
+
+
+def commit_signoff() -> bool:
+    """Whether commits should carry a ``Signed-off-by:`` trailer (``git commit -s``).
+
+    Resolution order: the ``RELAY_COMMIT_SIGNOFF`` env var > the ``signoff``
+    key in the user config's ``[commit]`` table > the default (off). The env
+    var wins so a one-off ``RELAY_COMMIT_SIGNOFF=1 relay`` is never overridden
+    by a stale config file. A non-boolean TOML value is read with the same
+    truthy convention as the other switches (``1/true/yes/on``).
+    """
+    env_val = os.environ.get("RELAY_COMMIT_SIGNOFF")
+    if env_val is not None:
+        return _is_truthy(env_val)
+    return _is_truthy(_load_commit().get("signoff", False))
+
+
 def _split_branch_list(raw: str) -> list[str]:
     """Split a comma/space-separated env list of branch names."""
     return [item.strip() for item in re.split(r"[, ]+", raw) if item.strip()]

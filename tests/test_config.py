@@ -18,6 +18,7 @@ def clear_relay_env(monkeypatch):
         "RELAY_AI_PROVIDER",
         "RELAY_BRANCH_TEMPLATE",
         "RELAY_PR_OPEN",
+        "RELAY_COMMIT_SIGNOFF",
         "RELAY_CONFIG",
         "RELAY_LOCAL_CONFIG",
         "RELAY_PROTECTED_BRANCHES",
@@ -46,6 +47,60 @@ def _write_toml(monkeypatch, tmp_path, body: str) -> None:
     p = tmp_path / "config.toml"
     p.write_text(textwrap.dedent(body), encoding="utf-8")
     monkeypatch.setenv("RELAY_CONFIG", str(p))
+
+
+# ---- [commit] table: sign-off -------------------------------------------------
+
+
+def test_commit_signoff_defaults_to_off():
+    assert config.commit_signoff() is False
+
+
+def test_commit_signoff_reads_the_commit_table(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        signoff = true
+    """)
+    assert config.commit_signoff() is True
+
+
+def test_commit_signoff_explicit_false_stays_off(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        signoff = false
+    """)
+    assert config.commit_signoff() is False
+
+
+def test_commit_signoff_env_beats_the_file(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        signoff = false
+    """)
+    monkeypatch.setenv("RELAY_COMMIT_SIGNOFF", "1")
+    assert config.commit_signoff() is True
+
+
+def test_commit_signoff_env_falsy_value_is_off(monkeypatch):
+    monkeypatch.setenv("RELAY_COMMIT_SIGNOFF", "no")
+    assert config.commit_signoff() is False
+
+
+def test_commit_signoff_accepts_string_values(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        signoff = "yes"
+    """)
+    assert config.commit_signoff() is True
+
+
+def test_commit_table_is_never_read_from_a_repo_local_config(monkeypatch, tmp_path):
+    """Security: an untrusted clone must not be able to switch sign-off on."""
+    local = tmp_path / ".relay.toml"
+    local.write_text("[commit]\nsignoff = true\n", encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
+    monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
+    assert config.commit_signoff() is False
 
 
 def test_default_timeout_is_30_seconds():

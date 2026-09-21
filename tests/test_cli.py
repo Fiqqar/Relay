@@ -204,6 +204,7 @@ class TestAmendSubcommand:
             no_push=True,
             staged_only=False,
             no_verify=False,
+            signoff=False,
             dry_run=False,
             verbose=False,
         )
@@ -462,8 +463,10 @@ def test_keyboard_interrupt_maps_to_exit_130(wired, capsys):
 def test_cli_surface_is_frozen():
     """ADR-012: CLI surface stability freeze for GA.
 
-    Asserts all 9 subcommands, 14 global flags, and their argument signatures
-    match the frozen contract so no inadvertent breaking changes occur.
+    Asserts all 9 subcommands, the global flags, and their argument signatures
+    match the frozen contract so no inadvertent breaking changes occur. Flags
+    may be added between minors (that is additive, not breaking); removing or
+    renaming any is what this test is here to catch.
     """
     import argparse
 
@@ -478,6 +481,7 @@ def test_cli_surface_is_frozen():
         "--staged", "--no-verify", "--allow-protected",
         "--repo", "--hunks", "--verbose",
         "-m", "--message", "--validate-manual", "--allow-sensitive",
+        "-s", "--signoff",
     }
     actual_flags = {opt for action in parser._actions for opt in action.option_strings}
     assert expected_flags == actual_flags
@@ -491,6 +495,30 @@ def test_cli_surface_is_frozen():
         "pr", "squash", "stage", "telemetry", "undo",
     }
     assert set(subparsers_action.choices.keys()) == expected_subcommands
+
+
+def test_signoff_flag_parses_on_the_workflow_and_both_subcommands():
+    parser = build_parser()
+    assert parser.parse_args(["--signoff"]).signoff is True
+    assert parser.parse_args(["-s"]).signoff is True
+    assert parser.parse_args(["--solo"]).signoff is False
+    assert parser.parse_args(["squash", "--signoff"]).signoff is True
+    assert parser.parse_args(["amend", "-s"]).signoff is True
+
+
+def test_signoff_flag_reaches_the_orchestrator(wired):
+    _, orchestrator_cls = wired
+    with mock.patch("relay.cli.commit_signoff", return_value=False):
+        assert main(["--solo", "--signoff"]) == 0
+    assert orchestrator_cls.call_args.kwargs["signoff"] is True
+
+
+def test_signoff_config_key_reaches_the_orchestrator(wired):
+    """`[commit] signoff = true` signs a run even without --signoff."""
+    _, orchestrator_cls = wired
+    with mock.patch("relay.cli.commit_signoff", return_value=True):
+        assert main(["--solo"]) == 0
+    assert orchestrator_cls.call_args.kwargs["signoff"] is True
 
 
 def test_main_multirepo_merges_and_dedupes_cli_and_config_repos(wired):

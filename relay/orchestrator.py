@@ -46,6 +46,7 @@ class Orchestrator:
         no_push: bool = False,
         staged_only: bool = False,
         no_verify: bool = False,
+        signoff: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
         hunks: bool = False,
@@ -64,6 +65,7 @@ class Orchestrator:
         self.no_push = no_push
         self.staged_only = staged_only
         self.no_verify = no_verify
+        self.signoff = signoff
         self.dry_run = dry_run
         self.verbose = verbose
         self.hunks = hunks
@@ -233,7 +235,7 @@ class Orchestrator:
             self.git.create_branch(team_branch)
             branch = team_branch
             try:
-                self.git.commit(message, no_verify=self.no_verify)
+                self.git.commit(message, no_verify=self.no_verify, signoff=self.signoff)
             except (GitError, KeyboardInterrupt):
                 # The commit failed or was interrupted on the freshly created branch:
                 # it is an orphan holding nothing but the failed attempt. Put the
@@ -256,7 +258,7 @@ class Orchestrator:
                     )
                 raise
         else:
-            self.git.commit(message, no_verify=self.no_verify)
+            self.git.commit(message, no_verify=self.no_verify, signoff=self.signoff)
 
         if self.no_push:
             print(f"[relay] committed (--no-push): {message}")
@@ -393,7 +395,7 @@ class Orchestrator:
         if pre:
             run_hook(pre, verbose=self.verbose)
         self.git.check_branch_and_head(branch, head)
-        self.git.commit(message, amend=True)
+        self.git.commit(message, amend=True, signoff=self.signoff)
         print(f"[relay] amended last commit on '{branch}'")
         if old_tip and self.git.is_ancestor(old_tip, f"origin/{branch}"):
             print(

@@ -883,7 +883,9 @@ class TestGenerateWrapper:
             with mock.patch("builtins.input", side_effect=["fix: typed manually", ""]):
                 code = Orchestrator(git=git, provider=provider, no_push=True).run()
         assert code == 0
-        git.commit.assert_called_once_with("fix: typed manually", no_verify=False)
+        git.commit.assert_called_once_with(
+            "fix: typed manually", no_verify=False, signoff=False
+        )
 
 
 # ---- coverage: ollama missing branches (moved from test_coverage_95) ---------

@@ -23,6 +23,7 @@ class FakeGit:
         self.reset_targets = []
         self.commit_messages = []
         self.amend_flags = []
+        self.signoff_flags = []
         self.diff_range_calls = []
         self.stat_range_calls = []
         self.staged_diff_called = False
@@ -94,6 +95,7 @@ class FakeGit:
             raise self.commit_error
         self.commit_messages.append(message)
         self.amend_flags.append(kwargs.get("amend", False))
+        self.signoff_flags.append(kwargs.get("signoff", False))
 
 
 class FakeProvider:
@@ -338,10 +340,44 @@ def test_squash_restore_head_failure_does_not_crash(git, capsys):
 
 # ---- CLI routing ------------------------------------------------------------
 
+def test_squash_forwards_signoff_to_commit(git):
+    assert run_squash(git=git, count=2, yes=True, signoff=True) == 0
+    assert git.signoff_flags == [True]
+
+
+def test_squash_signoff_defaults_to_off(git):
+    assert run_squash(git=git, count=2, yes=True) == 0
+    assert git.signoff_flags == [False]
+
+
 def test_parser_squash_defaults():
     args = build_parser().parse_args(["squash"])
     assert args.command == "squash"
     assert args.count == 2
+    assert args.signoff is False
+
+
+def test_parser_squash_signoff_flag():
+    args = build_parser().parse_args(["squash", "--signoff"])
+    assert args.signoff is True
+    assert build_parser().parse_args(["squash", "-s"]).signoff is True
+
+
+def test_main_squash_forwards_the_signoff_flag():
+    with mock.patch("relay.cli.build_provider"), mock.patch(
+        "relay.cli.run_squash", return_value=0
+    ) as run:
+        assert main(["squash", "--signoff"]) == 0
+    assert run.call_args.kwargs["signoff"] is True
+
+
+def test_main_squash_resolves_signoff_from_config():
+    """`[commit] signoff = true` signs a squash even without --signoff."""
+    with mock.patch("relay.cli.commit_signoff", return_value=True), mock.patch(
+        "relay.cli.build_provider"
+    ), mock.patch("relay.cli.run_squash", return_value=0) as run:
+        assert main(["squash"]) == 0
+    assert run.call_args.kwargs["signoff"] is True
 
 
 def test_parser_squash_count_flag():

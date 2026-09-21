@@ -230,6 +230,60 @@ class TestMutations:
         ]
 
     @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_signoff_appends_the_s_flag(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.commit("fix: x", signoff=True)
+        assert mock_run.call_args.args[0] == ["git", "commit", "-s", "-F", "-"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_signoff_is_absent_by_default(self, mock_run, git, make_proc):
+        mock_run.return_value = make_proc()
+        git.commit("fix: x")
+        assert mock_run.call_args.args[0] == ["git", "commit", "-F", "-"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_honors_commit_gpgsign(self, mock_run, git, make_proc):
+        """A repo configured to sign its commits keeps getting signed ones."""
+        def fake_run(argv, **kw):
+            if argv[:3] == ["git", "config", "--get"]:
+                return make_proc(stdout="true\n")
+            return make_proc()
+
+        mock_run.side_effect = fake_run
+        git.commit("fix: x")
+        assert mock_run.call_args.args[0] == ["git", "commit", "-S", "-F", "-"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_gpgsign_false_stays_unsigned(self, mock_run, git, make_proc):
+        def fake_run(argv, **kw):
+            if argv[:3] == ["git", "config", "--get"]:
+                return make_proc(stdout="false\n")
+            return make_proc()
+
+        mock_run.side_effect = fake_run
+        git.commit("fix: x")
+        assert mock_run.call_args.args[0] == ["git", "commit", "-F", "-"]
+
+    @mock.patch("relay.git_manager.subprocess.run")
+    def test_commit_signoff_and_gpgsign_combined(self, mock_run, git, make_proc):
+        def fake_run(argv, **kw):
+            if argv[:3] == ["git", "config", "--get"]:
+                return make_proc(stdout="true\n")
+            return make_proc()
+
+        mock_run.side_effect = fake_run
+        git.commit("fix: x", signoff=True, no_verify=True)
+        assert mock_run.call_args.args[0] == [
+            "git", "commit", "--no-verify", "-s", "-S", "-F", "-",
+        ]
+
+    def test_wants_gpg_sign_swallows_config_errors(self):
+        """A broken git config must never block a commit."""
+        manager = GitManager(cwd="/fake/repo")
+        with mock.patch.object(manager, "config_get", side_effect=GitError("boom")):
+            assert manager._wants_gpg_sign() is False
+
+    @mock.patch("relay.git_manager.subprocess.run")
     def test_create_branch(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.create_branch("status/payments")

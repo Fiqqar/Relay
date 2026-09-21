@@ -537,22 +537,47 @@ class GitManager:
     # ---- Commit / branch / push ---------------------------------------------
 
     def commit(
-        self, message: str, *, amend: bool = False, no_verify: bool = False
+        self,
+        message: str,
+        *,
+        amend: bool = False,
+        no_verify: bool = False,
+        signoff: bool = False,
     ) -> None:
         """Commit with the message piped via stdin (`git commit -F -`).
 
         Using stdin instead of `-m` avoids shell-quoting bugs with special
         characters and lets multi-line manual messages pass through unchanged.
         ``amend`` rewrites the last commit (`git commit --amend`) instead of
-        creating a new one; ``no_verify`` skips pre-commit and commit-msg hooks.
+        creating a new one; ``no_verify`` skips pre-commit and commit-msg hooks;
+        ``signoff`` adds the ``Signed-off-by:`` trailer (``-s``).
+
+        ``commit.gpgSign`` is honored automatically: when git is configured to
+        sign commits, ``-S`` is appended too, so a repository that expects
+        signatures never silently starts getting unsigned commits from Relay.
         """
         cmd = ["commit"]
         if no_verify:
             cmd.append("--no-verify")
         if amend:
             cmd.append("--amend")
+        if signoff:
+            cmd.append("-s")
+        if self._wants_gpg_sign():
+            cmd.append("-S")
         cmd += ["-F", "-"]
         self._run(*cmd, input_text=message)
+
+    def _wants_gpg_sign(self) -> bool:
+        """True when git is configured to sign commits (``commit.gpgSign``).
+
+        A config lookup failure reads as "not configured": signing is a
+        repository preference, and a broken config must never block a commit.
+        """
+        try:
+            return self.config_get("commit.gpgSign").strip().lower() == "true"
+        except Exception:  # noqa: BLE001 - a config read must never block a commit
+            return False
 
     def create_branch(self, name: str) -> None:
         """Create and check out a new branch (`git switch -c`).
