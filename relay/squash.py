@@ -15,27 +15,42 @@ Message resolution order (mirrors pr.py):
        (``git diff base..tip``, falling back to the top commit's message when
        the AI is unavailable or returns something unusable)
     3. the message of the top commit (HEAD) in the squashed range
+
+The confirmation gate has parity with the solo/team workflow: ``edit`` opens
+``$EDITOR`` (instead of a one-line prompt), the configured ``pre_commit`` hook
+runs before the folded commit is created, and ``--no-verify`` skips it.
 """
 from __future__ import annotations
 
 from .commit import sanitize_ai_message, validate_conventional
+from .config import hook_pre_commit
 from .errors import GitError, UserAbort
 from .git_manager import EMPTY_TREE, GitManager
-from .prompt import CONFIRM_PROMPT, interpret_choice
+from .hooks import run_hook
+from .prompt import CONFIRM_PROMPT, interpret_choice, open_in_editor
 
 
-def _confirm(message: str, yes: bool) -> str:
-    """Confirm/let the user edit the proposed message (skippable with --yes)."""
+def _confirm(message: str, yes: bool, *, git: GitManager | None = None) -> str:
+    """Confirm/let the user edit the proposed message (skippable with --yes).
+
+    ``edit`` opens the developer's editor with the draft pre-filled, exactly
+    like the solo/team confirmation. A cancelled, unavailable or emptied editor
+    returns nothing usable, which aborts rather than folding the commits with a
+    silently empty message.
+    """
     if yes:
         return message
     action = interpret_choice(input(CONFIRM_PROMPT))
     if action == "accept":
         return message
     if action == "edit":
-        new = input("New commit message (blank to abort): ").strip()
-        if not new:
-            raise UserAbort("workflow aborted by user")
-        return new
+        edited = open_in_editor(message, git=git)
+        if edited:
+            return edited
+        raise UserAbort(
+            "workflow aborted by user - the editor returned no message "
+            "(nothing was squashed)"
+        )
     raise UserAbort("workflow aborted by user")
 
 
@@ -68,6 +83,7 @@ def run_squash(
     yes: bool = False,
     dry_run: bool = False,
     signoff: bool = False,
+    no_verify: bool = False,
     verbose: bool = False,
 ) -> int:
     """Squash the last ``count`` commits into one. Returns the exit code."""
@@ -129,12 +145,16 @@ def run_squash(
     else:
         final_message = fallback
 
-    final_message = _confirm(final_message, yes)
+    final_message = _confirm(final_message, yes, git=git)
+
+    pre_hook = None if no_verify else hook_pre_commit()
 
     if dry_run:
         print(f"[relay] dry-run (mode=squash): fold {count} commits into one")
         print(f"[relay]     message: {final_message}")
         print(f"[relay]     commits: {subjects or '(none)'}")
+        if pre_hook:
+            print(f"[relay]     hook pre_commit: {' '.join(pre_hook)}")
         return 0
 
     # Branch/HEAD re-verification (shared helper): the AI call and the
@@ -159,7 +179,18 @@ def run_squash(
     reset_target = base if squash_all else f"HEAD~{count}"
     git.reset_soft(reset_target)
     try:
-        git.commit(final_message, amend=squash_all, signoff=signoff)
+        # Custom pre_commit hook (argv-as-list), run once the folded changes are
+        # staged so a hook that inspects the index sees what is about to be
+        # committed. Inside the try: a rejecting hook is recovered exactly like
+        # a rejecting commit (HEAD moves back, nothing is lost).
+        if pre_hook:
+            run_hook(pre_hook, verbose=verbose)
+        git.commit(
+            final_message,
+            amend=squash_all,
+            signoff=signoff,
+            no_verify=no_verify,
+        )
     except GitError:
         # The reset already moved HEAD; a failed commit (e.g. a rejecting hook)
         # must not leave the branch mid-reset. `git reset --soft <tip>` moves

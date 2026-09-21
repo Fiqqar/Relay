@@ -189,6 +189,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="show the plan; change nothing")
     squash.add_argument("--signoff", "-s", action="store_true",
                         help="add a Signed-off-by trailer to the squashed commit")
+    # SUPPRESS keeps the parent parser's value when the flag is given before the
+    # subcommand (`relay --no-verify squash`).
+    squash.add_argument("--no-verify", action="store_true",
+                        default=argparse.SUPPRESS,
+                        help="skip the configured pre_commit hook and git hooks")
     squash.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -357,6 +362,7 @@ def _handle_squash(args) -> int:
         yes=args.yes,
         dry_run=args.dry_run,
         signoff=_resolve_signoff(args),
+        no_verify=bool(getattr(args, "no_verify", False)),
         verbose=args.verbose,
     )
     _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
