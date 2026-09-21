@@ -148,6 +148,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="actively probe AI provider and forge authentication endpoints")
     doctor.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
+    doctor.add_argument("--json", action="store_true", dest="json_output",
+                        help="print the report as JSON instead of an aligned table")
 
     pr = subparsers.add_parser(
         "pr",
@@ -326,6 +328,8 @@ def _handle_doctor(args) -> int:
         kwargs: dict = {"provider": args.provider, "verbose": args.verbose}
         if getattr(args, "probe", False):
             kwargs["probe"] = True
+        if getattr(args, "json_output", False):
+            kwargs["json_output"] = True
         return run_doctor(**kwargs)
     except Exception as exc:  # noqa: BLE001 - doctor must never traceback
         print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")

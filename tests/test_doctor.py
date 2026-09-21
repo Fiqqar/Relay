@@ -1,4 +1,5 @@
 """Unit tests for `relay doctor` (relay/doctor.py) and its CLI routing."""
+import json
 import subprocess
 from unittest import mock
 
@@ -58,6 +59,14 @@ def healthy_env():
         "relay.doctor.bitbucket_token", return_value=None
     ), mock.patch(
         "relay.doctor.protected_branches", return_value=["main", "master"]
+    ), mock.patch(
+        "relay.doctor.config_file_path", return_value=None
+    ), mock.patch(
+        "relay.doctor.local_config_file_path", return_value=None
+    ), mock.patch(
+        "relay.doctor.hook_pre_commit", return_value=None
+    ), mock.patch(
+        "relay.doctor.hook_post_push", return_value=None
     ):
         yield
 
@@ -311,6 +320,147 @@ def test_doctor_no_warning_when_off_protected_branch(healthy_env, capsys):
     assert "currently on protected branch" not in out
 
 
+# ---- config-file audit & hook checks ---------------------------------------
+
+
+def test_doctor_reports_absent_config_as_defaults(healthy_env, capsys):
+    assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "User config" in out
+    assert "using defaults" in out
+    assert "no .relay.toml" in out
+    assert "none configured" in out  # hooks
+
+
+def test_doctor_reports_valid_config_path(healthy_env, capsys, tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[relay]\nprovider = "ollama"\n', encoding="utf-8")
+    with mock.patch("relay.doctor.config_file_path", return_value=cfg):
+        assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert str(cfg) in out
+    assert "parse error" not in out
+
+
+def test_doctor_warns_on_malformed_user_config(healthy_env, capsys, tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[relay\nprovider = \n", encoding="utf-8")
+    with mock.patch("relay.doctor.config_file_path", return_value=cfg):
+        assert run_doctor() == 0  # a malformed file warns; it is not fatal
+    out = capsys.readouterr().out
+    assert "parse error" in out
+    assert "WARN" in out
+
+
+def test_doctor_warns_on_malformed_repo_config(healthy_env, capsys, tmp_path):
+    cfg = tmp_path / ".relay.toml"
+    cfg.write_text("not = = toml\n", encoding="utf-8")
+    with mock.patch("relay.doctor.local_config_file_path", return_value=cfg):
+        assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "Repo config" in out
+    assert "parse error" in out
+
+
+def test_doctor_fails_when_config_cannot_be_read(healthy_env, capsys, tmp_path):
+    """A directory resolves as a config path but cannot be read as a file."""
+    with mock.patch("relay.doctor.config_file_path", return_value=tmp_path):
+        assert run_doctor() == 1
+    out = capsys.readouterr().out
+    assert "unreadable" in out
+    assert "FAIL" in out
+
+
+def test_doctor_reports_missing_config_file_as_defaults(healthy_env, capsys, tmp_path):
+    """A configured path that no longer exists degrades to the defaults."""
+    with mock.patch("relay.doctor.config_file_path", return_value=tmp_path / "gone.toml"):
+        assert run_doctor() == 0
+    assert "using defaults" in capsys.readouterr().out
+
+
+def test_doctor_hook_on_path_passes(healthy_env, capsys):
+    with mock.patch("relay.doctor.hook_pre_commit", return_value=["pre-commit"]), mock.patch(
+        "relay.doctor.shutil.which", return_value="/usr/bin/pre-commit"
+    ):
+        assert run_doctor() == 0
+    assert "pre_commit: pre-commit" in capsys.readouterr().out
+
+
+def test_doctor_hook_as_existing_file_passes(healthy_env, capsys, tmp_path):
+    script = tmp_path / "hook.sh"
+    script.write_text("#!/bin/sh\n", encoding="utf-8")
+    with mock.patch("relay.doctor.hook_post_push", return_value=[str(script)]):
+        assert run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "post_push" in out
+    assert str(script) in out
+
+
+def test_doctor_missing_hook_executable_warns(healthy_env, capsys):
+    with mock.patch(
+        "relay.doctor.hook_pre_commit", return_value=["no-such-hook-binary-xyz"]
+    ):
+        assert run_doctor() == 0  # a broken hook warns; it is not fatal
+    out = capsys.readouterr().out
+    assert "executable not found" in out
+    assert "no-such-hook-binary-xyz" in out
+    assert "WARN" in out
+
+
+def test_doctor_hook_path_error_warns_instead_of_raising(healthy_env, capsys):
+    """A hook path that makes Path.is_file() raise still degrades to a warn."""
+    def which(name):
+        return None if name == "weird" else r"C:\tools\git.exe"
+
+    with mock.patch("relay.doctor.hook_pre_commit", return_value=["weird"]), mock.patch(
+        "relay.doctor.shutil.which", side_effect=which
+    ), mock.patch("relay.doctor.Path.is_file", side_effect=OSError("bad path")):
+        assert run_doctor() == 0
+    assert "executable not found" in capsys.readouterr().out
+
+
+# ---- --json report ---------------------------------------------------------
+
+
+def test_doctor_json_report_is_valid_and_has_expected_keys(healthy_env, capsys):
+    code = run_doctor(json_output=True)
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert payload["relay"]
+    assert payload["provider"] == "gemini"
+    assert payload["exit_code"] == code == 0
+    statuses = {c["name"]: c["status"] for c in payload["checks"]}
+    assert statuses["AI credentials"] == "ok"
+    assert statuses["User config"] == "ok"
+    assert payload["summary"]["fail"] == 0
+    assert set(payload["summary"]) == {"ok", "warn", "fail"}
+
+
+def test_doctor_json_report_exit_code_matches_failures(healthy_env, capsys):
+    with mock.patch("relay.doctor.gemini_api_key", return_value=None):
+        code = run_doctor(json_output=True)
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 1
+    assert payload["exit_code"] == 1
+    assert payload["summary"]["fail"] >= 1
+
+
+def test_doctor_json_report_has_no_human_header(healthy_env, capsys):
+    run_doctor(json_output=True)
+    out = capsys.readouterr().out
+    assert out.lstrip().startswith("{")
+    assert "[relay doctor]" not in out
+
+
+def test_doctor_json_report_is_terminal_safe(healthy_env, capsys):
+    evil = {"user.name": "\x1b[2J.evil", "user.email": "e@x.io"}
+    with mock.patch("relay.doctor.GitManager", return_value=FakeGit(config=evil)):
+        run_doctor(json_output=True)
+    out = capsys.readouterr().out
+    assert "\x1b" not in out
+    json.loads(out)  # sanitizing must not break the JSON contract
+
+
 # ---- CLI routing -----------------------------------------------------------
 
 def test_parser_routes_doctor_subcommand():
@@ -328,6 +478,12 @@ def test_main_doctor_routes_and_propagates_exit_code():
     with mock.patch("relay.cli.run_doctor", return_value=3) as run:
         assert main(["doctor"]) == 3
     run.assert_called_once_with(provider=None, verbose=False)
+
+
+def test_main_doctor_json_flag_routes_to_run_doctor():
+    with mock.patch("relay.cli.run_doctor", return_value=0) as run:
+        assert main(["doctor", "--json"]) == 0
+    run.assert_called_once_with(provider=None, verbose=False, json_output=True)
 
 
 def test_main_doctor_accepts_provider_and_verbose():

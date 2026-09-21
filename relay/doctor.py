@@ -15,11 +15,13 @@ import socket
 import subprocess
 import sys
 import time
+import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from . import __version__
 from .bitbucket import bitbucket_token
@@ -27,9 +29,13 @@ from .config import (
     DEFAULT_OLLAMA_BASE_URL,
     anthropic_api_key,
     anthropic_base_url,
+    config_file_path,
     gemini_api_key,
     groq_api_key,
     groq_base_url,
+    hook_post_push,
+    hook_pre_commit,
+    local_config_file_path,
     mistral_api_key,
     mistral_base_url,
     ollama_base_url,
@@ -230,6 +236,64 @@ def _probe_forge_endpoint(
         return Check("Forge probe", "fail", f"{label} connection failed ({exc})")
 
 
+def _config_file_check(name: str, path: Path | None, *, absent: str) -> Check:
+    """Report the path and parse status of one TOML config file.
+
+    PASS when the file is absent or parses, WARN when it exists but is
+    malformed TOML (Relay silently falls back to defaults at runtime, so a
+    typo is otherwise invisible), FAIL when it exists but cannot be read.
+    """
+    if path is None:
+        return Check(name, "ok", absent)
+    try:
+        with open(path, "rb") as fh:
+            tomllib.load(fh)
+    except FileNotFoundError:
+        return Check(name, "ok", f"{path} ({absent})")
+    except tomllib.TOMLDecodeError as exc:
+        first_line = str(exc).splitlines()[0] if str(exc) else "invalid TOML"
+        return Check(name, "warn", f"{path} (parse error: {first_line})")
+    except OSError as exc:
+        return Check(name, "fail", f"{path} (unreadable: {exc})")
+    return Check(name, "ok", str(path))
+
+
+def _hook_executable(program: str) -> bool:
+    """True when a hook's program is on PATH or is an existing file."""
+    if shutil.which(program):
+        return True
+    try:
+        return Path(program).is_file()
+    except OSError:  # an unparsable program path must not break the report
+        return False
+
+
+def _hook_check() -> Check:
+    """Report configured hooks and whether their executables can be found."""
+    configured = [
+        (name, argv)
+        for name, argv in (
+            ("pre_commit", hook_pre_commit()),
+            ("post_push", hook_post_push()),
+        )
+        if argv
+    ]
+    if not configured:
+        return Check("Hooks", "ok", "none configured")
+    missing = [
+        f"{name}: {argv[0]}"
+        for name, argv in configured
+        if not _hook_executable(argv[0])
+    ]
+    if missing:
+        return Check(
+            "Hooks",
+            "warn",
+            "executable not found: " + "; ".join(missing) + " - check `[hooks]`",
+        )
+    return Check("Hooks", "ok", ", ".join(f"{name}: {argv[0]}" for name, argv in configured))
+
+
 def _probe_forge() -> Check | None:
     check = _probe_forge_endpoint(
         label="GitHub",
@@ -269,6 +333,7 @@ def run_doctor(
     provider: str | None = None,
     probe: bool = False,
     verbose: bool = False,
+    json_output: bool = False,
 ) -> int:
     """Run all checks and print the report. Returns the exit code."""
     git = GitManager(verbose=verbose)
@@ -371,6 +436,19 @@ def run_doctor(
     else:
         checks[8].status = "ok"
 
+    # Config files: a malformed TOML file is silently ignored at runtime, so
+    # report the resolved paths and their parse status explicitly. The repo
+    # path is resolved the same way `relay.config` resolves it at run time.
+    checks.append(
+        _config_file_check("User config", config_file_path(), absent="using defaults")
+    )
+    checks.append(
+        _config_file_check(
+            "Repo config", local_config_file_path(), absent="no .relay.toml; using defaults"
+        )
+    )
+    checks.append(_hook_check())
+
     if probe:
         checks.append(_probe_provider(chosen))
         forge_probe = _probe_forge()
@@ -378,6 +456,35 @@ def run_doctor(
             checks.append(forge_probe)
 
     # ---- report -----------------------------------------------------------
+    counts = {"ok": 0, "warn": 0, "fail": 0}
+    for c in checks:
+        if c.status in counts:
+            counts[c.status] += 1
+    exit_code = 0 if counts["fail"] == 0 else 1
+
+    if json_output:
+        # Machine-readable report: same checks, same exit code, no table.
+        print(
+            json.dumps(
+                {
+                    "relay": __version__,
+                    "provider": chosen,
+                    "checks": [
+                        {
+                            "name": sanitize_terminal(c.name),
+                            "status": c.status,
+                            "detail": sanitize_terminal(c.detail),
+                        }
+                        for c in checks
+                    ],
+                    "summary": dict(counts),
+                    "exit_code": exit_code,
+                },
+                indent=2,
+            )
+        )
+        return exit_code
+
     print(f"[relay doctor] Relay {__version__} - {chosen} provider")
     print()
     width = max(len(c.name) for c in checks) + 2
@@ -388,16 +495,12 @@ def run_doctor(
         # other user-facing print path does.
         print(f"  {sanitize_terminal(c.name):<{width}}{mark:<7}{sanitize_terminal(c.detail)}")
 
-    counts = {"ok": 0, "warn": 0, "fail": 0}
-    for c in checks:
-        if c.status in counts:
-            counts[c.status] += 1
     verdict = "all good" if counts["fail"] == 0 else f"{counts['fail']} issue(s) need fixing"
     print()
     print(
         f"  {counts['ok']} pass, {counts['warn']} warn, {counts['fail']} fail - {verdict}."
     )
-    return 0 if counts["fail"] == 0 else 1
+    return exit_code
 
 
 if __name__ == "__main__":  # pragma: no cover
