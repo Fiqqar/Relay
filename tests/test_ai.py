@@ -26,7 +26,7 @@ from relay.ai import (
     XaiProvider,
     build_provider,
 )
-from relay.ai.base import truncate_diff, truncate_stat
+from relay.ai.base import SYSTEM_PROMPT, system_prompt, truncate_diff, truncate_stat
 from relay.errors import AIError, ConfigError
 
 
@@ -1185,3 +1185,38 @@ def test_gemini_connection_error_is_unavailable(sample_diff, sample_stat):
         assert res.startswith(base_prefix)
         # Verify valid UTF-8 string encoding
         assert res.encode("utf-8")
+
+
+# ---- system prompt: custom commit types ---------------------------------------
+
+
+def _type_line(prompt: str) -> str:
+    return next(line for line in prompt.splitlines() if "type must be one of" in line)
+
+
+def test_system_prompt_renders_the_builtin_vocabulary():
+    assert system_prompt() == SYSTEM_PROMPT
+    line = _type_line(SYSTEM_PROMPT)
+    for commit_type in ("feat", "fix", "refactor", "docs", "revert"):
+        assert commit_type in line
+    assert "{types}" not in SYSTEM_PROMPT
+
+
+def test_system_prompt_includes_custom_types(monkeypatch):
+    monkeypatch.setattr("relay.commit.commit_types", lambda: ["deps", "sec"])
+    line = _type_line(system_prompt())
+    assert "sec" in line
+    assert "deps" in line
+    assert "feat" in line  # built-ins are never dropped
+
+
+def test_system_prompt_orders_custom_types_deterministically(monkeypatch):
+    monkeypatch.setattr("relay.commit.commit_types", lambda: ["zeta", "alpha"])
+    assert system_prompt() == system_prompt()
+    assert system_prompt().index("alpha") < system_prompt().index("zeta")
+
+
+def test_build_prompt_carries_the_custom_type_vocabulary(monkeypatch):
+    monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
+    prompt = AIManager.build_prompt("DIFF", "STAT", "main", max_lines=10)
+    assert "sec" in _type_line(prompt)

@@ -448,6 +448,46 @@ def _load_commit() -> dict:
     return section if isinstance(section, dict) else {}
 
 
+# Guards for the custom-type list: a type must be a plain lowercase word
+# (letters/digits/dash, starting with a letter), and the list is capped so a
+# typo cannot turn the AI prompt into a wall of types.
+_CUSTOM_TYPE_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+MAX_CUSTOM_COMMIT_TYPES = 20
+
+
+def commit_types() -> list[str]:
+    """Extra Conventional Commit types from the user config's ``[commit]`` table.
+
+    ``[commit] types = ["sec", "deps"]`` widens the vocabulary Relay accepts and
+    advertises to the AI, so a project can standardize on its own types without
+    validation warnings. Entries are lowercased, must be plain words
+    (``^[a-z][a-z0-9-]*$``), are deduplicated in order, and the list stops at
+    ``MAX_CUSTOM_COMMIT_TYPES`` — a typo can never inject arbitrary text into
+    the prompt or the validator. Returns an empty list when unset, which leaves
+    the built-in set in force.
+
+    User-config-only, like :func:`commit_signoff`: the repo-local
+    ``.relay.toml`` allowlist has no ``[commit]`` section, so an untrusted clone
+    cannot widen the vocabulary.
+    """
+    raw = _load_commit().get("types")
+    if not isinstance(raw, list):
+        return []
+    seen: set[str] = set()
+    result: list[str] = []
+    for entry in raw:
+        if not isinstance(entry, str):
+            continue
+        token = entry.strip().lower()
+        if not _CUSTOM_TYPE_RE.match(token) or token in seen:
+            continue
+        seen.add(token)
+        result.append(token)
+        if len(result) >= MAX_CUSTOM_COMMIT_TYPES:
+            break
+    return result
+
+
 def commit_signoff() -> bool:
     """Whether commits should carry a ``Signed-off-by:`` trailer (``git commit -s``).
 

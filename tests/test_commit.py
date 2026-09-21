@@ -3,13 +3,27 @@ Commit validator, and the team-mode branch-name builder."""
 import pytest
 
 from relay.commit import (
+    CONVENTIONAL_TYPE_ORDER,
     CONVENTIONAL_TYPES,
     _match_first_line,
+    allowed_types,
     build_branch_name,
     extract_commit_type,
     sanitize_ai_message,
     validate_conventional,
 )
+
+
+@pytest.fixture(autouse=True)
+def no_custom_types(monkeypatch):
+    """Keep the vocabulary hermetic: these unit tests must not depend on
+    whatever ``[commit] types`` the developer happens to have configured."""
+    monkeypatch.setattr("relay.commit.commit_types", lambda: [])
+
+
+def test_type_order_and_set_cannot_drift():
+    assert set(CONVENTIONAL_TYPE_ORDER) == CONVENTIONAL_TYPES
+    assert len(CONVENTIONAL_TYPE_ORDER) == len(CONVENTIONAL_TYPES)
 
 
 class TestSanitizeAIMessage:
@@ -179,6 +193,40 @@ class TestBuildBranchName:
     def test_empty_feature_raises(self):
         with pytest.raises(ValueError):
             build_branch_name("status/<feature>", "   ")
+
+
+class TestCustomCommitTypes:
+    """`[commit] types` widens the vocabulary without loosening the grammar."""
+
+    def test_custom_type_validates(self, monkeypatch):
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec", "deps"])
+        assert validate_conventional("sec: harden token handling")[0] is True
+        assert validate_conventional("deps: bump cryptography")[0] is True
+
+    def test_custom_type_is_extracted_for_branch_naming(self, monkeypatch):
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
+        assert extract_commit_type("sec: harden") == "sec"
+
+    def test_custom_types_do_not_admit_unknown_types(self, monkeypatch):
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
+        valid, reason = validate_conventional("nope: whatever")
+        assert valid is False
+        assert "unknown type" in reason
+
+    def test_grammar_is_still_enforced_for_custom_types(self, monkeypatch):
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
+        assert validate_conventional("sec:")[0] is False
+        assert validate_conventional("sec")[0] is False
+
+    def test_allowed_types_unions_builtins_and_custom(self, monkeypatch):
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
+        assert allowed_types() >= CONVENTIONAL_TYPES
+        assert "sec" in allowed_types()
+
+    def test_no_custom_types_keeps_the_builtin_vocabulary(self):
+        assert allowed_types() == frozenset(CONVENTIONAL_TYPES)
+        assert validate_conventional("sec: harden")[0] is False
+        assert extract_commit_type("sec: harden") is None
 
 
 class TestMatchFirstLine:
