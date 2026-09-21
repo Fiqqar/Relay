@@ -12,22 +12,42 @@ Title resolution order (first match wins):
     2. the latest commit message (first line)
     3. an AI-generated subject, only if a provider was injected
     otherwise it fails with an actionable message.
+
+Body resolution order (first match wins):
+    1. the explicit ``--body`` text
+    2. the contents of ``--body-file PATH``
+    3. the repository's PR/MR template (see ``TEMPLATE_PATHS``)
+    4. a generated list of the commits on this branch
+``--edit`` opens whichever of those won in ``$EDITOR`` before the request is
+sent, so the description can be reviewed like a commit message.
 """
 from __future__ import annotations
 
 import urllib.parse
 import webbrowser
+from pathlib import Path
 
 from .bitbucket import BitbucketClient, BitbucketError
 from .bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
 from .commit import sanitize_ai_message
-from .config import trusted_github_hosts, trusted_gitlab_hosts
+from .config import find_repo_root, trusted_github_hosts, trusted_gitlab_hosts
 from .errors import RelayError, sanitize_terminal
 from .git_manager import GitManager, parse_remote
 from .github import DuplicatePullRequestError, GitHubClient, GitHubError
 from .gitlab import DuplicateMergeRequestError, GitLabClient, GitLabError
+from .prompt import open_in_editor
 
 _PR_TITLE_MAX = 200
+
+# Repo-relative PR/MR template candidates, in precedence order. The two
+# `.github` spellings are the ones GitHub documents; GitLab looks for a
+# `Default.md` under `.gitlab/merge_request_templates/`.
+TEMPLATE_PATHS = (
+    ".github/pull_request_template.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    "docs/pull_request_template.md",
+    ".gitlab/merge_request_templates/Default.md",
+)
 
 
 def _safe_open_browser(url: str) -> bool:
@@ -148,6 +168,81 @@ def _build_body(git: GitManager, *, base: str, head: str) -> str:
     lines = [f"Commits in `{head}` (vs `{remote_base}`):", ""]
     lines += [f"- {subject}" for subject in subjects.splitlines()]
     return "\n".join(lines)
+
+
+def _template_root(git: GitManager) -> Path | None:
+    """Repository root used for template discovery (None outside a work tree).
+
+    Starts from the git manager's working directory when it has one, so a run
+    from a subdirectory (or with an explicit repo path) resolves the same
+    templates, then walks up to the ``.git`` marker.
+    """
+    cwd = getattr(git, "cwd", None)
+    start = Path(cwd) if cwd else None
+    return find_repo_root(start)
+
+
+def _read_template(git: GitManager) -> str:
+    """Contents of the first PR/MR template found in the repo ('' when none).
+
+    An unreadable candidate is skipped rather than fatal: a broken template must
+    never be the reason a pull request cannot be opened.
+    """
+    root = _template_root(git)
+    if root is None:
+        return ""
+    for relative in TEMPLATE_PATHS:
+        candidate = root / relative
+        try:
+            if candidate.is_file():
+                return candidate.read_text(encoding="utf-8")
+        except OSError:
+            continue
+    return ""
+
+
+def _read_body_file(path: str) -> str:
+    """Read a PR body from ``--body-file``, or fail with an actionable error."""
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RelayError(
+            f"cannot read --body-file {sanitize_terminal(path)}: "
+            f"{sanitize_terminal(str(exc))}"
+        ) from exc
+
+
+def _resolve_body(
+    git: GitManager,
+    *,
+    base: str,
+    head: str,
+    body: str | None = None,
+    body_file: str | None = None,
+    edit: bool = False,
+) -> str:
+    """Resolve the PR/MR description (see the module docstring for precedence).
+
+    ``--edit`` opens whichever source won in ``$EDITOR``. An unavailable
+    editor, a cancelled edit, or an emptied file keeps the resolved body and
+    says so, so a missing editor can never block opening the pull request.
+    """
+    if body is not None:
+        resolved = body
+    elif body_file:
+        resolved = _read_body_file(body_file)
+    else:
+        resolved = _read_template(git) or _build_body(git, base=base, head=head)
+    if not edit:
+        return resolved
+    edited = open_in_editor(resolved, git=git)
+    if edited is None:
+        print(
+            "[relay] editor unavailable or edit cancelled; "
+            "using the resolved description."
+        )
+        return resolved
+    return edited
 
 
 def _run_github(
@@ -277,6 +372,9 @@ def run_pr(
     git: GitManager | None = None,
     base: str = "main",
     title: str | None = None,
+    body: str | None = None,
+    body_file: str | None = None,
+    edit: bool = False,
     provider=None,
     open_browser: bool = False,
     draft: bool = False,
@@ -284,6 +382,8 @@ def run_pr(
 ) -> int:
     """Open a PR/MR for the current branch. Returns the process exit code.
 
+    ``body``/``body_file``/``edit`` control the description (see
+    :func:`_resolve_body` and the module docstring for the precedence order).
     ``open_browser`` opens the PR URL (created or pre-existing) in the default
     web browser via ``webbrowser``. ``draft`` opens it as a draft (visible but
     not ready for review). The duplicate check happens up front, so a branch
@@ -348,23 +448,30 @@ def run_pr(
     git.check_branch_and_head(head, head_sha)
 
     pr_title = _resolve_title(git, title=title, base=base, head=head, provider=provider)
-    body = _build_body(git, base=base, head=head)
+    pr_body = _resolve_body(
+        git,
+        base=base,
+        head=head,
+        body=body,
+        body_file=body_file,
+        edit=edit,
+    )
 
     if host in trusted_gh:
         return _run_github(
             host=host, owner=owner, repo=repo, head=head, base=base,
-            title=pr_title, body=body, draft=draft,
+            title=pr_title, body=pr_body, draft=draft,
             open_browser=open_browser, verbose=verbose,
         )
     if host in trusted_gl:
         return _run_gitlab(
             host=host, owner=owner, repo=repo, head=head, base=base,
-            title=pr_title, body=body, draft=draft,
+            title=pr_title, body=pr_body, draft=draft,
             open_browser=open_browser, verbose=verbose,
         )
     return _run_bitbucket(
         owner=owner, repo=repo, head=head, base=base,
-        title=pr_title, body=body, draft=draft,
+        title=pr_title, body=pr_body, draft=draft,
         open_browser=open_browser, verbose=verbose,
     )
 

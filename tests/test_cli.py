@@ -122,15 +122,45 @@ class TestPrSubcommand:
         with mock.patch("relay.cli.run_pr", return_value=3) as run:
             assert main(["pr"]) == 3
         run.assert_called_once_with(
-            base="main", title=None, open_browser=False, draft=False, verbose=False
+            base="main",
+            title=None,
+            body=None,
+            body_file=None,
+            edit=False,
+            open_browser=False,
+            draft=False,
+            verbose=False,
         )
 
     def test_main_forwards_pr_flags(self):
         with mock.patch("relay.cli.run_pr", return_value=0) as run:
             main(["pr", "--base", "develop", "--title", "T", "--verbose"])
         run.assert_called_once_with(
-            base="develop", title="T", open_browser=False, draft=False, verbose=True
+            base="develop",
+            title="T",
+            body=None,
+            body_file=None,
+            edit=False,
+            open_browser=False,
+            draft=False,
+            verbose=True,
         )
+
+    def test_pr_body_flags_parse(self):
+        parser = build_parser()
+        assert parser.parse_args(["pr", "--body", "hi"]).body == "hi"
+        assert parser.parse_args(["pr", "--body-file", "b.md"]).body_file == "b.md"
+        assert parser.parse_args(["pr", "--edit"]).edit is True
+        assert parser.parse_args(["pr", "-e"]).edit is True
+        assert parser.parse_args(["pr"]).edit is False
+        assert parser.parse_args(["pr"]).body is None
+
+    def test_main_forwards_pr_body_flags(self):
+        with mock.patch("relay.cli.run_pr", return_value=0) as run:
+            main(["pr", "--body", "hi", "--body-file", "b.md", "--edit"])
+        assert run.call_args.kwargs["body"] == "hi"
+        assert run.call_args.kwargs["body_file"] == "b.md"
+        assert run.call_args.kwargs["edit"] is True
 
     def test_main_forwards_pr_draft_flag(self):
         with mock.patch("relay.cli.run_pr", return_value=0) as run:
