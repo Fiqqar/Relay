@@ -19,17 +19,28 @@ protected branch.
 """
 from __future__ import annotations
 
+import fnmatch
+
 from .errors import ProtectedBranchError
 
 
 def is_protected(branch: str, protected_branches: list[str]) -> bool:
-    """True when ``branch`` matches a configured protected branch name.
+    """True when ``branch`` matches a configured protected branch entry.
 
-    The match is case-insensitive so ``MAIN`` cannot bypass a rule written for
-    ``main`` (M-14).
+    An entry matches either as an exact name (``main``) or as a shell-style
+    glob (``release/*``, ``hotfix/*``, ``v[0-9]*``) via :func:`fnmatch.fnmatch`,
+    so a whole family of branches can be guarded without listing each one.
+    Exact entries keep working unchanged and are the documented default.
+
+    The match is case-insensitive on both sides so ``MAIN`` cannot bypass a
+    rule written for ``main`` (M-14) and ``RELEASE/2`` still matches
+    ``release/*``.
     """
     lowered = branch.lower()
-    return any(item.lower() == lowered for item in protected_branches)
+    return any(
+        item.lower() == lowered or fnmatch.fnmatch(lowered, item.lower())
+        for item in protected_branches
+    )
 
 
 def assert_branch_allowed(

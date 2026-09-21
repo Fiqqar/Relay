@@ -57,6 +57,49 @@ def test_is_protected_empty_list_allows_everything():
     assert is_protected("main", []) is False
 
 
+# ---- is_protected: glob patterns -------------------------------------------------
+
+
+def test_is_protected_glob_matches_branch_family():
+    """A `release/*` entry guards every branch in that family."""
+    assert is_protected("release/2.3", ["main", "release/*"]) is True
+    assert is_protected("release/hotfix", ["release/*"]) is True
+
+
+def test_is_protected_glob_matches_hotfix_family():
+    assert is_protected("hotfix/urgent", ["main", "hotfix/*"]) is True
+
+
+def test_is_protected_glob_does_not_match_unrelated_branch():
+    assert is_protected("feature/foo", ["main", "release/*"]) is False
+    assert is_protected("release", ["release/*"]) is False  # needs the slash
+
+
+def test_is_protected_glob_is_case_insensitive():
+    assert is_protected("RELEASE/2.3", ["release/*"]) is True
+    assert is_protected("release/2.3", ["RELEASE/*"]) is True
+
+
+def test_is_protected_glob_supports_question_and_class():
+    assert is_protected("v1", ["v[0-9]"]) is True
+    assert is_protected("v10", ["v[0-9]"]) is False
+    assert is_protected("v9", ["v?"]) is True
+    assert is_protected("v12", ["v?"]) is False
+
+
+def test_is_protected_exact_entry_still_matches_with_globs_present():
+    assert is_protected("main", ["main", "release/*"]) is True
+
+
+def test_assert_branch_allowed_refuses_glob_match():
+    with pytest.raises(ProtectedBranchError):
+        assert_branch_allowed("release/2.3", ["release/*"])
+
+
+def test_assert_branch_allowed_force_skips_glob_match():
+    assert_branch_allowed("release/2.3", ["release/*"], force=True)
+
+
 # ---- assert_branch_allowed ----------------------------------------------------
 
 
