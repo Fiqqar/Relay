@@ -24,6 +24,7 @@ class FakeGit:
         self.commit_messages = []
         self.amend_flags = []
         self.signoff_flags = []
+        self.no_verify_flags = []
         self.diff_range_calls = []
         self.stat_range_calls = []
         self.staged_diff_called = False
@@ -96,6 +97,7 @@ class FakeGit:
         self.commit_messages.append(message)
         self.amend_flags.append(kwargs.get("amend", False))
         self.signoff_flags.append(kwargs.get("signoff", False))
+        self.no_verify_flags.append(kwargs.get("no_verify", False))
 
 
 class FakeProvider:
@@ -308,16 +310,93 @@ def test_squash_confirm_accept(git):
     assert len(git.commit_messages) == 1
 
 
-def test_squash_confirm_edit_success(git):
-    with mock.patch("relay.squash.input", side_effect=["e", "feat: custom edited"]):
+def test_squash_confirm_edit_opens_the_editor(git):
+    with mock.patch("relay.squash.input", return_value="e"), mock.patch(
+        "relay.squash.open_in_editor", return_value="feat: custom edited"
+    ) as editor:
         assert run_squash(git=git, count=2) == 0
+    editor.assert_called_once_with("feat(billing): add invoicing", git=git)
     assert git.commit_messages == ["feat: custom edited"]
 
 
-def test_squash_confirm_edit_blank_aborts(git):
-    with mock.patch("relay.squash.input", side_effect=["e", ""]):
+def test_squash_confirm_edit_asks_only_the_menu(git):
+    """`edit` must not fall back to a second one-line input() prompt."""
+    with mock.patch("relay.squash.open_in_editor", return_value="fix: edited"), mock.patch(
+        "relay.squash.input", return_value="e"
+    ) as prompt:
+        assert run_squash(git=git, count=2) == 0
+    prompt.assert_called_once()
+
+
+def test_squash_confirm_edit_editor_returning_nothing_aborts(git):
+    with mock.patch("relay.squash.input", return_value="e"), mock.patch(
+        "relay.squash.open_in_editor", return_value=None
+    ):
+        with pytest.raises(UserAbort, match="editor returned no message"):
+            run_squash(git=git, count=2)
+    assert git.commit_messages == []
+
+
+def test_squash_confirm_edit_empty_editor_output_aborts(git):
+    with mock.patch("relay.squash.input", return_value="e"), mock.patch(
+        "relay.squash.open_in_editor", return_value=""
+    ):
         with pytest.raises(UserAbort):
             run_squash(git=git, count=2)
+
+
+# ---- pre_commit hook parity --------------------------------------------------
+
+
+def test_squash_runs_the_pre_commit_hook_before_committing(git):
+    events = []
+    git.commit = lambda message, **kw: events.append(("commit", message))
+    with mock.patch(
+        "relay.squash.hook_pre_commit", return_value=["./check.sh"]
+    ), mock.patch(
+        "relay.squash.run_hook",
+        side_effect=lambda argv, verbose=False: events.append(("hook", argv)),
+    ):
+        assert run_squash(git=git, count=2, yes=True) == 0
+    assert events == [
+        ("hook", ["./check.sh"]),
+        ("commit", "feat(billing): add invoicing"),
+    ]
+
+
+def test_squash_no_verify_skips_the_hook_and_git_hooks(git):
+    with mock.patch(
+        "relay.squash.hook_pre_commit", return_value=["./check.sh"]
+    ), mock.patch("relay.squash.run_hook") as hook:
+        assert run_squash(git=git, count=2, yes=True, no_verify=True) == 0
+    hook.assert_not_called()
+    assert git.no_verify_flags == [True]
+
+
+def test_squash_without_a_configured_hook_runs_none(git):
+    with mock.patch("relay.squash.hook_pre_commit", return_value=None), mock.patch(
+        "relay.squash.run_hook"
+    ) as hook:
+        assert run_squash(git=git, count=2, yes=True) == 0
+    hook.assert_not_called()
+    assert git.no_verify_flags == [False]
+
+
+def test_squash_hook_failure_restores_head(git):
+    with mock.patch(
+        "relay.squash.hook_pre_commit", return_value=["./check.sh"]
+    ), mock.patch("relay.squash.run_hook", side_effect=GitError("hook failed (exit 1)")):
+        with pytest.raises(GitError, match="hook failed"):
+            run_squash(git=git, count=2, yes=True)
+    assert git.reset_targets[-1] == "tip123"  # HEAD restored, nothing lost
+    assert git.commit_messages == []
+
+
+def test_squash_dry_run_reports_the_hook(git, capsys):
+    with mock.patch("relay.squash.hook_pre_commit", return_value=["./check.sh"]):
+        assert run_squash(git=git, count=2, yes=True, dry_run=True) == 0
+    assert "hook pre_commit: ./check.sh" in capsys.readouterr().out
+    assert git.reset_targets == []
 
 
 def test_squash_restore_head_failure_does_not_crash(git, capsys):
@@ -361,6 +440,27 @@ def test_parser_squash_signoff_flag():
     args = build_parser().parse_args(["squash", "--signoff"])
     assert args.signoff is True
     assert build_parser().parse_args(["squash", "-s"]).signoff is True
+
+
+def test_parser_squash_no_verify_flag():
+    assert build_parser().parse_args(["squash", "--no-verify"]).no_verify is True
+    assert build_parser().parse_args(["squash"]).no_verify is False
+
+
+def test_main_squash_forwards_the_no_verify_flag():
+    with mock.patch("relay.cli.build_provider"), mock.patch(
+        "relay.cli.run_squash", return_value=0
+    ) as run:
+        assert main(["squash", "--no-verify"]) == 0
+    assert run.call_args.kwargs["no_verify"] is True
+
+
+def test_main_squash_forwards_no_verify_given_before_subcommand():
+    with mock.patch("relay.cli.build_provider"), mock.patch(
+        "relay.cli.run_squash", return_value=0
+    ) as run:
+        assert main(["--no-verify", "squash"]) == 0
+    assert run.call_args.kwargs["no_verify"] is True
 
 
 def test_main_squash_forwards_the_signoff_flag():
