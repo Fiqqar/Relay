@@ -1157,6 +1157,61 @@ def test_sensitive_prompt_skipped_with_allow_sensitive(git):
     mock_input.assert_not_called()
 
 
+# ---- --staged: the guard scans the index instead of the working tree ----------
+
+
+def test_warn_sensitive_files_checks_the_index_with_staged(git, capsys):
+    """--staged used to skip the guard entirely; it now scans the index."""
+    git.staged_sensitive_paths.return_value = [".env"]
+    orch = make_orchestrator(git, yes=True, staged_only=True)
+    orch._warn_sensitive_files()
+    out = capsys.readouterr().out
+    assert "potentially sensitive file(s) are already staged" in out
+    assert ".env" in out
+    git.unstaged_changes.assert_not_called()
+
+
+def test_warn_sensitive_files_staged_abort_message_is_actionable(git):
+    git.staged_sensitive_paths.return_value = [".env"]
+    orch = make_orchestrator(git, yes=False, allow_sensitive=False, staged_only=True)
+    with mock.patch("builtins.input", return_value="n"):
+        with pytest.raises(UserAbort, match="sensitive files are staged") as exc_info:
+            orch._warn_sensitive_files()
+    assert "git reset --" in str(exc_info.value)
+    assert "--allow-sensitive" in str(exc_info.value)
+
+
+def test_warn_sensitive_files_staged_skipped_with_allow_sensitive(git):
+    git.staged_sensitive_paths.return_value = [".env"]
+    orch = make_orchestrator(git, yes=False, allow_sensitive=True, staged_only=True)
+    with mock.patch("builtins.input") as mock_input:
+        orch._warn_sensitive_files()
+    mock_input.assert_not_called()
+
+
+def test_warn_sensitive_files_staged_clean_index_is_silent(git, capsys):
+    git.staged_sensitive_paths.return_value = []
+    orch = make_orchestrator(git, yes=False, staged_only=True)
+    orch._warn_sensitive_files()
+    assert "potentially sensitive" not in capsys.readouterr().out
+
+
+def test_warn_sensitive_files_staged_lookup_failure_never_blocks(git):
+    git.staged_sensitive_paths.side_effect = RuntimeError("git blew up")
+    orch = make_orchestrator(git, yes=False, staged_only=True)
+    assert orch._warn_sensitive_files() is None
+
+
+def test_resolve_target_diff_staged_runs_the_guard(git):
+    git.staged_sensitive_paths.return_value = []
+    orch = make_orchestrator(git, staged_only=True)
+    diff, stat, is_binary = orch._resolve_target_diff(False)
+    git.staged_sensitive_paths.assert_called_once_with()
+    git.stage_all.assert_not_called()
+    assert diff == "diff --git a/app.py b/app.py\n+print(1)\n"
+    assert is_binary is False
+
+
 # ---- target-diff resolution (extracted from run) ------------------------------
 
 

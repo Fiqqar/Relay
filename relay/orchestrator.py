@@ -363,8 +363,11 @@ class Orchestrator:
             diff, stat = self._amend_target_diff()
             is_binary = False
         else:
+            # Same sensitive-files guard for both modes: `git add .` is about to
+            # stage the working tree, while `--staged` has an index that was
+            # built by hand (previously unchecked).
+            self._warn_sensitive_files()
             if not self.staged_only:
-                self._warn_sensitive_files()
                 self.git.stage_all()
             diff = self.git.staged_diff()
             stat = self.git.staged_stat()
@@ -420,21 +423,27 @@ class Orchestrator:
         return None
 
     def _warn_sensitive_files(self) -> None:
-        """Warn (and confirm) when `git add .` is about to stage secrets.
+        """Warn (and confirm) when secrets are about to reach the commit.
+
+        A normal run is about to ``git add .``, so the candidates are the
+        working tree's unstaged/untracked files. A ``--staged`` run has already
+        built the index by hand, so the candidates are the sensitive paths *in
+        the index* — the same guard, no longer skipped for that mode.
 
         Lookup failures never block the workflow (never-block invariant).
         When flagged files exist: always print the warning; proceed silently
-        with `--yes` / `--allow-sensitive`; otherwise ask once
-        (`--staged` skips this entirely since no `git add .` runs).
+        with ``--yes`` / ``--allow-sensitive``; otherwise ask once.
         """
         try:
-            candidates = self.git.unstaged_changes()
-        except Exception:
-            return
-        if not isinstance(candidates, list):
-            return
-        try:
-            flagged = [p for p in candidates if is_sensitive_path(str(p))]
+            if self.staged_only:
+                flagged = [str(p) for p in self.git.staged_sensitive_paths()]
+                verb = "are already staged"
+            else:
+                candidates = self.git.unstaged_changes()
+                if not isinstance(candidates, list):
+                    return
+                flagged = [str(p) for p in candidates if is_sensitive_path(str(p))]
+                verb = "will be staged"
         except Exception:
             return
         if not flagged:
@@ -442,7 +451,7 @@ class Orchestrator:
         shown = ", ".join(flagged[:5])
         extra = f" (+{len(flagged) - 5} more)" if len(flagged) > 5 else ""
         print(
-            "[relay] warning: potentially sensitive file(s) will be staged: "
+            f"[relay] warning: potentially sensitive file(s) {verb}: "
             f"{shown}{extra}; review with `git status` "
             "or re-run with --staged to select files."
         )
@@ -450,6 +459,12 @@ class Orchestrator:
             return
         answer = input("Stage these sensitive files anyway? [y/N]: ").strip().lower()
         if answer not in ("y", "yes"):
+            if self.staged_only:
+                raise UserAbort(
+                    "workflow aborted by user — sensitive files are staged; "
+                    "unstage them with `git reset -- <path>` "
+                    "or --allow-sensitive to skip this check"
+                )
             raise UserAbort(
                 "workflow aborted by user — sensitive files not staged; "
                 "re-run with --staged to select files "

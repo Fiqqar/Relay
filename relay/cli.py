@@ -201,6 +201,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     stage.add_argument("-p", "--patch", action="store_true",
                        help="run git's interactive patch (hunk) picker")
+    # SUPPRESS keeps the parent parser's value when the flag is given before
+    # the subcommand (`relay --allow-sensitive stage`); without it the
+    # subparser's default would silently discard it.
+    stage.add_argument("--allow-sensitive", action="store_true",
+                       default=argparse.SUPPRESS,
+                       help="stage potentially sensitive files without prompting")
     stage.add_argument("--verbose", action="store_true",
                        help="print the git commands being run")
 
@@ -300,7 +306,11 @@ def _handle_undo(args) -> int:
 
 
 def _handle_stage(args) -> int:
-    return run_stage(patch=args.patch, verbose=args.verbose)
+    return run_stage(
+        patch=args.patch,
+        verbose=args.verbose,
+        allow_sensitive=bool(getattr(args, "allow_sensitive", False)),
+    )
 
 
 def _handle_pr(args) -> int:

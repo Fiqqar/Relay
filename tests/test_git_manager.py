@@ -847,6 +847,65 @@ def test_is_sensitive_path_ignores_normal_files():
     assert is_sensitive_path("docs/.env.example.txt") is False
 
 
+# ---- staged sensitive paths + status badges -----------------------------------
+
+
+def test_staged_sensitive_paths_filters_the_index(git):
+    out = (
+        "app.py\n"
+        ".env\n"
+        "certs/server.pem\n"
+        "config/.env.local\n"
+        "docs/.env.example.txt\n"
+    )
+    with mock.patch.object(git, "_run", return_value=FakeRun(out)) as run:
+        assert git.staged_sensitive_paths() == [
+            ".env",
+            "certs/server.pem",
+            "config/.env.local",
+        ]
+    assert run.call_args.args == ("diff", "--cached", "--name-only", "--", ".")
+
+
+def test_staged_sensitive_paths_empty_index(git):
+    with mock.patch.object(git, "_run", return_value=FakeRun("\n")):
+        assert git.staged_sensitive_paths() == []
+
+
+# ---- unstaged status badges ---------------------------------------------------
+
+
+def test_unstaged_badges_by_status(git):
+    """Untracked/modified/deleted get a badge; index-only entries are excluded
+    so the badge table always agrees with unstaged_changes()."""
+    out = (
+        "?? new.txt\n"
+        " M app.py\n"
+        " D gone.py\n"
+        "A  added_staged.py\n"
+        "M  modified_staged.py\n"
+    )
+    with mock.patch.object(git, "_run", return_value=FakeRun(out)):
+        assert git.unstaged_badges() == {"new.txt": "?", "app.py": "M", "gone.py": "D"}
+
+
+def test_unstaged_badges_other_codes_read_as_modified(git):
+    out = " T typechange.py\nRM old.py -> new.py\n"
+    with mock.patch.object(git, "_run", return_value=FakeRun(out)):
+        assert git.unstaged_badges() == {"typechange.py": "M", "new.py": "M"}
+
+
+def test_unstaged_badges_skips_blank_and_short_lines(git):
+    with mock.patch.object(git, "_run", return_value=FakeRun("\nM\n?? short.py\n")):
+        assert git.unstaged_badges() == {"short.py": "?"}
+
+
+def test_unstaged_badges_agree_with_unstaged_changes(git):
+    out = "?? new.txt\n M app.py\nM  staged.py\n D gone.py\n"
+    with mock.patch.object(git, "_run", return_value=FakeRun(out)):
+        assert sorted(git.unstaged_badges()) == sorted(git.unstaged_changes())
+
+
 # ---- _diff_with_head_fallback: shared HEAD/fallback reader ---------------------
 
 
