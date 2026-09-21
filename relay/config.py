@@ -30,6 +30,7 @@ _TOML_DECODE_ERROR = tomllib.TOMLDecodeError
 
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com"
 DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
@@ -95,6 +96,7 @@ _ENV_ONLY = {
     "GITHUB_TOKEN",
     "GH_TOKEN",
     "OLLAMA_BASE_URL",
+    "GEMINI_BASE_URL",
     "OPENAI_BASE_URL",
     "ANTHROPIC_BASE_URL",
     "MISTRAL_BASE_URL",
@@ -270,6 +272,17 @@ def gemini_api_key() -> str | None:
 
 def gemini_model() -> str:
     return str(_resolve("GEMINI_MODEL", "gemini_model", DEFAULT_GEMINI_MODEL))
+
+
+def gemini_base_url() -> str:
+    """Base URL for the Gemini API (proxies / enterprise gateways).
+
+    Env-only, exactly like every other provider's base URL: a config file that
+    can be pointed at an untrusted repo must not be able to redirect a
+    credential-bearing request. Defaults to Google's public endpoint, so an
+    unset ``GEMINI_BASE_URL`` keeps the historical behavior byte for byte.
+    """
+    return str(_resolve("GEMINI_BASE_URL", "gemini_base_url", DEFAULT_GEMINI_BASE_URL))
 
 
 def ollama_base_url() -> str:

@@ -3,6 +3,10 @@
 Deliberately uses only the stdlib (``urllib``) instead of the
 ``google-generativeai`` SDK so Relay keeps its zero-runtime-dependency promise
 — ``pip install .`` works even on a fully offline machine.
+
+``GEMINI_BASE_URL`` (env-only) points the provider at a proxy or an enterprise
+gateway, giving Gemini the same BYO-endpoint story as every other provider. The
+value is validated with the shared SSRF guard before any request is built.
 """
 from __future__ import annotations
 
@@ -11,20 +15,27 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from ..config import ai_timeout, gemini_api_key, gemini_model
+from ..config import ai_timeout, gemini_api_key, gemini_base_url, gemini_model
 from ..errors import AIError, ConfigError
+from ..telemetry import _is_valid_ai_base_url
 from .base import AIManager, decode_provider_json, normalize_transport_error, read_limited_response
 
-_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "{model}:generateContent"
-)
+# Path appended to the configured base URL. A gateway may hang Gemini off a
+# prefix (``https://gateway.example/gemini``), so this is joined to the base
+# rather than replacing it.
+_ENDPOINT_PATH = "/v1beta/models/{model}:generateContent"
 
 
 class GeminiProvider(AIManager):
     provider_name = "gemini"
 
-    def __init__(self, api_key: str | None = None, model: str | None = None, timeout: int | None = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        timeout: int | None = None,
+    ):
         self.api_key = api_key or gemini_api_key()
         if not self.api_key:
             # No key: raise ConfigError with setup instructions. The CLI
@@ -37,6 +48,14 @@ class GeminiProvider(AIManager):
                 '    export GEMINI_API_KEY=your_key     (macOS/Linux)'
             )
         self.model = model or gemini_model()
+        # Proxies / enterprise gateways front the API through their own host.
+        # The shared guard keeps the API key from following a redirect to a
+        # private address (or riding along over plain http to a public host).
+        self.base_url = (base_url or gemini_base_url()).rstrip("/")
+        if not _is_valid_ai_base_url(self.base_url):
+            raise ConfigError(
+                f"invalid AI base URL {self.base_url!r} (use https:// for public hosts, http:// only for localhost; see `relay --help`)"
+            )
         # Give the API a realistic window to respond (default 30s, safety cap
         # 120s). A genuinely hung provider still hits the cap and the
         # Orchestrator falls back to manual input.
@@ -71,7 +90,7 @@ class GeminiProvider(AIManager):
 
         quoted_model = urllib.parse.quote(self.model, safe="")
         request = urllib.request.Request(
-            _ENDPOINT.format(model=quoted_model),
+            f"{self.base_url}{_ENDPOINT_PATH.format(model=quoted_model)}",
             data=json.dumps(payload).encode("utf-8"),
             headers=headers,
             method="POST",
