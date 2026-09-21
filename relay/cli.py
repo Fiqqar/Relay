@@ -18,7 +18,12 @@ from collections.abc import Callable
 from . import __version__
 from .ai import PROVIDER_NAMES, AIManager, build_provider
 from .completions import generate as generate_completions
-from .config import branch_template, pr_open_browser, validate_manual_messages
+from .config import (
+    branch_template,
+    commit_signoff,
+    pr_open_browser,
+    validate_manual_messages,
+)
 from .config import repos as config_repos
 from .doctor import run_doctor
 from .errors import ConfigError, RelayError, UserAbort, sanitize_terminal
@@ -113,6 +118,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="only commit what is already staged (skip `git add .`)")
     parser.add_argument("--no-verify", action="store_true",
                         help="skip git pre-commit and commit-msg hooks")
+    parser.add_argument("--signoff", "-s", action="store_true",
+                        help="add a Signed-off-by trailer to the commit (git commit -s)")
     parser.add_argument("--allow-protected", action="store_true",
                         help="allow team mode to target a protected branch (default-branch safety override)")
     parser.add_argument("--repo", action="append", default=None, dest="repo",
@@ -180,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="skip the confirmation prompt")
     squash.add_argument("--dry-run", action="store_true",
                         help="show the plan; change nothing")
+    squash.add_argument("--signoff", "-s", action="store_true",
+                        help="add a Signed-off-by trailer to the squashed commit")
     squash.add_argument("--verbose", action="store_true",
                         help="print the git commands being run")
 
@@ -266,9 +275,20 @@ def build_parser() -> argparse.ArgumentParser:
                        help="fold already-staged changes into the amended commit (default is message-only)")
     amend.add_argument("--dry-run", action="store_true",
                        help="show the plan; change nothing")
+    amend.add_argument("--signoff", "-s", action="store_true",
+                       help="add a Signed-off-by trailer to the amended commit")
     amend.add_argument("--verbose", action="store_true",
                        help="print the git commands being run")
     return parser
+
+
+def _resolve_signoff(args) -> bool:
+    """The run's sign-off choice: the flag, else the ``[commit]`` config key.
+
+    Kept as one seam so ``relay``, ``relay squash`` and ``relay amend`` can
+    never disagree about what ``--signoff`` means (or drift from the config).
+    """
+    return bool(getattr(args, "signoff", False) or commit_signoff())
 
 
 def _handle_completions(args) -> int:
@@ -336,6 +356,7 @@ def _handle_squash(args) -> int:
         message=args.message,
         yes=args.yes,
         dry_run=args.dry_run,
+        signoff=_resolve_signoff(args),
         verbose=args.verbose,
     )
     _report_run(args, getattr(provider, "provider_name", ""), ok=code == 0)
@@ -356,6 +377,7 @@ def _handle_amend(args) -> int:
         no_push=True,
         staged_only=args.staged,
         no_verify=False,
+        signoff=_resolve_signoff(args),
         dry_run=args.dry_run,
         verbose=args.verbose,
     )
@@ -435,6 +457,7 @@ def _run_workflow(args) -> int:
             message=getattr(args, "message", None),
             validate_manual=bool(getattr(args, "validate_manual", False) or validate_manual_messages()),
             allow_sensitive=bool(getattr(args, "allow_sensitive", False)),
+            signoff=_resolve_signoff(args),
         )
         try:
             code = orchestrator.run()

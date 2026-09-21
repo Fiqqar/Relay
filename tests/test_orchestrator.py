@@ -66,7 +66,7 @@ def test_ai_failure_falls_back_to_manual_input_and_commits(mock_input, git):
     code = make_orchestrator(git, provider=ai).run()
 
     assert code == 0
-    git.commit.assert_called_once_with("fix: manual fallback message", no_verify=False)
+    git.commit.assert_called_once_with("fix: manual fallback message", no_verify=False, signoff=False)
     git.push.assert_not_called()  # --no-push
     assert ai.generate_calls, "the AI must have been tried before falling back"
 
@@ -80,7 +80,7 @@ def test_no_provider_goes_straight_to_manual_input(mock_input, git):
     not require a mock generate — it goes straight to the manual-input path."""
     code = make_orchestrator(git, provider=None).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: no ai needed", no_verify=False)
+    git.commit.assert_called_once_with("fix: no ai needed", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["fix: team no ai", ""])
@@ -92,7 +92,7 @@ def test_no_provider_team_mode_uses_manual_message_for_branch(mock_input, git):
     ).run()
     assert code == 0
     git.create_branch.assert_called_once_with("fix/payments")
-    git.commit.assert_called_once_with("fix: team no ai", no_verify=False)
+    git.commit.assert_called_once_with("fix: team no ai", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["fix: manual fallback message", ""])
@@ -100,7 +100,7 @@ def test_connection_refused_also_falls_back(mock_input, git):
     ai = StubAI(error=AIError("ollama", "unavailable", "connection refused"))
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: manual fallback message", no_verify=False)
+    git.commit.assert_called_once_with("fix: manual fallback message", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", return_value="")
@@ -143,7 +143,7 @@ def test_rate_limited_is_retried_twice_before_fallback(mock_input, mock_sleep, g
     assert len(mock_sleep.call_args_list) == 2
     assert 1.0 <= mock_sleep.call_args_list[0].args[0] <= 1.6
     assert 2.0 <= mock_sleep.call_args_list[1].args[0] <= 2.6
-    git.commit.assert_called_once_with("fix: after retries", no_verify=False)
+    git.commit.assert_called_once_with("fix: after retries", no_verify=False, signoff=False)
 
 
 @mock.patch("relay.orchestrator.time.sleep")
@@ -153,7 +153,7 @@ def test_rate_limited_recovers_on_second_attempt(mock_input, mock_sleep, git):
     code = make_orchestrator(git, provider=ai, yes=True).run()
     assert code == 0
     assert mock_sleep.call_count == 1  # one backoff before success
-    git.commit.assert_called_once_with("feat(api): ok", no_verify=False)
+    git.commit.assert_called_once_with("feat(api): ok", no_verify=False, signoff=False)
 
 
 @mock.patch("relay.orchestrator.time.sleep")
@@ -175,7 +175,7 @@ def test_ollama_429_triggers_retry_in_orchestrator(mock_sleep, git):
 
     assert code == 0
     assert mock_sleep.call_count == 1
-    git.commit.assert_called_once_with("feat(core): recovered from 429", no_verify=False)
+    git.commit.assert_called_once_with("feat(core): recovered from 429", no_verify=False, signoff=False)
 
 
 @mock.patch("relay.orchestrator.time.sleep")
@@ -203,7 +203,7 @@ def test_non_transient_error_is_not_retried(mock_sleep, git):
                     side_effect=["fix: straight to manual", ""]):
         make_orchestrator(git, provider=ai).run()
     assert mock_sleep.call_count == 0  # unavailable is never retried
-    git.commit.assert_called_once_with("fix: straight to manual", no_verify=False)
+    git.commit.assert_called_once_with("fix: straight to manual", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["WIP stuff", ""])
@@ -212,7 +212,7 @@ def test_manual_message_is_committed_verbatim_even_if_not_conventional(mock_inpu
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     # Manual fallback is intentionally NOT validated — the user's words win.
-    git.commit.assert_called_once_with("WIP stuff", no_verify=False)
+    git.commit.assert_called_once_with("WIP stuff", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["fix: garbage response fallback", ""])
@@ -221,7 +221,7 @@ def test_garbage_ai_response_triggers_fallback(mock_input, git):
     ai = StubAI(responses=["wip stuff"])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: garbage response fallback", no_verify=False)
+    git.commit.assert_called_once_with("fix: garbage response fallback", no_verify=False, signoff=False)
 
 
 # ---- Confirmation gate -------------------------------------------------------
@@ -232,7 +232,7 @@ def test_ai_message_requires_confirmation_then_commits(mock_input, git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(api): add login", no_verify=False)
+    git.commit.assert_called_once_with("feat(api): add login", no_verify=False, signoff=False)
     assert mock_input.call_count == 1  # only the [Accept] prompt
 
 
@@ -240,7 +240,7 @@ def test_yes_skips_confirmation_prompt(git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai, yes=True).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(api): add login", no_verify=False)
+    git.commit.assert_called_once_with("feat(api): add login", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["e", "fix: edited by hand", ""])
@@ -248,7 +248,7 @@ def test_edit_confirmation_uses_manual_input(mock_input, git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: edited by hand", no_verify=False)
+    git.commit.assert_called_once_with("fix: edited by hand", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["r", "a"])
@@ -257,7 +257,7 @@ def test_retry_ai_regenerates_before_accept(mock_input, git):
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     assert len(ai.generate_calls) == 2  # first message rejected, second accepted
-    git.commit.assert_called_once_with("fix(api): add login", no_verify=False)
+    git.commit.assert_called_once_with("fix(api): add login", no_verify=False, signoff=False)
 
 
 @mock.patch("relay.orchestrator.time.sleep")
@@ -273,7 +273,7 @@ def test_user_retry_after_transient_retries_does_not_abort_early(mock_input, moc
     ])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(api): second try", no_verify=False)
+    git.commit.assert_called_once_with("feat(api): second try", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", return_value="x")
@@ -289,7 +289,7 @@ def test_lowercase_a_accepts(mock_input, git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(api): add login", no_verify=False)
+    git.commit.assert_called_once_with("feat(api): add login", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", return_value="A")
@@ -315,7 +315,7 @@ def test_yes_accepts(mock_input, git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(api): add login", no_verify=False)
+    git.commit.assert_called_once_with("feat(api): add login", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", return_value="q")
@@ -342,7 +342,9 @@ def test_no_verify_forwards_to_commit(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, no_verify=True).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: skip hooks", no_verify=True)
+    git.commit.assert_called_once_with(
+        "fix: skip hooks", no_verify=True, signoff=False
+    )
 
 
 @mock.patch("builtins.input", side_effect=["feat: team work", ""])
@@ -385,7 +387,7 @@ def test_team_branch_uses_commit_type_from_ai_message(mock_input, git):
     ).run()
     assert code == 0
     git.create_branch.assert_called_once_with("fix/payments")
-    git.commit.assert_called_once_with("fix(api): correct validation", no_verify=False)
+    git.commit.assert_called_once_with("fix(api): correct validation", no_verify=False, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["WIP stuff", ""])
@@ -592,7 +594,7 @@ def test_staged_only_skips_git_add(mock_input, git):
     code = make_orchestrator(git, provider=ai, staged_only=True).run()
     assert code == 0
     git.stage_all.assert_not_called()  # the user's staging is left untouched
-    git.commit.assert_called_once_with("fix: already staged", no_verify=False)
+    git.commit.assert_called_once_with("fix: already staged", no_verify=False, signoff=False)
 
 
 def test_staged_only_still_commits_the_staged_diff(git):
@@ -601,7 +603,7 @@ def test_staged_only_still_commits_the_staged_diff(git):
     code = make_orchestrator(git, provider=ai, staged_only=True, yes=True).run()
     assert code == 0
     assert ai.generate_calls, "the staged diff must still be read and sent"
-    git.commit.assert_called_once_with("feat: staged only", no_verify=False)
+    git.commit.assert_called_once_with("feat: staged only", no_verify=False, signoff=False)
 
 
 # ---- Multi-line manual message (subject + body) -------------------------------
@@ -622,6 +624,7 @@ def test_multi_line_manual_message_separates_subject_and_body(mock_input, git):
     git.commit.assert_called_once_with(
         "feat(auth): add login\n\nAdds the login form and session handling.",
         no_verify=False,
+        signoff=False,
     )
 
 
@@ -635,7 +638,9 @@ def test_amend_mode_commits_with_amend_and_never_pushes(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, mode="amend").run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: amend last commit", amend=True)
+    git.commit.assert_called_once_with(
+        "fix: amend last commit", amend=True, signoff=False
+    )
     git.create_branch.assert_not_called()
     git.push.assert_not_called()
 
@@ -686,7 +691,9 @@ def test_amend_mode_default_does_not_stage(mock_input, git):
     assert code == 0
     git.stage_all.assert_not_called()
     git.diff_range.assert_called_once_with("tip123", "tip123")
-    git.commit.assert_called_once_with("fix: amend message only", amend=True)
+    git.commit.assert_called_once_with(
+        "fix: amend message only", amend=True, signoff=False
+    )
 
 
 def test_amend_mode_dirty_index_refuses_without_staged(git):
@@ -708,7 +715,9 @@ def test_amend_mode_staged_folds_index_explicitly(mock_input, git):
     code = make_orchestrator(git, provider=ai, mode="amend", staged_only=True).run()
     assert code == 0
     git.stage_all.assert_not_called()
-    git.commit.assert_called_once_with("fix: amend with staged", amend=True)
+    git.commit.assert_called_once_with(
+        "fix: amend with staged", amend=True, signoff=False
+    )
 
 
 # ---- H-12: binary-only staged diff falls back to manual input -----------------
@@ -724,7 +733,7 @@ def test_binary_only_staged_diff_skips_ai_and_uses_manual_message(mock_input, gi
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     assert ai.generate_calls == []
-    git.commit.assert_called_once_with("fix: binary asset update", no_verify=False)
+    git.commit.assert_called_once_with("fix: binary asset update", no_verify=False, signoff=False)
 
 
 # ---- TOCTOU and hook edge cases ---------------------------------------------
@@ -853,7 +862,7 @@ def test_explicit_message_skips_ai_and_commits_directly(git):
     ai = StubAI(responses=["feat(ai): should not be called"])
     code = make_orchestrator(git, provider=ai, message="feat(auth): login with google", yes=True).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(auth): login with google", no_verify=False)
+    git.commit.assert_called_once_with("feat(auth): login with google", no_verify=False, signoff=False)
     assert not ai.generate_calls
 
 
@@ -862,7 +871,7 @@ def test_explicit_message_confirmation_accept(git):
     with mock.patch("builtins.input", side_effect=["a"]):
         code = make_orchestrator(git, provider=ai, message="fix: direct fix").run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: direct fix", no_verify=False)
+    git.commit.assert_called_once_with("fix: direct fix", no_verify=False, signoff=False)
     assert not ai.generate_calls
 
 
@@ -871,7 +880,7 @@ def test_explicit_message_confirmation_edit(git):
     with mock.patch("builtins.input", side_effect=["e", "fix: edited message", ""]):
         code = make_orchestrator(git, provider=ai, message="fix: original message").run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: edited message", no_verify=False)
+    git.commit.assert_called_once_with("fix: edited message", no_verify=False, signoff=False)
 
 
 def test_explicit_message_confirmation_abort(git):
@@ -907,7 +916,7 @@ def test_manual_input_multi_paragraph_terminated_with_dot(git):
         "First paragraph explanation.\n\n"
         "Second paragraph details."
     )
-    git.commit.assert_called_once_with(expected, no_verify=False)
+    git.commit.assert_called_once_with(expected, no_verify=False, signoff=False)
 
 
 def test_manual_input_single_paragraph_body(git):
@@ -921,7 +930,7 @@ def test_manual_input_single_paragraph_body(git):
         code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     expected = "fix(core): single paragraph body\n\nBody content line."
-    git.commit.assert_called_once_with(expected, no_verify=False)
+    git.commit.assert_called_once_with(expected, no_verify=False, signoff=False)
 
 
 def test_open_in_editor_invokes_editor_and_returns_content():
@@ -1049,7 +1058,7 @@ def test_orchestrator_passes_rejected_message_on_retry(git):
     assert mock_ai.generate.call_count == 2
     second_call_kwargs = mock_ai.generate.call_args_list[1].kwargs
     assert second_call_kwargs.get("rejected_message") == "feat(core): first rejected idea"
-    git.commit.assert_called_once_with("feat(core): second accepted idea", no_verify=False)
+    git.commit.assert_called_once_with("feat(core): second accepted idea", no_verify=False, signoff=False)
 
 
 def test_preflight_aborts_on_unresolved_conflicts(git, capsys):
@@ -1111,7 +1120,7 @@ def test_validate_manual_warns_but_still_commits(git, capsys):
     assert code == 0
     out = capsys.readouterr().out
     assert "is not a Conventional Commit" in out
-    git.commit.assert_called_once_with("oops not conventional", no_verify=False)
+    git.commit.assert_called_once_with("oops not conventional", no_verify=False, signoff=False)
 
 
 def test_validate_manual_off_stays_silent(git, capsys):
@@ -1345,7 +1354,7 @@ def test_solo_without_remote_warns_but_commits(git, capsys):
     code = make_orchestrator(git, message="fix: offline work", yes=True).run()
     assert code == 0
     assert "no remote configured" in capsys.readouterr().out
-    git.commit.assert_called_once_with("fix: offline work", no_verify=False)
+    git.commit.assert_called_once_with("fix: offline work", no_verify=False, signoff=False)
 
 
 def test_warn_sensitive_returns_when_lookup_raises(git):
@@ -1477,6 +1486,34 @@ def test_assert_index_unchanged_refuses_on_retree_failure(git):
     orch = make_orchestrator(git)
     with pytest.raises(GitError, match="staged changes changed"):
         orch._assert_index_unchanged("abc123")
+
+
+# ---- commit signing & sign-off -------------------------------------------------
+
+
+def test_signoff_is_off_by_default(git):
+    ai = StubAI(responses=["feat(api): add login"])
+    assert make_orchestrator(git, provider=ai, yes=True).run() == 0
+    assert git.commit.call_args.kwargs["signoff"] is False
+
+
+def test_signoff_flag_is_forwarded_to_commit(git):
+    ai = StubAI(responses=["feat(api): add login"])
+    code = make_orchestrator(git, provider=ai, yes=True, signoff=True).run()
+    assert code == 0
+    git.commit.assert_called_once_with(
+        "feat(api): add login", no_verify=False, signoff=True
+    )
+
+
+def test_amend_forwards_signoff(git):
+    git.has_staged_changes.return_value = False
+    git.rev_parse.return_value = "abc123"
+    git.is_ancestor.return_value = False
+    ai = StubAI(responses=["fix: amend signed"])
+    code = make_orchestrator(git, provider=ai, mode="amend", yes=True, signoff=True).run()
+    assert code == 0
+    git.commit.assert_called_once_with("fix: amend signed", amend=True, signoff=True)
 
 
 

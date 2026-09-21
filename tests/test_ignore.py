@@ -218,7 +218,9 @@ def test_orchestrator_all_ignored_falls_back_to_manual(monkeypatch):
         orch = Orchestrator(git=git, provider=ai, yes=False, no_push=True)
         orch.run()
     assert ai.calls == []  # AI should not be called when filtered diff empty
-    git.commit.assert_called_once_with("feat: manual after ignore", no_verify=False)
+    git.commit.assert_called_once_with(
+        "feat: manual after ignore", no_verify=False, signoff=False
+    )
 
 
 def test_orchestrator_no_ignore_passes_full_diff(monkeypatch):
