@@ -22,22 +22,46 @@ relay \- your Git workflow, on autopilot: AI Conventional Commits
 [\fIOPTIONS\fR]
 .br
 .B relay
-[\-\-solo | \-\-team [\fIFEATURE\fR]]
+\-\-solo
 .br
 .B relay
-.B doctor
+\-\-team [\fIFEATURE\fR]
 .br
 .B relay
-.B pr
-.BR [\-\-base \fIBRANCH\fR]
-.BR [\-\-title \fITITLE\fR]
-.BR [\-\-open\fR|\-\-draft\fR|\-\-yes\fR]
+doctor
+[\fB\-\-provider\fR \fIname\fR] [\fB\-\-probe\fR] [\fB\-\-json\fR]
 .br
 .B relay
-.B undo
-
+pr
+[\fB\-\-base\fR \fIBRANCH\fR] [\fB\-\-title\fR \fITITLE\fR]
+[\fB\-\-body\fR \fITEXT\fR | \fB\-\-body-file\fR \fIPATH\fR] [\fB\-\-edit\fR]
+[\fB\-\-open\fR | \fB\-\-draft\fR]
+.br
 .B relay
-.B amend
+squash
+[\fB\-\-count\fR \fIN\fR] [\fB\-\-message\fR \fIMSG\fR] [\fB\-\-signoff\fR]
+[\fB\-\-no-verify\fR]
+.br
+.B relay
+stage
+[\fB\-\-patch\fR]
+.br
+.B relay
+amend
+.br
+.B relay
+undo
+.br
+.B relay
+completions
+[\fISHELL\fR]
+.br
+.B relay
+man
+.br
+.B relay
+telemetry
+[\fIstatus\fR|\fIon\fR|\fIoff\fR]
 
 .SH DESCRIPTION
 .B Relay
@@ -55,6 +79,9 @@ Stage all, generate a message, commit, and push to the current branch.
 .TP
 .B \-\-team \fIFEATURE\fR
 Create and check out a new branch \fI<type>/<feature>\fR, commit, and push.
+.TP
+.BR \-m " " \-\-message \fIMESSAGE\fR
+Use this commit message instead of generating one with AI (no provider or key needed).
 .TP
 .B \-\-provider \fIname\fR
 AI provider (\fIgemini\fR, \fIollama\fR, \fIopenai\fR, \fIanthropic\fR, \fImistral\fR, \fIgroq\fR, or \fIxai\fR).
@@ -79,6 +106,11 @@ Only commit what is already staged (skip \fBgit add\fR).
 .B \-\-no-verify
 Skip git pre-commit and commit-msg hooks.
 .TP
+.BR \-s " " \-\-signoff
+Add a \fISigned-off-by\fR trailer to the commit (\fBgit commit \-s\fR). Also
+honors \fBgit config commit.gpgSign\fR. Config: \fI[commit] signoff = true\fR,
+env \fIRELAY_COMMIT_SIGNOFF\fR.
+.TP
 .B \-\-allow-protected
 Allow team mode to target a protected branch (default-branch safety override).
 .TP
@@ -88,12 +120,23 @@ Generate multi-part AI message per file/hunk (hunk-level AI messages).
 .B \-\-repo \fIPATH\fR
 Run on this repo path (repeatable; defaults to current dir; also \fI[repos]\fR in config / \fIRELAY_REPOS\fR).
 .TP
+.B \-\-validate-manual
+Warn when a manually typed message is not a Conventional Commit.
+.TP
+.B \-\-allow-sensitive
+Stage files that look sensitive (\fI.env\fR, keys, credentials) without prompting.
+.TP
 .B \-\-verbose
 Print the git commands being run.
+.TP
+.B \-\-version
+Print the relay version and exit.
 .SH COMMANDS
 .TP
 .B doctor
-Run a read-only self-diagnostic (PATH, git, AI credentials).
+Run a read-only self-diagnostic (PATH, git, AI credentials, config files, hooks).
+\fB\-\-probe\fR also probes the AI and forge endpoints; \fB\-\-json\fR prints
+the same report as machine-readable JSON (exit code unchanged).
 .TP
 .B pr
 Open a pull request / merge request for the current branch. Detects the host
@@ -102,12 +145,18 @@ from the \fIorigin\fR remote: GitHub (uses \fIGITHUB_TOKEN\fR), GitLab
 Only \fIgitlab.com\fR is trusted by default on GitLab; a self-hosted GitLab
 host must be added to \fIRELAY_TRUSTED_GITLAB_HOSTS\fR or the request is
 refused before any token is sent.
+The body comes from \fB\-\-body\fR, else \fB\-\-body-file\fR, else a discovered
+repo template (\fI.github/pull_request_template.md\fR,
+\fI.github/PULL_REQUEST_TEMPLATE.md\fR, \fIdocs/pull_request_template.md\fR, or
+GitLab's \fI.gitlab/merge_request_templates/Default.md\fR), else the commit list;
+\fB\-\-edit\fR opens the resolved body in \fI$EDITOR\fR before posting.
 .TP
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
 .TP
 .B squash
 Fold the last N commits into one (soft reset + single commit; never pushes).
+Honors \fI[hooks] pre_commit\fR unless \fB\-\-no-verify\fR is given.
 .TP
 .B stage
 Interactively stage a subset of changed files, or hunks via \fBgit add -p\fR.
@@ -143,6 +192,18 @@ API key for the Groq provider.
 .TP
 .I XAI_API_KEY
 API key for the xAI provider.
+.TP
+.I OPENAI_BASE_URL
+Base URL of the OpenAI-compatible provider (default https://api.openai.com/v1).
+Use it for local servers (llama.cpp, vLLM) \-\- only point it at endpoints you
+trust, since \fIOPENAI_API_KEY\fR is sent there as a credential.
+.TP
+.I GEMINI_BASE_URL
+Base URL of the Gemini provider (default https://generativelanguage.googleapis.com).
+.TP
+.I ANTHROPIC_BASE_URL, MISTRAL_BASE_URL, GROQ_BASE_URL, XAI_BASE_URL
+Per-provider base URL overrides. Same warning as \fIOPENAI_BASE_URL\fR: the
+provider API key travels to whatever host you name.
 .TP
 .I OLLAMA_BASE_URL
 Base URL of a local Ollama server (default http://localhost:11434).
