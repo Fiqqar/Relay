@@ -2,9 +2,9 @@
 
 Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
 history since. Versions `0.1.0` through `2.2.0` are shipped and closed;
-the next minor is not yet scoped; `v3.0.0` is a reserved placeholder with no
-promised features. Relay is in stable General Availability with hardening releases
-on top.
+`v2.3.0` is the next planned minor (Workflow polish & PR depth); `v3.0.0` is a
+reserved placeholder with no promised features. Relay is in stable General
+Availability with hardening releases on top.
 
 ## Legend
 
@@ -500,15 +500,35 @@ of the prompt. ✅
 
 ---
 
-## In progress (next minor — scope not yet decided)
+## In progress (next minor)
 
-### v2.3.0 — Scope not yet decided
+### v2.3.0 — Workflow polish & PR depth
 
-- [ ] No feature is promised under this version; this section is filled in
-      before any `2.3.0` work starts.
+- [ ] **PR description control** — `relay pr --body`, `--body-file`, `--edit`;
+      auto-discover repo PR/MR templates (`.github/pull_request_template.md`,
+      `.gitlab/merge_request_templates/`)
+- [ ] **Commit signing & sign-off** — `--signoff` / `-s` on `relay`,
+      `relay squash`, `relay amend`; honor `git config commit.gpgSign`;
+      `[commit] signoff = true` config key
+- [ ] **Glob protected branches** — `fnmatch` patterns in
+      `[team.protected] branches` (e.g. `release/*`, `hotfix/*`)
+- [ ] **Staged sensitive-files guard** — warn on sensitive files even with
+      `--staged`; `relay stage` shows `[M]`/`[?]`/`[D]` badges and warns
+      before staging a sensitive path
+- [ ] **`relay doctor` enhancements** — config-file audit, hook-executable
+      check, `--json` for CI
+- [ ] **`relay squash` parity** — `$EDITOR` on edit, `pre_commit` hook,
+      `--no-verify` flag
+- [ ] **Completions & man page refresh** — sync `GLOBAL_FLAGS`, add
+      subcommand-flag completions, update `relay man` to cover all current flags
+- [ ] **Gemini Base URL** — add `GEMINI_BASE_URL` env var for proxies /
+      enterprise gateways (parity with all other providers)
+- [ ] **Custom commit types** — `[commit] types = [...]` in config to extend
+      Conventional Commits types (e.g. `sec`, `deps`, `infra`) without
+      validation warnings
 
-**Exit:** scope proposed, agreed, and recorded here before any `2.3.0`
-work starts.
+**Exit:** all 9 features green with tests; branch coverage ≥ 93%; suite ≥ 1200
+tests; `v2.3.0` released per `RELEASE.md`.
 
 ---
 
