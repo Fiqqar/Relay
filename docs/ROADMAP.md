@@ -385,7 +385,7 @@ of the prompt. ✅
 
 ---
 
-## Shipped post-GA history (`1.0.1` → `2.2.0`)
+## Shipped post-GA history (`1.0.1` → `2.3.0`)
 
 ### v1.0.1 — Supply-chain hardening
 
@@ -500,35 +500,49 @@ of the prompt. ✅
 
 ---
 
-## In progress (next minor)
-
 ### v2.3.0 — Workflow polish & PR depth
 
-- [ ] **PR description control** — `relay pr --body`, `--body-file`, `--edit`;
-      auto-discover repo PR/MR templates (`.github/pull_request_template.md`,
-      `.gitlab/merge_request_templates/`)
-- [ ] **Commit signing & sign-off** — `--signoff` / `-s` on `relay`,
-      `relay squash`, `relay amend`; honor `git config commit.gpgSign`;
-      `[commit] signoff = true` config key
-- [ ] **Glob protected branches** — `fnmatch` patterns in
-      `[team.protected] branches` (e.g. `release/*`, `hotfix/*`)
-- [ ] **Staged sensitive-files guard** — warn on sensitive files even with
-      `--staged`; `relay stage` shows `[M]`/`[?]`/`[D]` badges and warns
-      before staging a sensitive path
-- [ ] **`relay doctor` enhancements** — config-file audit, hook-executable
-      check, `--json` for CI
-- [ ] **`relay squash` parity** — `$EDITOR` on edit, `pre_commit` hook,
+- [x] **PR description control** — `relay pr --body`, `--body-file`, `--edit`
+      (`-e`) with repo template discovery (`.github/pull_request_template.md`,
+      `.github/PULL_REQUEST_TEMPLATE.md`, `docs/pull_request_template.md`,
+      `.gitlab/merge_request_templates/Default.md`); precedence `--body` >
+      `--body-file` > template > commit list
+- [x] **Commit signing & sign-off** — `--signoff` / `-s` on `relay`,
+      `relay squash`, `relay amend`; `git config commit.gpgSign` honored
+      (`git commit -S`); `[commit] signoff = true` config key
+- [x] **Glob protected branches** — `fnmatch` patterns in
+      `[team.protected] branches` (e.g. `release/*`, `hotfix/*`), with exact
+      branch names still matching as before
+- [x] **Staged sensitive-files guard** — `--staged` runs re-check the index;
+      `relay stage` shows `[M]`/`[?]`/`[D]` badges and confirms before staging
+      a sensitive path (`--allow-sensitive` skips the prompt)
+- [x] **`relay doctor` enhancements** — config-file audit (user + repo
+      `.relay.toml`), hook-executable check, `--json` report for CI
+- [x] **`relay squash` parity** — `$EDITOR` on edit, `pre_commit` hook,
       `--no-verify` flag
-- [ ] **Completions & man page refresh** — sync `GLOBAL_FLAGS`, add
-      subcommand-flag completions, update `relay man` to cover all current flags
-- [ ] **Gemini Base URL** — add `GEMINI_BASE_URL` env var for proxies /
+- [x] **Completions & man page refresh** — table-driven subcommand flags for
+      bash/zsh/fish, `-m`/`--message`/`--signoff` in `GLOBAL_FLAGS`, man page
+      covering every current flag
+- [x] **Gemini Base URL** — `GEMINI_BASE_URL` env var for proxies /
       enterprise gateways (parity with all other providers)
-- [ ] **Custom commit types** — `[commit] types = [...]` in config to extend
-      Conventional Commits types (e.g. `sec`, `deps`, `infra`) without
-      validation warnings
+- [x] **Custom commit types** — `[commit] types = [...]` extends the
+      Conventional Commit types in validation and the AI prompt
 
-**Exit:** all 9 features green with tests; branch coverage ≥ 93%; suite ≥ 1200
-tests; `v2.3.0` released per `RELEASE.md`.
+**Exit:** all 9 features green with tests; suite ≥ 1200 tests ✅ (1325);
+branch coverage ≥ 93% ✅ (99.02%); `v2.3.0` released per `RELEASE.md`.
+
+---
+
+## In progress (next minor)
+
+### v2.4.0 — Scope not yet decided
+
+- [ ] Scope **not decided** — no feature is promised under this version.
+- [ ] Candidates (uncommitted): hunk-level AI messages, multi-repo commit
+      orchestration, custom hook lifecycle events.
+
+**Exit:** scope proposed, agreed, and recorded here before any `2.4.0` work
+starts.
 
 ---
 
