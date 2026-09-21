@@ -139,6 +139,54 @@ class TestGemini:
         assert exc_info.value.kind == "bad_response"
         assert "API key not valid" in str(exc_info.value)
 
+    # ---- GEMINI_BASE_URL (proxy / enterprise gateway parity) ----------------
+
+    def test_default_base_url_targets_google(
+        self, monkeypatch, sample_diff, sample_stat
+    ):
+        monkeypatch.delenv("GEMINI_BASE_URL", raising=False)
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(GEMINI_SUCCESS)
+            self.make_provider().generate_commit_message(sample_diff, sample_stat, "main")
+        request = mock_urlopen.call_args.args[0]
+        assert request.full_url.startswith(
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+        )
+
+    def test_default_base_url_when_env_is_unset(self, monkeypatch):
+        monkeypatch.delenv("GEMINI_BASE_URL", raising=False)
+        provider = GeminiProvider(api_key="k", model="m", timeout=5)
+        assert provider.base_url == "https://generativelanguage.googleapis.com"
+
+    def test_env_var_sets_the_base_url(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_BASE_URL", "https://proxy.internal.example/g")
+        provider = GeminiProvider(api_key="k", model="m", timeout=5)
+        assert provider.base_url == "https://proxy.internal.example/g"
+
+    def test_custom_base_url_keeps_its_path_prefix(self, sample_diff, sample_stat):
+        provider = GeminiProvider(
+            api_key="k", model="m", base_url="https://gateway.example/gemini", timeout=5
+        )
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value = fake_http(GEMINI_SUCCESS)
+            provider.generate_commit_message(sample_diff, sample_stat, "main")
+        request = mock_urlopen.call_args.args[0]
+        assert request.full_url == (
+            "https://gateway.example/gemini/v1beta/models/m:generateContent"
+        )
+
+    def test_trailing_slash_is_normalized(self):
+        provider = GeminiProvider(
+            api_key="k", model="m", base_url="https://g.example/", timeout=5
+        )
+        assert provider.base_url == "https://g.example"
+
+    def test_private_base_url_is_refused(self):
+        """Same SSRF guard as every other provider: the API key must not be
+        pointed at a private address."""
+        with pytest.raises(ConfigError, match="invalid AI base URL"):
+            GeminiProvider(api_key="k", model="m", base_url="http://10.0.0.1/v1", timeout=5)
+
 
 class TestOllama:
     def make_provider(self):

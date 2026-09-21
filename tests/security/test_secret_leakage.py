@@ -90,13 +90,15 @@ def _clear(state):
 
 def _providers_at(origin_port, monkeypatch):
     """(provider instance, header name carrying the secret) for each vendor."""
-    import relay.ai.gemini as gemini_mod
     from relay.ai.anthropic import AnthropicProvider
     from relay.ai.gemini import GeminiProvider
     from relay.ai.openai import OpenAIProvider
 
     origin = f"http://127.0.0.1:{origin_port}"
-    monkeypatch.setattr(gemini_mod, "_ENDPOINT", origin + "/v1beta/models/{model}:generateContent")
+    # Gemini resolves its endpoint from GEMINI_BASE_URL, so pointing that env
+    # var at the local stub exercises the real round trip (loopback + http is
+    # the one combination the SSRF guard allows).
+    monkeypatch.setenv("GEMINI_BASE_URL", origin)
     return [
         (GeminiProvider(api_key=SENTINEL_KEY, model="m", timeout=5), "X-Goog-Api-Key"),
         (OpenAIProvider(api_key=SENTINEL_KEY, model="m", base_url=origin, timeout=5), "Authorization"),

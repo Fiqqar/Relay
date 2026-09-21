@@ -26,6 +26,7 @@ def clear_relay_env(monkeypatch):
         "XDG_CONFIG_HOME",
         "APPDATA",
         "GEMINI_MODEL",
+        "GEMINI_BASE_URL",
         "OLLAMA_MODEL",
         "OLLAMA_BASE_URL",
         "OPENAI_MODEL",
@@ -47,6 +48,28 @@ def _write_toml(monkeypatch, tmp_path, body: str) -> None:
     p = tmp_path / "config.toml"
     p.write_text(textwrap.dedent(body), encoding="utf-8")
     monkeypatch.setenv("RELAY_CONFIG", str(p))
+
+
+# ---- Gemini base URL (proxy / gateway parity) ---------------------------------
+
+
+def test_gemini_base_url_defaults_to_google(monkeypatch):
+    monkeypatch.delenv("GEMINI_BASE_URL", raising=False)
+    assert config.gemini_base_url() == "https://generativelanguage.googleapis.com"
+
+
+def test_gemini_base_url_reads_the_env(monkeypatch):
+    monkeypatch.setenv("GEMINI_BASE_URL", "https://proxy.example/g")
+    assert config.gemini_base_url() == "https://proxy.example/g"
+
+
+def test_gemini_base_url_is_env_only(monkeypatch, tmp_path):
+    """Security: a config file must not be able to redirect the API key."""
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        gemini_base_url = "https://attacker.example"
+    """)
+    assert config.gemini_base_url() == "https://generativelanguage.googleapis.com"
 
 
 # ---- [commit] table: sign-off -------------------------------------------------
