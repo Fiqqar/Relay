@@ -8,10 +8,27 @@ from __future__ import annotations
 
 import re
 
-CONVENTIONAL_TYPES = {
+from .config import commit_types
+
+# The canonical, human-facing order. Kept next to the set so the validator,
+# the AI prompt and the docs can never disagree about what a built-in type is.
+CONVENTIONAL_TYPE_ORDER = (
     "feat", "fix", "refactor", "docs", "style",
     "test", "chore", "perf", "build", "ci", "revert",
-}
+)
+
+CONVENTIONAL_TYPES = set(CONVENTIONAL_TYPE_ORDER)
+
+
+def allowed_types() -> frozenset[str]:
+    """Every type the validator accepts: the built-ins plus the project's own.
+
+    Custom types come from ``[commit] types`` in the user config (see
+    :func:`relay.config.commit_types`) and are user-config-only, so a freshly
+    cloned repository can never widen the vocabulary. With nothing configured
+    this is exactly the built-in set — the historical behavior.
+    """
+    return frozenset(CONVENTIONAL_TYPES | set(commit_types()))
 
 # Matches:  type(scope): subject  |  type(scope)!: subject  |  type: subject
 _CONVENTIONAL_RE = re.compile(
@@ -63,7 +80,7 @@ def validate_conventional(message: str):
     match = _match_first_line(message)
     if not match:
         return False, "expected format: type(scope): subject"
-    if match.group("type").lower() not in CONVENTIONAL_TYPES:
+    if match.group("type").lower() not in allowed_types():
         return False, f"unknown type '{match.group('type')}'"
     return True, ""
 
@@ -79,7 +96,7 @@ def extract_commit_type(message: str) -> str | None:
     if not match:
         return None
     commit_type = match.group("type").lower()
-    return commit_type if commit_type in CONVENTIONAL_TYPES else None
+    return commit_type if commit_type in allowed_types() else None
 
 
 def build_branch_name(template: str, feature: str, commit_type: str = "feat") -> str:

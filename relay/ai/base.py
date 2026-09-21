@@ -19,6 +19,7 @@ import urllib.error
 from abc import ABC, abstractmethod
 from pathlib import PurePath
 
+from ..commit import CONVENTIONAL_TYPE_ORDER, CONVENTIONAL_TYPES, allowed_types
 from ..config import max_diff_lines
 from ..errors import AIError
 
@@ -139,17 +140,37 @@ def decode_provider_json(body: bytes, provider: str) -> dict:
 # The single source of truth for how the AI must write commit messages.
 # It lives here (not inside a provider) so every provider produces the same
 # shape of output, which the validator in relay/commit.py can then check.
-SYSTEM_PROMPT = (
+# ``{types}`` is filled by system_prompt(); use that, never the raw template.
+SYSTEM_PROMPT_TEMPLATE = (
     "You are a Git commit message generator.\n"
     "Given a staged diff, write EXACTLY ONE LINE in the Conventional Commits format:\n"
     "    type(scope): subject\n"
     "Rules:\n"
-    "    - type must be one of: feat, fix, refactor, docs, style, test, chore, perf, build, ci, revert\n"
+    "    - type must be one of: {types}\n"
     "    - scope is optional and lowercase, e.g. type(auth): subject\n"
     "    - subject is imperative mood, concise, at most 72 characters, no trailing period\n"
     "    - output ONLY the single commit-message line.\n"
     "    - no markdown, no code fences, no quotes, no explanation.\n"
 )
+
+# The default prompt (built-in types only), rendered once at import time.
+SYSTEM_PROMPT = SYSTEM_PROMPT_TEMPLATE.format(types=", ".join(CONVENTIONAL_TYPE_ORDER))
+
+
+def system_prompt() -> str:
+    """``SYSTEM_PROMPT`` with the project's custom commit types merged in.
+
+    The vocabulary is derived from :func:`relay.commit.allowed_types` — the same
+    set the validator enforces — so the model is never told a type that would
+    then be rejected, and never left unaware of one the project accepts. Extra
+    types are appended in sorted order for a stable prompt. With nothing
+    configured the result is byte-for-byte the historical prompt.
+    """
+    custom = sorted(allowed_types() - CONVENTIONAL_TYPES)
+    if not custom:
+        return SYSTEM_PROMPT
+    types = ", ".join([*CONVENTIONAL_TYPE_ORDER, *custom])
+    return SYSTEM_PROMPT_TEMPLATE.format(types=types)
 
 
 def _path_matches(path: str, patterns: list[str]) -> bool:
@@ -370,7 +391,7 @@ class AIManager(ABC):
             f"{recent_section}"
             f"{retry_section}"
             f"Staged diff:\n{diff}\n"
-            f"---\n{SYSTEM_PROMPT}"
+            f"---\n{system_prompt()}"
             f"{notice}"
         )
 

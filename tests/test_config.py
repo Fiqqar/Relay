@@ -50,6 +50,55 @@ def _write_toml(monkeypatch, tmp_path, body: str) -> None:
     monkeypatch.setenv("RELAY_CONFIG", str(p))
 
 
+# ---- [commit] table: custom types ---------------------------------------------
+
+
+def test_commit_types_default_to_empty():
+    assert config.commit_types() == []
+
+
+def test_commit_types_reads_the_table(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        types = ["sec", "deps"]
+    """)
+    assert config.commit_types() == ["sec", "deps"]
+
+
+def test_commit_types_normalizes_and_dedupes(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        types = ["SEC", "sec", " infra ", "bad type", "!", 7]
+    """)
+    assert config.commit_types() == ["sec", "infra"]
+
+
+def test_commit_types_caps_a_pathological_list(monkeypatch, tmp_path):
+    entries = ", ".join(f'"t{i}"' for i in range(30))
+    _write_toml(monkeypatch, tmp_path, f"""
+        [commit]
+        types = [{entries}]
+    """)
+    assert config.commit_types() == [f"t{i}" for i in range(config.MAX_CUSTOM_COMMIT_TYPES)]
+
+
+def test_commit_types_ignores_a_non_list_value(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        types = "sec"
+    """)
+    assert config.commit_types() == []
+
+
+def test_commit_types_is_never_read_from_a_repo_local_config(monkeypatch, tmp_path):
+    """Security: an untrusted clone must not widen the accepted vocabulary."""
+    local = tmp_path / ".relay.toml"
+    local.write_text('[commit]\ntypes = ["sec"]\n', encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
+    monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
+    assert config.commit_types() == []
+
+
 # ---- Gemini base URL (proxy / gateway parity) ---------------------------------
 
 
