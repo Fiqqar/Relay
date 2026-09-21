@@ -163,6 +163,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="open the PR in the default web browser")
     pr.add_argument("-d", "--draft", action="store_true",
                     help="create the PR as a draft (visible, not ready for review)")
+    pr.add_argument("--body", metavar="TEXT",
+                    help="description to post verbatim (wins over --body-file and templates)")
+    pr.add_argument("--body-file", metavar="PATH",
+                    help="read the description from this file")
+    pr.add_argument("-e", "--edit", action="store_true",
+                    help="open the resolved description in $EDITOR before posting")
     pr.add_argument("--yes", action="store_true",
                     help="act without prompting (implies --open)")
     pr.add_argument("--verbose", action="store_true",
@@ -342,6 +348,9 @@ def _handle_pr(args) -> int:
     return run_pr(
         base=args.base,
         title=args.title,
+        body=args.body,
+        body_file=args.body_file,
+        edit=args.edit,
         open_browser=args.open or args.yes or pr_open_browser(),
         draft=args.draft,
         verbose=args.verbose,

@@ -8,7 +8,10 @@ from relay.bitbucket import DuplicatePullRequestError as BitbucketDuplicateError
 from relay.errors import GitError, RelayError
 from relay.github import DuplicatePullRequestError, GitHubError
 from relay.gitlab import DuplicateMergeRequestError, GitLabError
-from relay.pr import run_pr
+
+# Imported at module load time so the autouse `no_repo_template` fixture (which
+# patches `relay.pr._read_template`) cannot shadow them in the discovery tests.
+from relay.pr import TEMPLATE_PATHS, _read_template, _template_root, run_pr
 
 
 class FakeGit:
@@ -31,6 +34,7 @@ class FakeGit:
         self._has_branch = has_branch
         self.fetch_calls = []
         self.log_calls = []
+        self.cwd = None
 
     def is_repo(self):
         return self._is_repo
@@ -78,6 +82,14 @@ class FakeGit:
     def fetch(self, remote, ref="", check=True):
         self.fetch_calls.append((remote, ref, check))
         return None
+
+
+@pytest.fixture(autouse=True)
+def no_repo_template(monkeypatch):
+    """Keep body resolution hermetic: this repository really does ship a
+    `.github/PULL_REQUEST_TEMPLATE.md`, which would otherwise replace every
+    auto-generated body under test. Template discovery has its own tests."""
+    monkeypatch.setattr("relay.pr._read_template", lambda git: "")
 
 
 @pytest.fixture
@@ -678,4 +690,169 @@ def test_forge_kind_classifies_hosts():
     assert _forge_kind("github.com") == "github"
     assert _forge_kind("bitbucket.org") == "bitbucket"
     assert _forge_kind("gitlab.example.com") == "gitlab"
+
+
+# ---- body resolution: --body > --body-file > template > commit list ----------
+
+
+class TestBodyResolution:
+    def test_body_flag_wins_over_template_and_commit_list(self, fake_client, monkeypatch):
+        monkeypatch.setattr("relay.pr._read_template", lambda git: "TEMPLATE")
+        run_pr(git=FakeGit(log="feat: one"), body="Explicit body")
+        assert fake_client.return_value.open_pull.call_args.kwargs["body"] == "Explicit body"
+
+    def test_empty_body_flag_is_still_explicit(self, fake_client):
+        run_pr(git=FakeGit(log="feat: one"), body="")
+        assert fake_client.return_value.open_pull.call_args.kwargs["body"] == ""
+
+    def test_body_file_is_read(self, fake_client, tmp_path):
+        path = tmp_path / "body.md"
+        path.write_text("From a file", encoding="utf-8")
+        run_pr(git=FakeGit(), body_file=str(path))
+        assert fake_client.return_value.open_pull.call_args.kwargs["body"] == "From a file"
+
+    def test_body_file_wins_over_the_template(self, fake_client, tmp_path, monkeypatch):
+        monkeypatch.setattr("relay.pr._read_template", lambda git: "TEMPLATE")
+        path = tmp_path / "body.md"
+        path.write_text("File wins", encoding="utf-8")
+        run_pr(git=FakeGit(), body_file=str(path))
+        assert fake_client.return_value.open_pull.call_args.kwargs["body"] == "File wins"
+
+    def test_missing_body_file_is_an_actionable_error(self, fake_client, tmp_path):
+        with pytest.raises(RelayError, match="cannot read --body-file"):
+            run_pr(git=FakeGit(), body_file=str(tmp_path / "nope.md"))
+
+    def test_template_wins_over_the_generated_commit_list(self, fake_client, monkeypatch):
+        monkeypatch.setattr("relay.pr._read_template", lambda git: "## Template\n")
+        run_pr(git=FakeGit(log="feat: one"))
+        assert fake_client.return_value.open_pull.call_args.kwargs["body"] == "## Template\n"
+
+    def test_edit_opens_the_editor_with_the_resolved_body(self, fake_client):
+        with mock.patch("relay.pr.open_in_editor", return_value="Edited body") as editor:
+            run_pr(git=FakeGit(log="feat: one"), edit=True)
+        editor.assert_called_once()
+        assert editor.call_args.args[0].startswith("Commits in")
+        assert fake_client.return_value.open_pull.call_args.kwargs["body"] == "Edited body"
+
+    def test_edit_keeps_the_body_when_the_editor_is_unavailable(
+        self, fake_client, capsys
+    ):
+        with mock.patch("relay.pr.open_in_editor", return_value=None):
+            run_pr(git=FakeGit(log="feat: one"), edit=True)
+        assert "editor unavailable" in capsys.readouterr().out
+        body = fake_client.return_value.open_pull.call_args.kwargs["body"]
+        assert "- feat: one" in body
+
+    def test_no_edit_never_opens_an_editor(self, fake_client):
+        with mock.patch("relay.pr.open_in_editor") as editor:
+            run_pr(git=FakeGit())
+        editor.assert_not_called()
+
+    def test_body_reaches_gitlab_and_bitbucket(self, fake_client):
+        with mock.patch("relay.pr.GitLabClient") as gl, mock.patch(
+            "relay.pr.BitbucketClient"
+        ) as bb:
+            gl.return_value.find_open_mr.return_value = None
+            gl.return_value.open_merge_request.return_value = {
+                "iid": 1,
+                "web_url": "https://gitlab.com/acme/widget/-/merge_requests/1",
+            }
+            bb.return_value.find_open_pull.return_value = None
+            bb.return_value.open_pull.return_value = {
+                "id": 1,
+                "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/1"}},
+            }
+            run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"), body="GL body")
+            assert gl.return_value.open_merge_request.call_args.kwargs["description"] == "GL body"
+            run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"), body="BB body")
+            assert bb.return_value.open_pull.call_args.kwargs["description"] == "BB body"
+
+
+# ---- template discovery (real files in a temporary repo) ---------------------
+
+
+def _temp_repo(tmp_path):
+    """A FakeGit whose working directory is a temp dir marked as a repo root."""
+    (tmp_path / ".git").mkdir()
+    git = FakeGit()
+    git.cwd = str(tmp_path)
+    return git
+
+
+def test_template_paths_cover_the_documented_locations():
+    assert ".github/pull_request_template.md" in TEMPLATE_PATHS
+    assert ".github/PULL_REQUEST_TEMPLATE.md" in TEMPLATE_PATHS
+    assert "docs/pull_request_template.md" in TEMPLATE_PATHS
+    assert ".gitlab/merge_request_templates/Default.md" in TEMPLATE_PATHS
+
+
+def test_github_uppercase_template_is_discovered(tmp_path):
+    git = _temp_repo(tmp_path)
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text("UPPER", encoding="utf-8")
+    assert _read_template(git) == "UPPER"
+
+
+def test_lowercase_github_spelling_is_checked_first():
+    """Precedence between the two `.github` spellings, asserted as order: on a
+    case-insensitive filesystem they are literally the same file, so a content
+    comparison there would prove nothing."""
+    assert TEMPLATE_PATHS.index(
+        ".github/pull_request_template.md"
+    ) < TEMPLATE_PATHS.index(".github/PULL_REQUEST_TEMPLATE.md")
+
+
+def test_github_template_wins_over_the_docs_template(tmp_path):
+    git = _temp_repo(tmp_path)
+    (tmp_path / ".github").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text(
+        "GITHUB", encoding="utf-8"
+    )
+    (tmp_path / "docs" / "pull_request_template.md").write_text("DOCS", encoding="utf-8")
+    assert _read_template(git) == "GITHUB"
+
+
+def test_docs_template_is_discovered(tmp_path):
+    git = _temp_repo(tmp_path)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "pull_request_template.md").write_text("DOCS", encoding="utf-8")
+    assert _read_template(git) == "DOCS"
+
+
+def test_gitlab_default_template_is_discovered(tmp_path):
+    git = _temp_repo(tmp_path)
+    (tmp_path / ".gitlab" / "merge_request_templates").mkdir(parents=True)
+    (
+        tmp_path / ".gitlab" / "merge_request_templates" / "Default.md"
+    ).write_text("GITLAB", encoding="utf-8")
+    assert _read_template(git) == "GITLAB"
+
+
+def test_repo_without_a_template_yields_empty(tmp_path):
+    assert _read_template(_temp_repo(tmp_path)) == ""
+
+
+def test_unreadable_template_falls_through_to_the_next_candidate(tmp_path, monkeypatch):
+    from pathlib import Path as _Path
+
+    git = _temp_repo(tmp_path)
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "pull_request_template.md").write_text("LOWER", encoding="utf-8")
+    (tmp_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text("UPPER", encoding="utf-8")
+    real_read_text = _Path.read_text
+
+    def flaky(self, *args, **kwargs):
+        if self.name == "pull_request_template.md":
+            raise OSError("permission denied")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(_Path, "read_text", flaky)
+    assert _read_template(git) == "UPPER"
+
+
+def test_template_root_is_none_outside_a_work_tree(tmp_path, monkeypatch):
+    git = _temp_repo(tmp_path)
+    monkeypatch.setattr("relay.pr.find_repo_root", lambda start=None: None)
+    assert _template_root(git) is None
 
