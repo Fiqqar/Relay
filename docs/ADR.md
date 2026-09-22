@@ -7,7 +7,7 @@
 
 ## ADR-001 — Pure-stdlib, zero runtime dependencies
 
-**Context:** Global CLI must install anywhere, including offline machines / labs with unstable internet. Heavy deps (`requests`, `typer`, `pydantic`) increase supply-chain risk and break offline.
+**Context:** Global CLI must install anywhere, including offline machines / labs with unstable internet. Heavy deps (`requests`, `typer`, `pydantic`) increase supply-chain risk and break offline
 
 **Decision:** Stdlib only: `argparse`, `subprocess`, `urllib`, `tomllib`/`relay/toml.py`, `unittest.mock` for tests. `pyproject.toml:dependencies = []`.
 
