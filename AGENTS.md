@@ -11,7 +11,7 @@ rules. Those rules bind humans and AI alike and are summarized briefly here:
   `type(scope): subject`). Don't mix unrelated topics into a single commit.
 - **Never commit/push before** `pytest` (coverage ≥ 93%), `ruff check .`, and
   `mypy relay` are all green. New tests must ship in the same commit as the code.
-- **Zero runtime dependencies** — stdlib only.
+- **Zero runtime dependencies** — stdlib only
 - **All subprocesses argv-as-list; `shell=True` is forbidden.** Secrets env-only.
 - **No mass reformatting** (don't `ruff format` the whole repo), don't tidy up
   code unrelated to the task.
