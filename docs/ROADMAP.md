@@ -1,8 +1,8 @@
 # Relay Roadmap
 
 Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
-history since. Versions `0.1.0` through `2.2.0` are shipped and closed;
-`v2.3.0` is the next planned minor (Workflow polish & PR depth); `v3.0.0` is a
+history since. Versions `0.1.0` through `2.3.0` are shipped and closed;
+`v2.4.0` scope is not yet decided; `v3.0.0` is a
 reserved placeholder with no promised features. Relay is in stable General
 Availability with hardening releases on top.
 
@@ -538,8 +538,8 @@ branch coverage ≥ 93% ✅ (99.02%); `v2.3.0` released per `RELEASE.md`.
 ### v2.4.0 — Scope not yet decided
 
 - [ ] Scope **not decided** — no feature is promised under this version.
-- [ ] Candidates (uncommitted): hunk-level AI messages, multi-repo commit
-      orchestration, custom hook lifecycle events.
+- [ ] Candidates (uncommitted): none yet — filled in once the v2.4.0
+      scope discussion below is agreed and recorded.
 
 **Exit:** scope proposed, agreed, and recorded here before any `2.4.0` work
 starts.
