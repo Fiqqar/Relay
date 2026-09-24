@@ -535,11 +535,14 @@ branch coverage ≥ 93% ✅ (99.02%); `v2.3.0` released per `RELEASE.md`.
 
 ## In progress (next minor)
 
-### v2.4.0 — Scope not yet decided
+### v2.4.0 — Windows output robustness (proposed)
 
-- [ ] Scope **not decided** — no feature is promised under this version.
-- [ ] Candidates (uncommitted): none yet — filled in once the v2.4.0
-      scope discussion below is agreed and recorded.
+- [ ] Agreed 2026-09-24: stdout UTF-8 hardening — reconfigure stdout to
+      UTF-8 at startup so piped/redirected output never silently mangles
+      non-ASCII (proven: em-dash degrades to `?` under non-UTF-8 locales);
+      hermetic regression test included.
+- [ ] Room for 1–2 more small items from daily dogfooding; scope locks
+      before any `2.4.0` feature work starts.
 
 **Exit:** scope proposed, agreed, and recorded here before any `2.4.0` work
 starts.
