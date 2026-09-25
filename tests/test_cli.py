@@ -636,3 +636,49 @@ class TestDispatchTables:
         assert "unexpected error" in out
 
 
+class TestEnsureUtf8Stdout:
+    def test_reconfigures_stdout_and_stderr_to_utf8(self, monkeypatch):
+        from relay import cli as cli_mod
+
+        calls = []
+
+        class FakeStream:
+            def reconfigure(self, **kwargs):
+                calls.append(kwargs)
+
+        monkeypatch.setattr("sys.stdout", FakeStream())
+        monkeypatch.setattr("sys.stderr", FakeStream())
+        cli_mod._ensure_utf8_stdout()
+        assert calls == [
+            {"encoding": "utf-8", "errors": "replace"},
+            {"encoding": "utf-8", "errors": "replace"},
+        ]
+
+    def test_tolerates_missing_reconfigure(self, monkeypatch):
+        from relay import cli as cli_mod
+
+        monkeypatch.setattr("sys.stdout", object())
+        monkeypatch.setattr("sys.stderr", object())
+        cli_mod._ensure_utf8_stdout()
+
+    def test_tolerates_reconfigure_error(self, monkeypatch):
+        from relay import cli as cli_mod
+
+        class BadStream:
+            def reconfigure(self, **kwargs):
+                raise OSError("closed")
+
+        monkeypatch.setattr("sys.stdout", BadStream())
+        monkeypatch.setattr("sys.stderr", BadStream())
+        cli_mod._ensure_utf8_stdout()
+
+    def test_main_calls_ensure_utf8(self, wired):
+        from relay import cli as cli_mod
+
+        _, orchestrator_cls = wired
+        with mock.patch.object(cli_mod, "_ensure_utf8_stdout") as ensure:
+            main(["--solo", "--yes", "--no-push"])
+        ensure.assert_called_once_with()
+
+
+
