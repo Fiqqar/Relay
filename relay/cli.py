@@ -79,6 +79,17 @@ def _detect_shell() -> str:
     return "bash"
 
 
+def _ensure_utf8_stdout() -> None:
+    """Reconfigure stdout/stderr to UTF-8 so piped output keeps non-ASCII."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            reconfigure = getattr(stream, "reconfigure", None)
+            if callable(reconfigure):
+                reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError, LookupError):
+            continue
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="relay",
@@ -528,6 +539,7 @@ def _handle_workflow_error(exc: BaseException, args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _ensure_utf8_stdout()
     args = build_parser().parse_args(argv)
     command: str = getattr(args, "command", None) or ""
 
