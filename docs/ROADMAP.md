@@ -1,9 +1,8 @@
 # Relay Roadmap
 
 Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
-history since. Versions `0.1.0` through `2.3.0` are shipped and closed;
-`v2.4.0` scope is locked (Windows output robustness + encoding sweep);
-`v3.0.0` is a
+history since. Versions `0.1.0` through `2.4.0` are shipped and closed;
+`v2.5.0` scope is not yet decided; `v3.0.0` is a
 reserved placeholder with no promised features. Relay is in stable General
 Availability with hardening releases on top.
 
@@ -386,7 +385,7 @@ of the prompt. ✅
 
 ---
 
-## Shipped post-GA history (`1.0.1` → `2.3.0`)
+## Shipped post-GA history (`1.0.1` → `2.4.0`)
 
 ### v1.0.1 — Supply-chain hardening
 
@@ -534,24 +533,36 @@ branch coverage ≥ 93% ✅ (99.02%); `v2.3.0` released per `RELEASE.md`.
 
 ---
 
-## In progress (next minor)
-
-### v2.4.0 — Windows output robustness (locked 2026-09-26)
+### v2.4.0 — Windows output robustness
 
 - [x] Shipped PR #102: stdout+stderr UTF-8 hardening — reconfigure both
       streams to UTF-8 at startup so piped/redirected output never silently
       mangles non-ASCII (proven: em-dash degrades to `?` under non-UTF-8
       locales); hermetic regression test included.
-- [ ] Encoding sweep (mini): unify the remaining decode/subprocess paths to
-      `utf-8` + `errors="replace"` (`doctor` git-version probe, hooks runner,
-      forge HTTP error bodies, AI provider body decode); hermetic tests per
-      path, zero runtime deps, no CLI surface change.
-- [ ] Docs/release: CHANGELOG `Unreleased` entry, scope marked locked here,
+- [x] Shipped PR #104: encoding sweep (mini) — the remaining
+      decode/subprocess paths (`doctor` git-version probe, forge success-body
+      decode, AI provider JSON choke point) unified to `utf-8` +
+      `errors="replace"`; hermetic tests per path, zero runtime deps, no CLI
+      surface change.
+- [x] Docs/release: CHANGELOG `2.4.0` entry, scope marked shipped here,
       release `v2.4.0` per `RELEASE.md`.
 
 **Exit:** stdout+stderr + sweep paths never crash/mangle on non-UTF-8
-locales; suite green with branch coverage ≥ 93%; e2e fallback flow green;
-docs updated; `v2.4.0` tagged `vx.y.z`.
+locales; suite green ✅ (1332 tests); branch coverage ≥ 93% ✅ (99.02%);
+`v2.4.0` released per `RELEASE.md`.
+
+---
+
+## In progress (next minor)
+
+### v2.5.0 — Scope not yet decided
+
+- [ ] Scope **not decided** — no feature is promised under this version.
+- [ ] Candidates (uncommitted): `relay doctor` encoding report, remaining
+      hardening from dogfooding.
+
+**Exit:** scope proposed, agreed, and recorded here before any `2.5.0` work
+starts.
 
 ---
 

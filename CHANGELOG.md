@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-09-26
+
+### Fixed
+- **Stdout/stderr UTF-8 hardening**: `relay` reconfigures both streams to
+  UTF-8 (`errors="replace"`) at startup, so piped/redirected output never
+  silently mangles non-ASCII under non-UTF-8 locales (proven: em-dash
+  degraded to `?`); hermetic regression test included.
+- **Encoding sweep**: the remaining decode/subprocess paths are unified to
+  `utf-8` + `errors="replace"` — the `relay doctor` git-version probe, the
+  forge success-body decode, and the AI provider JSON choke point — so a
+  stray non-UTF-8 byte can never crash a run; hermetic tests per path, zero
+  runtime dependencies, no CLI surface change.
+
+### Changed
+- **Suite**: 1332 tests at 99.02% branch coverage (gate unchanged at 93%).
+
 ## [2.3.0] - 2026-09-21
 
 ### Added
