@@ -57,6 +57,15 @@ def test_success_returns_parsed_json():
         assert call_helper(req) == {"a": 1}
 
 
+def test_success_body_with_non_utf8_bytes_uses_replacement():
+    """A stray non-UTF-8 byte in a success body must not crash decoding."""
+    req = urllib.request.Request("https://api.example.com/x", method="GET")
+    with mock.patch(
+        "urllib.request.urlopen", return_value=fake_http(b'{"note": "\xff ok"}')
+    ):
+        assert call_helper(req) == {"note": "� ok"}
+
+
 def test_oversized_success_body_is_rejected():
     from relay.forge_http import MAX_RESPONSE_BYTES
 

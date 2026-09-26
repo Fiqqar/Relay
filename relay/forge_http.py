@@ -94,7 +94,7 @@ def request_json(
                     raise error_cls(
                         f"{forge} API response exceeded the {max_response_bytes}-byte limit"
                     )
-                return json.loads(body.decode("utf-8"))
+                return json.loads(body.decode("utf-8", "replace"))
         except urllib.error.HTTPError as exc:
             if exc.code in TRANSIENT_STATUSES and attempt < retries:
                 time.sleep(1.0 * (attempt + 1) + random.uniform(0.1, 0.5))

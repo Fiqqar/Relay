@@ -130,7 +130,7 @@ def decode_provider_json(body: bytes, provider: str) -> dict:
     provider shares.
     """
     try:
-        data = json.loads(body.decode("utf-8"))
+        data = json.loads(body.decode("utf-8", "replace"))
     except ValueError as exc:
         raise AIError(provider, "bad_response", f"invalid JSON response: {exc}") from exc
     if not isinstance(data, dict):
