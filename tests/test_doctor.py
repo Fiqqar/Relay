@@ -131,6 +131,19 @@ class TestGitVersion:
         with mock.patch("relay.doctor.subprocess.run", side_effect=OSError("no git")):
             assert _git_version() == ""
 
+    def test_uses_utf8_replace_decoding(self):
+        """Non-UTF-8 locale bytes must not break the git version probe."""
+        proc = subprocess.CompletedProcess(
+            [], 0, "git version 2.46.0.windows.1 — em—dash\n", ""
+        )
+        with mock.patch(
+            "relay.doctor.subprocess.run", return_value=proc
+        ) as mock_run:
+            assert _git_version() == "2.46.0.windows.1 — em—dash"
+        kwargs = mock_run.call_args.kwargs
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "replace"
+
 
 class TestOllamaReachable:
     def test_reachable_with_explicit_port(self):

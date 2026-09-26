@@ -103,7 +103,11 @@ class Check:
 def _git_version() -> str:
     try:
         out = subprocess.run(
-            ["git", "--version"], capture_output=True, text=True
+            ["git", "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         ).stdout.strip()
         return out.replace("git version ", "")
     except OSError:

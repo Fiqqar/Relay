@@ -26,7 +26,13 @@ from relay.ai import (
     XaiProvider,
     build_provider,
 )
-from relay.ai.base import SYSTEM_PROMPT, system_prompt, truncate_diff, truncate_stat
+from relay.ai.base import (
+    SYSTEM_PROMPT,
+    decode_provider_json,
+    system_prompt,
+    truncate_diff,
+    truncate_stat,
+)
 from relay.errors import AIError, ConfigError
 
 
@@ -752,6 +758,12 @@ class TestDiffTruncation:
         result, was_truncated = truncate_diff(big, max_lines=120, max_bytes=10 * 1024)
         assert was_truncated is True
         assert len(result.encode("utf-8")) <= 10 * 1024 + 200
+
+
+class TestDecodeProviderJson:
+    def test_non_utf8_byte_uses_replacement_not_bad_response(self):
+        """A stray non-UTF-8 byte must not kill the whole provider body."""
+        assert decode_provider_json(b'{"text": "\xff"}', "gemini") == {"text": "�"}
 
 
 class TestTimeoutCaps:
