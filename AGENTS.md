@@ -8,7 +8,7 @@ Before changing any code, read **`docs/WORKING_RULES.md`** in full and follow it
 rules. Those rules bind humans and AI alike and are summarized briefly here:
 
 - **One logical change = one commit** (Conventional Commits:
-  `type(scope): subject`). Don't mix unrelated topics into a single commit
+  `type(scope): subject`). Don't mix unrelated topics into a single commit. 
 - **Never commit/push before** `pytest` (coverage ≥ 93%), `ruff check .`, and
   `mypy relay` are all green. New tests must ship in the same commit as the code.
 - **Zero runtime dependencies** — stdlib only
