@@ -131,7 +131,16 @@ def test_run_hook_success(monkeypatch):
         m.assert_called_once()
         args, kwargs = m.call_args
         assert kwargs["shell"] is False
+        assert kwargs["cwd"] is None
         assert args[0] == ["echo", "hi"]
+
+
+def test_run_hook_runs_in_the_given_cwd(monkeypatch):
+    """Multi-repo runs must execute the hook inside the target work tree."""
+    with mock.patch("subprocess.run") as m:
+        m.return_value = mock.Mock(returncode=0, stdout="", stderr="")
+        run_hook(["echo", "hi"], cwd="/repos/other", verbose=False)
+        assert m.call_args[1]["cwd"] == "/repos/other"
 
 
 def test_run_hook_failure_raises_giterr(monkeypatch):
@@ -184,6 +193,7 @@ class StubAI:
 
 def _make_git():
     g = mock.Mock()
+    g.cwd = "/repos/demo"
     g.is_repo.return_value = True
     g.has_changes.return_value = True
     g.has_remote.return_value = True
@@ -209,7 +219,7 @@ def test_orchestrator_runs_pre_commit_before_commit(monkeypatch):
             git = _make_git()
             orch = Orchestrator(git=git, provider=ai, yes=True, no_push=True)
             orch.run()
-            mh.assert_called_once_with(["echo", "pre"], verbose=False)
+            mh.assert_called_once_with(["echo", "pre"], cwd="/repos/demo", verbose=False)
             git.commit.assert_called_once()
 
 
@@ -237,7 +247,7 @@ def test_orchestrator_post_push_runs_after_push(monkeypatch):
                 orch = Orchestrator(git=git, provider=ai, yes=True, no_push=False)
                 orch.run()
                 # post hook called after push
-                mh.assert_called_once_with(["echo", "post"], verbose=False)
+                mh.assert_called_once_with(["echo", "post"], cwd="/repos/demo", verbose=False)
                 git.push.assert_called_once()
 
 
@@ -266,3 +276,38 @@ def test_dry_run_does_not_run_hooks(monkeypatch):
             orch.run()
             mh.assert_not_called()
             git.commit.assert_not_called()
+
+
+def test_no_verify_skips_the_pre_commit_hook(monkeypatch):
+    """--no-verify must skip Relay's own pre_commit hook, not only git's."""
+    from relay.orchestrator import Orchestrator
+
+    with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]) as lookup:
+        with mock.patch("relay.orchestrator.run_hook") as mh:
+            ai = StubAI()
+            git = _make_git()
+            orch = Orchestrator(git=git, provider=ai, yes=True, no_push=True, no_verify=True)
+            assert orch.run() == 0
+            mh.assert_not_called()
+            lookup.assert_not_called()
+            git.commit.assert_called_once_with("feat: stub", no_verify=True, signoff=False)
+
+
+def test_no_verify_skips_the_pre_commit_hook_for_amend(monkeypatch):
+    """The amend path honors --no-verify too (it used to run the hook anyway)."""
+    from relay.orchestrator import Orchestrator
+
+    with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]) as lookup:
+        with mock.patch("relay.orchestrator.run_hook") as mh:
+            ai = StubAI()
+            git = _make_git()
+            git.has_staged_changes.return_value = False
+            orch = Orchestrator(
+                git=git, provider=ai, yes=True, mode="amend", no_verify=True
+            )
+            assert orch.run() == 0
+            mh.assert_not_called()
+            lookup.assert_not_called()
+            git.commit.assert_called_once_with(
+                "feat: stub", amend=True, no_verify=True, signoff=False
+            )

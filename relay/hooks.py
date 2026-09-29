@@ -14,8 +14,16 @@ from .errors import GitError, sanitize_terminal
 _HOOK_TIMEOUT = 60.0
 
 
-def run_hook(argv: list[str], verbose: bool = False) -> None:
-    """Run a hook argv. Raises GitError if it exits non-zero."""
+def run_hook(
+    argv: list[str], *, cwd: str | None = None, verbose: bool = False
+) -> None:
+    """Run a hook argv. Raises GitError if it exits non-zero.
+
+    ``cwd`` is the work tree the hook belongs to. Multi-repo runs
+    (``--repo``/``[repos]``) drive a ``GitManager`` pinned to another
+    directory, so running the hook without it would execute the hook in the
+    directory Relay was launched from — the wrong repository entirely.
+    """
     if not argv:
         return
     if verbose:
@@ -29,6 +37,7 @@ def run_hook(argv: list[str], verbose: bool = False) -> None:
             encoding="utf-8",
             errors="replace",
             timeout=_HOOK_TIMEOUT,
+            cwd=cwd,
         )
     except subprocess.TimeoutExpired as exc:
         raise GitError(

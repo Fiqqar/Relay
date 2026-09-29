@@ -33,6 +33,7 @@ class StubAI:
 def git():
     """A GitManager double whose git commands are all no-ops with sane defaults."""
     g = mock.Mock(spec=GitManager)
+    g.cwd = "/repos/demo"
     g.is_repo.return_value = True
     g.has_changes.return_value = True
     g.has_remote.return_value = True
@@ -639,7 +640,7 @@ def test_amend_mode_commits_with_amend_and_never_pushes(mock_input, git):
     code = make_orchestrator(git, provider=ai, mode="amend").run()
     assert code == 0
     git.commit.assert_called_once_with(
-        "fix: amend last commit", amend=True, signoff=False
+        "fix: amend last commit", amend=True, no_verify=False, signoff=False
     )
     git.create_branch.assert_not_called()
     git.push.assert_not_called()
@@ -692,7 +693,7 @@ def test_amend_mode_default_does_not_stage(mock_input, git):
     git.stage_all.assert_not_called()
     git.diff_range.assert_called_once_with("tip123", "tip123")
     git.commit.assert_called_once_with(
-        "fix: amend message only", amend=True, signoff=False
+        "fix: amend message only", amend=True, no_verify=False, signoff=False
     )
 
 
@@ -716,7 +717,7 @@ def test_amend_mode_staged_folds_index_explicitly(mock_input, git):
     assert code == 0
     git.stage_all.assert_not_called()
     git.commit.assert_called_once_with(
-        "fix: amend with staged", amend=True, signoff=False
+        "fix: amend with staged", amend=True, no_verify=False, signoff=False
     )
 
 
@@ -1300,7 +1301,7 @@ def test_solo_run_executes_pre_commit_hook(git):
     ), mock.patch("relay.orchestrator.run_hook") as run_hook:
         code = make_orchestrator(git, message="fix: hooked", yes=True).run()
     assert code == 0
-    run_hook.assert_called_once_with(["echo", "hi"], verbose=False)
+    run_hook.assert_called_once_with(["echo", "hi"], cwd=git.cwd, verbose=False)
 
 
 def test_post_push_hook_failure_warns_with_stderr(git, capsys):
@@ -1345,7 +1346,7 @@ def test_amend_runs_pre_commit_hook(git):
             git, mode="amend", message="fix: amend hooked", yes=True
         ).run()
     assert code == 0
-    run_hook.assert_called_once_with(["echo", "hi"], verbose=False)
+    run_hook.assert_called_once_with(["echo", "hi"], cwd=git.cwd, verbose=False)
 
 
 def test_solo_without_remote_warns_but_commits(git, capsys):
@@ -1513,7 +1514,9 @@ def test_amend_forwards_signoff(git):
     ai = StubAI(responses=["fix: amend signed"])
     code = make_orchestrator(git, provider=ai, mode="amend", yes=True, signoff=True).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: amend signed", amend=True, signoff=True)
+    git.commit.assert_called_once_with(
+        "fix: amend signed", amend=True, no_verify=False, signoff=True
+    )
 
 
 
