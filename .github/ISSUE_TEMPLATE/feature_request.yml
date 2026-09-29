@@ -34,7 +34,7 @@ body:
       label: Alternatives Considered
       description: Describe any alternative solutions or workarounds you've considered.
     validations:
-      false
+      required: false
 
   - type: textarea
     id: context
@@ -42,4 +42,4 @@ body:
       label: Additional Context
       description: Add any other context, screenshots, or examples of how other tools do it.
     validations:
-      false
+      required: false
