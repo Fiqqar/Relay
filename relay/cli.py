@@ -185,6 +185,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="open the resolved description in $EDITOR before posting")
     pr.add_argument("--yes", action="store_true",
                     help="act without prompting (implies --open)")
+    pr.add_argument("--provider", choices=PROVIDER_NAMES,
+                    help="AI provider for a generated title (used when --title is absent)")
+    pr.add_argument("--dry-run", action="store_true",
+                    help="show the PR plan (host, base, title, body); open nothing")
     pr.add_argument("--verbose", action="store_true",
                     help="print the git commands being run")
 
@@ -371,14 +375,28 @@ def _handle_stage(args) -> int:
 
 
 def _handle_pr(args) -> int:
+    # A provider is only needed for a generated title: without --provider the
+    # commit message stays the title source and no API key is required.
+    provider = None
+    if args.provider:
+        try:
+            provider = build_provider(args.provider)
+        except ConfigError as exc:
+            print(
+                f"[relay] AI unavailable ({exc}) — falling back to the "
+                "commit message for the title."
+            )
+            provider = None
     return run_pr(
         base=args.base,
         title=args.title,
         body=args.body,
         body_file=args.body_file,
         edit=args.edit,
+        provider=provider,
         open_browser=args.open or args.yes or pr_open_browser(),
         draft=args.draft,
+        dry_run=args.dry_run,
         verbose=args.verbose,
     )
 

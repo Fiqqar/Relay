@@ -53,6 +53,8 @@ SUBCOMMAND_FLAGS: dict[str, dict[str, str]] = {
         "-e": "edit the body in $EDITOR",
         "--edit": "edit the body in $EDITOR",
         "--yes": "skip the confirmation prompt",
+        "--provider": "AI provider for a generated title",
+        "--dry-run": "show the PR plan; open nothing",
         "--verbose": "print the git commands being run",
     },
     "squash": {

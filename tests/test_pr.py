@@ -114,6 +114,26 @@ class TestRunPr:
         assert "PR #12" in out
         assert "pull/12" in out
 
+    def test_dry_run_prints_the_plan_and_posts_nothing(self, fake_client, capsys):
+        assert run_pr(git=FakeGit(), dry_run=True) == 0
+        fake_client.assert_not_called()
+        fake_client.return_value.open_pull.assert_not_called()
+        out = capsys.readouterr().out
+        assert "dry-run (mode=pr)" in out
+        assert "open a PR on github.com" in out
+        assert "branch: feat/login -> base: main" in out
+        assert "title: feat: add login" in out
+        assert "body:" in out
+
+    def test_dry_run_marks_a_draft(self, fake_client, capsys):
+        assert run_pr(git=FakeGit(), draft=True, dry_run=True) == 0
+        assert "open a draft PR on github.com" in capsys.readouterr().out
+
+    def test_dry_run_reports_an_empty_body(self, fake_client, capsys):
+        git = FakeGit(log="")
+        assert run_pr(git=git, body="", dry_run=True) == 0
+        assert "body: (empty)" in capsys.readouterr().out
+
     def test_opens_draft_pr_when_requested(self, fake_client):
         run_pr(git=FakeGit(), draft=True)
         args = fake_client.return_value.open_pull.call_args.kwargs

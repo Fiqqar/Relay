@@ -13,6 +13,10 @@ Title resolution order (first match wins):
     3. an AI-generated subject, only if a provider was injected
     otherwise it fails with an actionable message.
 
+``--dry-run`` prints the fully resolved plan (host, ``head`` -> ``base``,
+``title``, body) and exits 0 without posting anything, matching the dry-run
+contract of ``relay``, ``relay squash`` and ``relay amend``.
+
 Body resolution order (first match wins):
     1. the explicit ``--body`` text
     2. the contents of ``--body-file PATH``
@@ -378,6 +382,7 @@ def run_pr(
     provider=None,
     open_browser: bool = False,
     draft: bool = False,
+    dry_run: bool = False,
     verbose: bool = False,
 ) -> int:
     """Open a PR/MR for the current branch. Returns the process exit code.
@@ -386,7 +391,9 @@ def run_pr(
     :func:`_resolve_body` and the module docstring for the precedence order).
     ``open_browser`` opens the PR URL (created or pre-existing) in the default
     web browser via ``webbrowser``. ``draft`` opens it as a draft (visible but
-    not ready for review). The duplicate check happens up front, so a branch
+    not ready for review). ``dry_run`` resolves everything a real run would
+    (title, description, host) and prints that plan, but never posts and never
+    touches the browser. The duplicate check happens up front, so a branch
     that already has an open PR never triggers a fetch or an AI call.
     """
     git = git or GitManager(verbose=verbose)
@@ -456,6 +463,21 @@ def run_pr(
         body_file=body_file,
         edit=edit,
     )
+
+    if dry_run:
+        # Everything below this point is an authenticated write, so the plan is
+        # complete: host, base, head, title and the exact body that would be
+        # sent. Nothing is posted and no browser is opened.
+        print(f"[relay] dry-run (mode=pr): open a {'draft ' if draft else ''}PR on {host}")
+        print(f"[relay]     branch: {head} -> base: {base}")
+        print(f"[relay]     title: {sanitize_terminal(pr_title)}")
+        if pr_body.strip():
+            print("[relay]     body:")
+            for line in pr_body.splitlines():
+                print(f"[relay]       {sanitize_terminal(line)}")
+        else:
+            print("[relay]     body: (empty)")
+        return 0
 
     if host in trusted_gh:
         return _run_github(

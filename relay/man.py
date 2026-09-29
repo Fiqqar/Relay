@@ -35,7 +35,7 @@ doctor
 pr
 [\fB\-\-base\fR \fIBRANCH\fR] [\fB\-\-title\fR \fITITLE\fR]
 [\fB\-\-body\fR \fITEXT\fR | \fB\-\-body-file\fR \fIPATH\fR] [\fB\-\-edit\fR]
-[\fB\-\-open\fR | \fB\-\-draft\fR]
+[\fB\-\-provider\fR \fIname\fR] [\fB\-\-dry-run\fR] [\fB\-\-open\fR | \fB\-\-draft\fR]
 .br
 .B relay
 squash
@@ -151,6 +151,9 @@ repo template (\fI.github/pull_request_template.md\fR,
 \fI.github/PULL_REQUEST_TEMPLATE.md\fR, \fIdocs/pull_request_template.md\fR, or
 GitLab's \fI.gitlab/merge_request_templates/Default.md\fR), else the commit list;
 \fB\-\-edit\fR opens the resolved body in \fI$EDITOR\fR before posting.
+The base branch defaults to \fI[relay] pr_base\fR (env \fIRELAY_PR_BASE\fR)
+when set. \fB\-\-provider\fR lets the AI name the PR when no commit subject is
+available; \fB\-\-dry-run\fR prints the resolved plan and posts nothing.
 .TP
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
