@@ -2,7 +2,7 @@
 
 Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
 history since. Versions `0.1.0` through `2.4.0` are shipped and closed;
-`v2.5.0` scope is not yet decided; `v3.0.0` is a
+`v2.5.0` is the next planned minor (CLI parity & correctness); `v3.0.0` is a
 reserved placeholder with no promised features. Relay is in stable General
 Availability with hardening releases on top.
 
@@ -555,14 +555,38 @@ locales; suite green ✅ (1332 tests); branch coverage ≥ 93% ✅ (99.02%);
 
 ## In progress (next minor)
 
-### v2.5.0 — Scope not yet decided
+### v2.5.0 — CLI parity & correctness
 
-- [ ] Scope **not decided** — no feature is promised under this version.
-- [ ] Candidates (uncommitted): `relay doctor` encoding report, remaining
-      hardening from dogfooding.
+- [ ] **`relay amend -m` & `--no-verify`** — `-m` / `--message` skips AI;
+      `--no-verify` skips git hooks (parity with `relay` and `relay squash`)
+- [ ] **Hook `--no-verify` & multi-repo CWD fix** — `orchestrator.py`
+      suppresses `pre_commit` hook when `--no-verify` is set (was running
+      unconditionally); `run_hook()` accepts `cwd` so multi-repo hooks
+      execute in the correct repository root
+- [ ] **Custom commit type regex fix** — `_CONVENTIONAL_RE` updated to
+      `[a-zA-Z][a-zA-Z0-9-]*` so hyphenated/numeric custom types
+      (`sec-ops`, `deps2`) pass validation; `[commit] types` allowed in
+      repo-local `.relay.toml`
+- [ ] **`relay undo` staged safety guard** — refuse undo when the index
+      already has staged changes (prevents silent contamination);
+      `--allow-staged` escape hatch
+- [ ] **Configurable PR base branch** — `[pr] base` config key and
+      `RELAY_PR_BASE` env var; defaults to `"main"` when unset
+- [ ] **`relay pr --dry-run` & AI title wiring** — preview PR title, body,
+      and forge URL without posting; `--provider` flag enables AI-generated
+      titles for PRs with no commits
+- [ ] **`relay doctor` encoding diagnostic** — report `sys.stdout.encoding`,
+      `sys.stderr.encoding`, and `locale.getpreferredencoding()`; PASS on
+      UTF-8, WARN on legacy codepages; included in `--json`
+- [ ] **Doctor probe parity** — `_probe_provider("gemini")` uses
+      `gemini_base_url()` instead of hardcoded URL; probe self-hosted
+      GitHub Enterprise hosts from `RELAY_TRUSTED_GITHUB_HOSTS`
+- [ ] **Docs refresh** — README provider table + command reference,
+      man page ENVIRONMENT section, PowerShell completion parity,
+      install.py fish shell + multi-provider text
 
-**Exit:** scope proposed, agreed, and recorded here before any `2.5.0` work
-starts.
+**Exit:** all 8 features + docs green with tests; branch coverage ≥ 93%;
+`v2.5.0` released per `RELEASE.md`.
 
 ---
 
