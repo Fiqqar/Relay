@@ -10,6 +10,7 @@ tool. Every check degrades gracefully and never raises.
 from __future__ import annotations
 
 import json
+import locale
 import shutil
 import socket
 import subprocess
@@ -338,6 +339,31 @@ def _probe_forge() -> Check | None:
     )
 
 
+def _is_utf8(name: str) -> bool:
+    """True for the UTF-8 codec's names (``utf-8``, ``UTF8``, ``utf_8``)."""
+    return name.strip().lower().replace("-", "").replace("_", "") == "utf8"
+
+
+def _encoding_check() -> Check:
+    """Report the text-stream and locale encodings.
+
+    PASS when both streams and the preferred locale encoding are UTF-8. A
+    legacy codepage (``cp1252``, ``cp437``, ``latin-1``) is a WARN, not a FAIL:
+    commit messages, diffs and hook output can then mangle non-ASCII text, and
+    the fix is a local environment change (``PYTHONUTF8=1``), never a
+    repository change. ``relay`` itself forces its streams to UTF-8 at startup,
+    so this check mainly tells the developer what the *environment* reports.
+    """
+    stdout_enc = sys.stdout.encoding or "unknown"
+    stderr_enc = sys.stderr.encoding or "unknown"
+    preferred = locale.getpreferredencoding(False) or "unknown"
+    ok = _is_utf8(stdout_enc) and _is_utf8(stderr_enc) and _is_utf8(preferred)
+    detail = f"stdout={stdout_enc}, stderr={stderr_enc}, locale={preferred}"
+    if not ok:
+        detail += " — set PYTHONUTF8=1 for full Unicode support"
+    return Check("Encoding", "ok" if ok else "warn", detail)
+
+
 def _probe_trusted_github_hosts() -> list[Check]:
     """Probe every self-hosted GitHub host that GITHUB_TOKEN may be sent to.
 
@@ -489,6 +515,7 @@ def run_doctor(
         )
     )
     checks.append(_hook_check())
+    checks.append(_encoding_check())
 
     if probe:
         checks.append(_probe_provider(chosen))
