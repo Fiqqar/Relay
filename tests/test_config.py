@@ -90,13 +90,36 @@ def test_commit_types_ignores_a_non_list_value(monkeypatch, tmp_path):
     assert config.commit_types() == []
 
 
-def test_commit_types_is_never_read_from_a_repo_local_config(monkeypatch, tmp_path):
-    """Security: an untrusted clone must not widen the accepted vocabulary."""
+def test_commit_types_reads_the_repo_local_config(monkeypatch, tmp_path):
+    """A checked-in `.relay.toml` shares the team's type vocabulary."""
     local = tmp_path / ".relay.toml"
-    local.write_text('[commit]\ntypes = ["sec"]\n', encoding="utf-8")
+    local.write_text('[commit]\ntypes = ["sec-ops"]\n', encoding="utf-8")
     monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
     monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
-    assert config.commit_types() == []
+    assert config.commit_types() == ["sec-ops"]
+
+
+def test_commit_types_merges_user_then_repo_local(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [commit]
+        types = ["sec", "shared"]
+    """)
+    local = tmp_path / ".relay.toml"
+    local.write_text('[commit]\ntypes = ["shared", "deps2"]\n', encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
+    assert config.commit_types() == ["sec", "shared", "deps2"]
+
+
+def test_commit_types_never_reads_signoff_from_a_repo_local_config(monkeypatch, tmp_path):
+    """Security: sign-off is a signing identity, so a clone can never set it."""
+    local = tmp_path / ".relay.toml"
+    local.write_text(
+        '[commit]\nsignoff = true\ntypes = ["sec"]\n', encoding="utf-8"
+    )
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
+    monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
+    assert config.commit_signoff() is False
+    assert config.commit_types() == ["sec"]
 
 
 # ---- Gemini base URL (proxy / gateway parity) ---------------------------------

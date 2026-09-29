@@ -9,6 +9,7 @@ import pytest
 
 from relay import config_local
 from relay.config_local import (
+    _load_local_commit,
     _load_local_ignore,
     _load_local_raw,
     _load_local_team_protected,
@@ -137,6 +138,38 @@ class TestAllowlistBranches:
         )
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_team_protected() == {"branches": ["production"]}
+
+    def test_commit_types_section_is_allowed(self, tmp_path, monkeypatch):
+        """`[commit] types` is shareable; it only widens a word allowlist."""
+        cfg = _write_local_config(
+            tmp_path, '[commit]\ntypes = ["sec-ops", "deps2"]\n'
+        )
+        monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
+        assert _load_local_raw() == {"commit": {"types": ["sec-ops", "deps2"]}}
+        assert _load_local_commit() == {"types": ["sec-ops", "deps2"]}
+
+    def test_commit_signoff_in_repo_config_is_dropped_with_warning(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        cfg = _write_local_config(
+            tmp_path, '[commit]\nsignoff = true\ntypes = ["sec"]\n'
+        )
+        monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
+        assert _load_local_commit() == {"types": ["sec"]}
+        assert "security-restricted key 'signoff'" in capsys.readouterr().err
+
+    def test_commit_section_with_only_signoff_adds_nothing(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        cfg = _write_local_config(tmp_path, '[commit]\nsignoff = true\n')
+        monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
+        assert _load_local_raw() == {}
+        assert "security-restricted key 'signoff'" in capsys.readouterr().err
+
+    def test_commit_types_non_list_adds_nothing(self, tmp_path, monkeypatch):
+        cfg = _write_local_config(tmp_path, '[commit]\ntypes = "sec"\n')
+        monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
+        assert _load_local_raw() == {}
 
     def test_top_level_ignore_section_with_paths(self, tmp_path, monkeypatch):
         cfg = _write_local_config(tmp_path, '[ignore]\npaths = ["*.log"]\n')

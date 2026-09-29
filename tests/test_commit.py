@@ -218,6 +218,24 @@ class TestCustomCommitTypes:
         assert validate_conventional("sec:")[0] is False
         assert validate_conventional("sec")[0] is False
 
+    def test_types_with_digits_and_hyphens_are_accepted(self, monkeypatch):
+        """config's `^[a-z][a-z0-9-]*$` and this grammar must agree.
+
+        A configured "sec-ops"/"deps2" used to pass config loading and then be
+        silently rejected by the validator that config feeds.
+        """
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec-ops", "deps2"])
+        assert validate_conventional("sec-ops: rotate the signing keys")[0] is True
+        assert validate_conventional("deps2: bump the pinned wheels")[0] is True
+        assert validate_conventional("sec-ops(auth): rotate keys")[0] is True
+        assert extract_commit_type("sec-ops: rotate keys") == "sec-ops"
+
+    def test_hyphenated_type_still_needs_to_be_configured(self, monkeypatch):
+        monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
+        valid, reason = validate_conventional("sec-ops: rotate keys")
+        assert valid is False
+        assert "unknown type 'sec-ops'" in reason
+
     def test_allowed_types_unions_builtins_and_custom(self, monkeypatch):
         monkeypatch.setattr("relay.commit.commit_types", lambda: ["sec"])
         assert allowed_types() >= CONVENTIONAL_TYPES

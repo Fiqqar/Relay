@@ -127,6 +127,23 @@ def _load_local_raw() -> dict:
                 branches = protected.get("branches")
                 if isinstance(branches, list):
                     sanitized["team"] = {"protected": {"branches": branches}}
+        elif section_name == "commit":
+            # Only `types` is shareable: it is a plain list of words that widens
+            # the accepted Conventional Commit vocabulary, so a team can
+            # version its own type conventions in the repo. `signoff` stays
+            # user-only — it is a signing-identity concern, not a convention.
+            filtered_commit: dict = {}
+            types_val = section_val.get("types")
+            if isinstance(types_val, list):
+                filtered_commit["types"] = types_val
+            for k in section_val:
+                if k != "types":
+                    print(
+                        f"[relay] warning: ignoring security-restricted key {k!r} in repo config",
+                        file=sys.stderr,
+                    )
+            if filtered_commit:
+                sanitized["commit"] = filtered_commit
         elif section_name == "ignore":
             paths = section_val.get("paths")
             if isinstance(paths, list):
@@ -147,6 +164,11 @@ def _load_local_config() -> dict:
 
 def _load_local_ai() -> dict:
     section = _load_local_raw().get("ai")
+    return section if isinstance(section, dict) else {}
+
+
+def _load_local_commit() -> dict:
+    section = _load_local_raw().get("commit")
     return section if isinstance(section, dict) else {}
 
 
@@ -174,6 +196,7 @@ __all__ = [
     "_LOCAL_ALLOWED_RELAY_KEYS",
     "_LOCAL_CACHE",
     "_load_local_ai",
+    "_load_local_commit",
     "_load_local_config",
     "_load_local_ignore",
     "_load_local_raw",

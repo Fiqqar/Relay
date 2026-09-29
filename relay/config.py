@@ -118,6 +118,7 @@ from .config_local import (  # noqa: E402,F401
     _LOCAL_ALLOWED_RELAY_KEYS,
     _LOCAL_CACHE,
     _load_local_ai,
+    _load_local_commit,
     _load_local_config,
     _load_local_ignore,
     _load_local_raw,
@@ -455,22 +456,8 @@ _CUSTOM_TYPE_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 MAX_CUSTOM_COMMIT_TYPES = 20
 
 
-def commit_types() -> list[str]:
-    """Extra Conventional Commit types from the user config's ``[commit]`` table.
-
-    ``[commit] types = ["sec", "deps"]`` widens the vocabulary Relay accepts and
-    advertises to the AI, so a project can standardize on its own types without
-    validation warnings. Entries are lowercased, must be plain words
-    (``^[a-z][a-z0-9-]*$``), are deduplicated in order, and the list stops at
-    ``MAX_CUSTOM_COMMIT_TYPES`` — a typo can never inject arbitrary text into
-    the prompt or the validator. Returns an empty list when unset, which leaves
-    the built-in set in force.
-
-    User-config-only, like :func:`commit_signoff`: the repo-local
-    ``.relay.toml`` allowlist has no ``[commit]`` section, so an untrusted clone
-    cannot widen the vocabulary.
-    """
-    raw = _load_commit().get("types")
+def _normalize_commit_types(raw) -> list[str]:
+    """Sanitize one ``types`` list: lowercase, plain words, deduped, capped."""
     if not isinstance(raw, list):
         return []
     seen: set[str] = set()
@@ -486,6 +473,27 @@ def commit_types() -> list[str]:
         if len(result) >= MAX_CUSTOM_COMMIT_TYPES:
             break
     return result
+
+
+def commit_types() -> list[str]:
+    """Extra Conventional Commit types from ``[commit] types``.
+
+    ``[commit] types = ["sec", "sec-ops"]`` widens the vocabulary Relay accepts
+    and advertises to the AI, so a project can standardize on its own types
+    without validation warnings. Entries are lowercased, must be plain words
+    (``^[a-z][a-z0-9-]*$``), are deduplicated in order, and the list stops at
+    ``MAX_CUSTOM_COMMIT_TYPES`` — a typo can never inject arbitrary text into
+    the prompt or the validator. Returns an empty list when unset, which leaves
+    the built-in set in force.
+
+    The user config comes first, then the repo-local ``.relay.toml``: sharing
+    the type vocabulary with the team is the whole point of a checked-in
+    config, and only this one key is allowed through (see
+    :func:`relay.config_local._load_local_raw`).
+    """
+    merged = _normalize_commit_types(_load_commit().get("types"))
+    merged += _normalize_commit_types(_load_local_commit().get("types"))
+    return list(dict.fromkeys(merged))[:MAX_CUSTOM_COMMIT_TYPES]
 
 
 def commit_signoff() -> bool:
