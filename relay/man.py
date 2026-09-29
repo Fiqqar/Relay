@@ -242,6 +242,27 @@ Comma/space-separated allowlist of self-hosted GitLab hosts (beyond
 host is derived from the \fIorigin\fR remote, so anything outside this list
 is refused. Only ever trust instances you own.
 .TP
+.I RELAY_TRUSTED_GITHUB_HOSTS
+Comma/space-separated allowlist of self-hosted GitHub hosts (beyond
+\fIgithub.com\fR) that \fBrelay pr\fR may send \fIGITHUB_TOKEN\fR to. The host
+comes from the \fIorigin\fR remote, so anything outside this list is refused;
+\fBrelay doctor \-\-probe\fR probes these hosts too. Only ever trust instances
+you own.
+.TP
+.I RELAY_CONFIG
+Path to the user config file (default: the platform config directory, e.g.
+\fI~/.config/relay/config.toml\fR or
+\fI%APPDATA%\\relay\\config.toml\fR). \fIRELAY_LOCAL_CONFIG\fR overrides the
+repo-local \fI.relay.toml\fR path instead.
+.TP
+.I RELAY_PROTECTED_BRANCHES
+Comma/space-separated branch names team mode refuses to commit to (default
+\fImain, master\fR). Shell globs are supported, e.g. \fIrelease/*\fR.
+.TP
+.I RELAY_PR_BASE
+Default base branch for \fBrelay pr\fR (default \fImain\fR); equivalent to
+\fI[relay] pr_base\fR in the config file. \fB\-\-base\fR still wins.
+.TP
 .I RELAY_IGNORE_PATHS
 Comma-separated globs hidden from AI prompt (e.g. \fIdist/*,*.lock\fR).
 .TP

@@ -98,7 +98,7 @@ class TestSubcommandFlags:
         actual = {name: flags for name, flags in _parser_subcommand_flags().items() if flags}
         assert actual == expected
 
-    @pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
+    @pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "powershell"])
     def test_every_subcommand_flag_is_advertised(self, shell):
         out = generate(shell)
         for sub, flags in SUBCOMMAND_FLAGS.items():
@@ -116,6 +116,19 @@ class TestSubcommandFlags:
 
     def test_zsh_offers_doctor_json(self):
         assert "--json" in generate("zsh")
+
+    def test_powershell_offers_per_subcommand_flags(self):
+        """Regression: the PowerShell completer was one flat flag list, so it
+        completed flags the typed subcommand would reject."""
+        out = generate("powershell")
+        assert "$subcommandFlags = @{" in out
+        # One array element per flag: `@("--base", "--title", ...)`.
+        assert '"pr" = @("--base", "--title"' in out
+        assert '"undo" = @("--allow-staged", "--verbose")' in out
+        assert "$subcommands -contains $_" in out
+
+    def test_powershell_drops_the_pre_fix_flat_split(self):
+        assert "-split ' '" not in generate("powershell")
 
     def test_global_flags_grew_with_the_release(self):
         for flag in ("-m", "--message", "-s", "--signoff", "--validate-manual",

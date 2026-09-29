@@ -13,6 +13,9 @@ What it does
    to the *user* PATH:
        Windows -> PowerShell [Environment]::SetEnvironmentVariable(...,'User')
        Unix    -> appends `export PATH=...:$PATH` to ~/.bashrc / ~/.zshrc
+       fish    -> appends `fish_add_path ...` to ~/.config/fish/config.fish
+                  (fish reads neither ~/.profile nor ~/.bashrc, and does not
+                  understand POSIX export syntax)
    Changes are written to the persistent profile, not just the current shell,
    so `relay` is available in every new terminal.
 
@@ -211,20 +214,28 @@ def update_path_unix(scripts: Path, yes: bool) -> bool:
     target_esc = _escape_sh_double(target)
     home = Path.home()
     shell = os.environ.get("SHELL", "").lower()
-    if shell.endswith("zsh"):
-        profiles = ["~/.zshrc", "~/.zprofile", "~/.bashrc", "~/.profile"]
+    creates_parents = False
+    if shell.endswith("fish"):
+        # fish has its own syntax and reads neither ~/.profile nor ~/.bashrc:
+        # `fish_add_path` is fish's idempotent PATH prepend.
+        candidates = [home / ".config" / "fish" / "config.fish"]
+        line = f'fish_add_path "{target_esc}"'
+        creates_parents = True
     else:
-        profiles = ["~/.bashrc", "~/.zshrc", "~/.profile"]
-    candidates = []
-    for p in profiles:
-        path = home / p.replace("~/", "")
-        if path.exists():
-            candidates.append(path)
-    if not candidates:
-        default_profile = "~/.zshrc" if shell.endswith("zsh") else "~/.profile"
-        candidates.append(home / default_profile.replace("~/", ""))
+        if shell.endswith("zsh"):
+            profiles = ["~/.zshrc", "~/.zprofile", "~/.bashrc", "~/.profile"]
+        else:
+            profiles = ["~/.bashrc", "~/.zshrc", "~/.profile"]
+        candidates = []
+        for p in profiles:
+            path = home / p.replace("~/", "")
+            if path.exists():
+                candidates.append(path)
+        if not candidates:
+            default_profile = "~/.zshrc" if shell.endswith("zsh") else "~/.profile"
+            candidates.append(home / default_profile.replace("~/", ""))
+        line = f'export PATH="{target_esc}:$PATH"'
 
-    line = f'export PATH="{target_esc}:$PATH"'
     for profile in candidates:
         # A fallback candidate may not exist yet (fresh $HOME with no shell
         # profiles) — treat a missing file as empty, not as a crash.
@@ -237,6 +248,9 @@ def update_path_unix(scripts: Path, yes: bool) -> bool:
         if answer and answer not in ("y", "yes"):
             print("  Skipping PATH update. Run `relay doctor` for a reminder.")
             return True
+    if creates_parents:
+        # A fresh fish install may not have ~/.config/fish yet.
+        candidates[0].parent.mkdir(parents=True, exist_ok=True)
     with candidates[0].open("a", encoding="utf-8") as fh:
         fh.write(f"\n# added by Relay installer\n{line}\n")
     _ok(f"appended to {candidates[0]}")
@@ -275,10 +289,13 @@ def main() -> int:
 
     print("\nDone. Next steps:")
     print("  1. Open a NEW terminal, then run:  relay doctor")
-    print("  2. Set your AI key once (if provider is gemini):")
+    print("  2. Set the API key of the provider you want to use (gemini is the default):")
     print("     Windows cmd:    set GEMINI_API_KEY=your_key")
     print("     PowerShell:     $env:GEMINI_API_KEY=\"your_key\"")
     print("     macOS/Linux:    export GEMINI_API_KEY=your_key")
+    print("     Other providers: OPENAI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY,")
+    print("                      GROQ_API_KEY or XAI_API_KEY (Ollama needs no key).")
+    print("     Pick one with `relay --provider <name>` or RELAY_AI_PROVIDER.")
     print("  3. In a git repository:  git add . && relay")
     return 0
 
