@@ -154,6 +154,8 @@ GitLab's \fI.gitlab/merge_request_templates/Default.md\fR), else the commit list
 .TP
 .B undo
 Undo the last commit with a soft reset (changes stay staged).
+Refuses when the index already has staged changes (\fB\-\-allow-staged\fR mixes
+them into the undone commit on purpose).
 .TP
 .B squash
 Fold the last N commits into one (soft reset + single commit; never pushes).

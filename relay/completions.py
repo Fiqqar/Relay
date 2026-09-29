@@ -87,6 +87,7 @@ SUBCOMMAND_FLAGS: dict[str, dict[str, str]] = {
         "--verbose": "print the git commands being run",
     },
     "undo": {
+        "--allow-staged": "undo even with staged changes in the index",
         "--verbose": "print the git commands being run",
     },
 }
