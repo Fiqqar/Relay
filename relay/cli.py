@@ -21,6 +21,7 @@ from .completions import generate as generate_completions
 from .config import (
     branch_template,
     commit_signoff,
+    pr_base_branch,
     pr_open_browser,
     validate_manual_messages,
 )
@@ -168,7 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Opens a PR against --base (default: main). Title falls back to "
                     "the latest commit message; requires GITHUB_TOKEN.",
     )
-    pr.add_argument("--base", default="main",
+    pr.add_argument("--base", default=pr_base_branch(),
                     help="base branch to merge into (default: main)")
     pr.add_argument("--title", metavar="TITLE",
                     help="PR title (default: latest commit message)")

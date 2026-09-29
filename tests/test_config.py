@@ -18,6 +18,7 @@ def clear_relay_env(monkeypatch):
         "RELAY_AI_PROVIDER",
         "RELAY_BRANCH_TEMPLATE",
         "RELAY_PR_OPEN",
+        "RELAY_PR_BASE",
         "RELAY_COMMIT_SIGNOFF",
         "RELAY_CONFIG",
         "RELAY_LOCAL_CONFIG",
@@ -120,6 +121,58 @@ def test_commit_types_never_reads_signoff_from_a_repo_local_config(monkeypatch, 
     monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
     assert config.commit_signoff() is False
     assert config.commit_types() == ["sec"]
+
+
+# ---- [relay] pr_base: the default base branch for `relay pr` -------------------
+
+
+def test_pr_base_branch_defaults_to_main():
+    assert config.pr_base_branch() == "main"
+
+
+def test_pr_base_branch_reads_the_env_var(monkeypatch):
+    monkeypatch.setenv("RELAY_PR_BASE", "develop")
+    assert config.pr_base_branch() == "develop"
+
+
+def test_pr_base_branch_reads_the_user_config(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        pr_base = "staging"
+    """)
+    assert config.pr_base_branch() == "staging"
+
+
+def test_pr_base_branch_reads_the_repo_local_config(monkeypatch, tmp_path):
+    local = tmp_path / ".relay.toml"
+    local.write_text('[relay]\npr_base = "development"\n', encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
+    monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
+    assert config.pr_base_branch() == "development"
+
+
+def test_pr_base_branch_precedence_env_beats_repo_beats_user(monkeypatch, tmp_path):
+    _write_toml(monkeypatch, tmp_path, '[relay]\npr_base = "user"\n')
+    local = tmp_path / ".relay.toml"
+    local.write_text('[relay]\npr_base = "repo"\n', encoding="utf-8")
+    monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
+    assert config.pr_base_branch() == "repo"
+    monkeypatch.setenv("RELAY_PR_BASE", "env")
+    assert config.pr_base_branch() == "env"
+
+
+def test_pr_base_branch_ignores_blank_and_non_string_values(monkeypatch, tmp_path):
+    monkeypatch.setenv("RELAY_PR_BASE", "   ")
+    _write_toml(monkeypatch, tmp_path, """
+        [relay]
+        pr_base = 7
+    """)
+    assert config.pr_base_branch() == "main"
+
+
+def test_pr_base_branch_strips_surrounding_whitespace(monkeypatch):
+    monkeypatch.setenv("RELAY_PR_BASE", "  release/2.x  ")
+    assert config.pr_base_branch() == "release/2.x"
 
 
 # ---- Gemini base URL (proxy / gateway parity) ---------------------------------

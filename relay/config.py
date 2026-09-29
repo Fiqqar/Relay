@@ -419,6 +419,23 @@ def pr_open_browser() -> bool:
     return resolved in ("1", "true", "yes", "on")
 
 
+def pr_base_branch() -> str:
+    """Default base branch for ``relay pr``: env > repo-local > user > ``main``.
+
+    ``RELAY_PR_BASE`` / ``[relay] pr_base`` let a team that merges into
+    ``develop`` stop repeating ``--base develop``. A blank or non-string value
+    is ignored rather than warned about, because the fallback (``main``) is
+    always safe; ``--base`` on the command line still wins over all of this.
+    """
+    env = os.environ.get("RELAY_PR_BASE", "").strip()
+    if env:
+        return env
+    for value in (_load_local_config().get("pr_base"), _load_config().get("pr_base")):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return "main"
+
+
 def validate_manual_messages() -> bool:
     """Whether manually typed fallback messages get a Conventional warning.
 

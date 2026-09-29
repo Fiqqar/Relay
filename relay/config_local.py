@@ -25,6 +25,7 @@ _LOCAL_ALLOWED_RELAY_KEYS = {
     "max_diff_lines",
     "ai_timeout",
     "pr_open",
+    "pr_base",
     "validate_manual",
     "gemini_model",
     "openai_model",

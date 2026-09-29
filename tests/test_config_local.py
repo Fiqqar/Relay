@@ -139,6 +139,11 @@ class TestAllowlistBranches:
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_team_protected() == {"branches": ["production"]}
 
+    def test_pr_base_is_allowed_in_repo_config(self, tmp_path, monkeypatch):
+        cfg = _write_local_config(tmp_path, '[relay]\npr_base = "develop"\n')
+        monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
+        assert _load_local_raw() == {"relay": {"pr_base": "develop"}}
+
     def test_commit_types_section_is_allowed(self, tmp_path, monkeypatch):
         """`[commit] types` is shareable; it only widens a word allowlist."""
         cfg = _write_local_config(
