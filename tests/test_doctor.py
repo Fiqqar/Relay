@@ -7,6 +7,7 @@ import pytest
 
 from relay.cli import build_parser, main
 from relay.doctor import (
+    _encoding_check,
     _git_version,
     _ollama_reachable,
     _probe_forge,
@@ -627,6 +628,57 @@ def test_doctor_unknown_provider_warns_extra():
          mock.patch("relay.doctor.bitbucket_token", return_value=None), \
          mock.patch("relay.doctor.protected_branches", return_value=["main"]):
         assert run_doctor() == 0
+
+
+def test_encoding_check_passes_for_utf8_streams_and_locale(monkeypatch):
+    monkeypatch.setattr("sys.stdout", mock.Mock(encoding="utf-8"))
+    monkeypatch.setattr("sys.stderr", mock.Mock(encoding="UTF8"))
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *a: "utf-8")
+    check = _encoding_check()
+    assert check.name == "Encoding"
+    assert check.status == "ok"
+    assert "stdout=utf-8" in check.detail
+
+
+def test_encoding_check_warns_on_a_legacy_codepage(monkeypatch):
+    """cp1252/cp437 mangle non-ASCII commit messages and hook output."""
+    monkeypatch.setattr("sys.stdout", mock.Mock(encoding="cp1252"))
+    monkeypatch.setattr("sys.stderr", mock.Mock(encoding="cp1252"))
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *a: "cp1252")
+    check = _encoding_check()
+    assert check.status == "warn"
+    assert "locale=cp1252" in check.detail
+    assert "PYTHONUTF8=1" in check.detail
+
+
+def test_encoding_check_warns_when_a_stream_has_no_encoding(monkeypatch):
+    monkeypatch.setattr("sys.stdout", mock.Mock(encoding=None))
+    monkeypatch.setattr("sys.stderr", mock.Mock(encoding="utf-8"))
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *a: "utf-8")
+    check = _encoding_check()
+    assert check.status == "warn"
+    assert "stdout=unknown" in check.detail
+
+
+def test_encoding_check_warns_when_the_locale_encoding_is_missing(monkeypatch):
+    monkeypatch.setattr("sys.stdout", mock.Mock(encoding="utf-8"))
+    monkeypatch.setattr("sys.stderr", mock.Mock(encoding="utf-8"))
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *a: None)
+    check = _encoding_check()
+    assert check.status == "warn"
+    assert "locale=unknown" in check.detail
+
+
+def test_doctor_reports_the_encoding_check(healthy_env, capsys):
+    assert run_doctor() == 0
+    assert "Encoding" in capsys.readouterr().out
+
+
+def test_doctor_json_includes_the_encoding_check(healthy_env, capsys):
+    assert run_doctor(json_output=True) == 0
+    report = json.loads(capsys.readouterr().out)
+    names = [c["name"] for c in report["checks"]]
+    assert "Encoding" in names
 
 
 def test_doctor_probe_success(healthy_env, capsys):
