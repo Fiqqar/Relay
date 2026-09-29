@@ -2,9 +2,9 @@
 
 Ordered plan from the initial release to **v1.0.0 (GA)** and the shipped
 history since. Versions `0.1.0` through `2.5.0` are shipped and closed;
-`v2.6.0` is the next minor (scope not yet decided); `v3.0.0` is a reserved
-placeholder with no promised features. Relay is in stable General Availability
-with hardening releases on top.
+`v2.6.0` is the next minor (`relay verify-release` as base scope);
+`v3.0.0` is a reserved placeholder with no promised features. Relay is in
+stable General Availability with hardening releases on top.
 
 ## Legend
 
@@ -592,9 +592,17 @@ locales; suite green ✅ (1332 tests); branch coverage ≥ 93% ✅ (99.02%);
 
 ## In progress (next minor)
 
-### v2.6.0 — Scope not yet decided
+### v2.6.0 — Release verification (base scope)
 
-- [ ] No feature is promised under this version yet.
+- [x] **`relay verify-release [VERSION]`** — end-to-end check of a published
+      release: the `vx.y.z` tag exists with the strict title, the sdist +
+      wheel match `SHA256SUMS`, and the Scoop manifest plus the Homebrew
+      formula point at the same version and hashes (`--download` re-hashes
+      the wheel bytes locally, `--json` for CI). Base scope for `v2.6.0`
+      (PR #120, fix #121).
+
+**Exit:** `relay verify-release v2.6.0` passes on the published release;
+`v2.6.0` released per `RELEASE.md`.
 
 ---
 
