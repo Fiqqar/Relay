@@ -193,7 +193,7 @@ class Orchestrator:
             target = team_branch if self.mode == "team" else branch
             print(f"[relay] dry-run (mode={self.mode}): commit & push to '{target}'")
             print(f"[relay]     message: {message}")
-            pre = get_pre_commit_hook()
+            pre = None if self.no_verify else get_pre_commit_hook()
             if pre:
                 print(f"[relay]     hook pre_commit: {' '.join(pre)}")
             post = get_post_push_hook()
@@ -222,10 +222,12 @@ class Orchestrator:
 
         # TOCTOU: ensure the branch/HEAD are the same ones the AI saw —
         # checked after the pre-commit hook too, right before mutating.
-        # Custom pre_commit hook: runs before any git commit, argv-as-list.
-        pre_hook = get_pre_commit_hook()
+        # Custom pre_commit hook: runs before any git commit, argv-as-list,
+        # in the repo being committed to. --no-verify skips it just like git's
+        # own pre-commit hook (see squash.py for the same rule).
+        pre_hook = None if self.no_verify else get_pre_commit_hook()
         if pre_hook:
-            run_hook(pre_hook, verbose=self.verbose)
+            run_hook(pre_hook, cwd=self.git.cwd, verbose=self.verbose)
         self.git.check_branch_and_head(branch, head_before)
 
         # BRANCH (team mode only): create & check out the feature branch.
@@ -299,7 +301,7 @@ class Orchestrator:
         post_hook = get_post_push_hook()
         if post_hook:
             try:
-                run_hook(post_hook, verbose=self.verbose)
+                run_hook(post_hook, cwd=self.git.cwd, verbose=self.verbose)
             except GitError as exc:
                 # Post-push is best-effort: the commit is already pushed, so a
                 # hook failure is a warning, not a rollback.
@@ -387,15 +389,20 @@ class Orchestrator:
         if self.dry_run:
             print(f"[relay] dry-run (mode=amend): amend last commit on '{branch}'")
             print(f"[relay]     message: {message}")
-            pre = get_pre_commit_hook()
+            pre = None if self.no_verify else get_pre_commit_hook()
             if pre:
                 print(f"[relay]     hook pre_commit: {' '.join(pre)}")
             return 0
-        pre = get_pre_commit_hook()
+        pre = None if self.no_verify else get_pre_commit_hook()
         if pre:
-            run_hook(pre, verbose=self.verbose)
+            run_hook(pre, cwd=self.git.cwd, verbose=self.verbose)
         self.git.check_branch_and_head(branch, head)
-        self.git.commit(message, amend=True, signoff=self.signoff)
+        self.git.commit(
+            message,
+            amend=True,
+            no_verify=self.no_verify,
+            signoff=self.signoff,
+        )
         print(f"[relay] amended last commit on '{branch}'")
         if old_tip and self.git.is_ancestor(old_tip, f"origin/{branch}"):
             print(
