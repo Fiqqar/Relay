@@ -21,7 +21,7 @@ from __future__ import annotations
 # any shell, but grouping keeps the generators readable.
 SUBCOMMANDS = [
     "amend", "completions", "doctor", "man", "pr", "squash", "stage",
-    "telemetry", "undo",
+    "telemetry", "undo", "verify-release",
 ]
 
 GLOBAL_FLAGS = [
@@ -92,6 +92,11 @@ SUBCOMMAND_FLAGS: dict[str, dict[str, str]] = {
         "--allow-staged": "undo even with staged changes in the index",
         "--verbose": "print the git commands being run",
     },
+    "verify-release": {
+        "--json": "print the report as JSON",
+        "--download": "download the wheel and re-hash it",
+        "--verbose": "print the requests being made",
+    },
 }
 
 # One-line descriptions used by the fish generator. Fish takes a -a <name>
@@ -108,6 +113,7 @@ _FISH_DESCRIPTIONS = {
     "stage": "interactively stage a subset of changed files",
     "telemetry": "view or change opt-in usage telemetry",
     "undo": "undo the last commit",
+    "verify-release": "verify a published release end-to-end",
 }
 
 SHELLS = ("bash", "zsh", "fish", "powershell")

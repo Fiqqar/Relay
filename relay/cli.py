@@ -36,6 +36,7 @@ from .squash import run_squash
 from .stage import run_stage
 from .telemetry import is_enabled, report, set_enabled
 from .undo import run_undo
+from .verify_release import run_verify_release
 
 
 def _run_telemetry(action: str) -> int:
@@ -315,6 +316,28 @@ def build_parser() -> argparse.ArgumentParser:
                        help="add a Signed-off-by trailer to the amended commit")
     amend.add_argument("--verbose", action="store_true",
                        help="print the git commands being run")
+
+    verify_release = subparsers.add_parser(
+        "verify-release",
+        help="verify a published release end-to-end (tag, assets, manifests)",
+        description="Read-only release check: the vx.y.z tag exists, the sdist "
+                    "and wheel match SHA256SUMS, and the Scoop manifest plus "
+                    "the Homebrew formula point at the same version and hashes. "
+                    "Exits 0 when everything matches, 1 otherwise.",
+    )
+    verify_release.add_argument(
+        "version",
+        nargs="?",
+        default=None,
+        metavar="VERSION",
+        help="release to verify, e.g. 2.5.0 or v2.5.0 (default: installed version)",
+    )
+    verify_release.add_argument("--json", action="store_true", dest="json_output",
+                                help="print the report as JSON instead of an aligned table")
+    verify_release.add_argument("--download", action="store_true",
+                                help="download the wheel and re-hash it locally")
+    verify_release.add_argument("--verbose", action="store_true",
+                                help="print the requests being made")
     return parser
 
 
@@ -356,6 +379,19 @@ def _handle_doctor(args) -> int:
         return run_doctor(**kwargs)
     except Exception as exc:  # noqa: BLE001 - doctor must never traceback
         print(f"[relay doctor] error: {sanitize_terminal(str(exc))}")
+        return 1
+
+
+def _handle_verify_release(args) -> int:
+    try:
+        return run_verify_release(
+            version=getattr(args, "version", None),
+            json_output=bool(getattr(args, "json_output", False)),
+            download=bool(getattr(args, "download", False)),
+            verbose=bool(getattr(args, "verbose", False)),
+        )
+    except Exception as exc:  # noqa: BLE001 - verify must never traceback
+        print(f"[relay verify-release] error: {sanitize_terminal(str(exc))}")
         return 1
 
 
@@ -457,6 +493,7 @@ _READONLY_HANDLERS: dict[str, Callable[..., int]] = {
     "completions": _handle_completions,
     "man": _handle_man,
     "telemetry": _handle_telemetry,
+    "verify-release": _handle_verify_release,
 }
 
 # Subcommands routed through the shared workflow error mapping below.
