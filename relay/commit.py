@@ -31,8 +31,12 @@ def allowed_types() -> frozenset[str]:
     return frozenset(CONVENTIONAL_TYPES | set(commit_types()))
 
 # Matches:  type(scope): subject  |  type(scope)!: subject  |  type: subject
+# The type may carry digits and hyphens after the first letter, because that is
+# exactly what `[commit] types` accepts (see config._CUSTOM_TYPE_RE): a
+# configured "sec-ops" used to pass config validation and then fail the
+# grammar, so the validator silently rejected the project's own vocabulary.
 _CONVENTIONAL_RE = re.compile(
-    r"^(?P<type>[a-zA-Z]+)"               # commit type
+    r"^(?P<type>[a-zA-Z][a-zA-Z0-9-]*)"   # commit type
     r"(\((?P<scope>[^)]+)\))?"            # optional (scope)
     r"(?P<breaking>!)?"                   # optional breaking-change bang
     r":\s+(?P<subject>[^\s](?:.*[^\s])?)$"  # subject (no leading/trailing ws, min 1 char).
