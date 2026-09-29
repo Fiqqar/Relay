@@ -11,6 +11,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-09-29
+
+### Fixed
+- **Hook `--no-verify`**: `relay` and `relay amend` now skip Relay's own
+  `[hooks] pre_commit` when `--no-verify` is given (it ran regardless before),
+  matching `relay squash`; the flag also reaches the amended commit itself.
+- **Multi-repo hook CWD**: `run_hook()` gained a `cwd` parameter and every call
+  site passes the target work tree, so hooks in `--repo`/`[repos]` runs no
+  longer execute in the directory Relay happened to be launched from.
+- **Custom commit types with digits/hyphens**: the Conventional Commit grammar
+  now accepts `[a-zA-Z][a-zA-Z0-9-]*`, so `[commit] types = ["sec-ops",
+  "deps2"]` validates instead of being silently rejected after config
+  accepted it. `[commit] types` is also shareable through a repo-local
+  `.relay.toml` (user-only keys such as `signoff` still are not).
+- **`relay doctor --probe` parity**: the Gemini probe uses `GEMINI_BASE_URL`
+  instead of a hardcoded endpoint, and self-hosted hosts listed in
+  `RELAY_TRUSTED_GITHUB_HOSTS` are probed at their `/api/v3/user` endpoint.
+
+### Added
+- **`relay amend -m` / `--message` and `--no-verify`** — CLI parity with
+  `relay` and `relay squash`; `-m` needs no API key (no AI call at all).
+- **`relay undo --allow-staged`** — `relay undo` now refuses to undo when the
+  index already has staged changes, so the soft reset cannot silently mix them
+  with the undone commit; `--allow-staged` opts into mixing them on purpose.
+- **Default PR base branch** — `[relay] pr_base` / `RELAY_PR_BASE` set the
+  `relay pr --base` default for teams merging into `develop`/`staging`.
+- **`relay pr --dry-run`** — prints the fully resolved plan (host,
+  `head` → `base`, title, body) and opens nothing; **`--provider`** lets the AI
+  name the PR when the branch has no usable commit subject.
+- **`relay doctor` encoding check** — reports the stdout/stderr/locale
+  encodings (PASS on UTF-8, WARN on a legacy codepage) and is included in
+  `--json`.
+
+### Changed
+- **Docs & distribution**: README provider table and command reference, man
+  page ENVIRONMENT section (`RELAY_CONFIG`, `RELAY_TRUSTED_GITHUB_HOSTS`,
+  `RELAY_PROTECTED_BRANCHES`, `RELAY_PR_BASE`), PowerShell completions now
+  offer per-subcommand flags, and `install.py` wires fish's PATH via
+  `fish_add_path` and names every provider in its post-install text.
+- **Suite**: 1387 tests at 99.03% branch coverage (gate unchanged at 93%).
+
 ## [2.4.0] - 2026-09-26
 
 ### Fixed
