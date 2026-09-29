@@ -42,7 +42,7 @@ SUBCOMMAND_FLAGS: dict[str, dict[str, str]] = {
         "--verbose": "print the git commands being run",
     },
     "pr": {
-        "--base": "branch to merge into",
+        "--base": "branch to merge into (default: [relay] pr_base)",
         "--title": "pull request title",
         "-o": "open the PR in the browser",
         "--open": "open the PR in the browser",

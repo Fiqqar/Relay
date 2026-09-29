@@ -97,6 +97,15 @@ class TestPrSubcommand:
         assert args.base == "main"
         assert args.title is None
 
+    def test_pr_base_default_follows_the_config(self, monkeypatch):
+        """`[relay] pr_base` / RELAY_PR_BASE remove the repeated --base flag."""
+        monkeypatch.setenv("RELAY_PR_BASE", "develop")
+        assert build_parser().parse_args(["pr"]).base == "develop"
+
+    def test_pr_explicit_base_still_wins(self, monkeypatch):
+        monkeypatch.setenv("RELAY_PR_BASE", "develop")
+        assert build_parser().parse_args(["pr", "--base", "main"]).base == "main"
+
     def test_pr_accepts_verbose(self):
         args = build_parser().parse_args(["pr", "--verbose"])
         assert args.verbose is True
