@@ -1,9 +1,9 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback.",
   "homepage": "https://github.com/Fiqqar/Relay",
   "license": "MIT",
-  "url": "https://github.com/Fiqqar/Relay/releases/download/v2.4.0/relay_cli-2.4.0-py3-none-any.whl",
+  "url": "https://github.com/Fiqqar/Relay/releases/download/v2.5.0/relay_cli-2.5.0-py3-none-any.whl",
   "hash": "sha256:85ee305ab107ac247a1c737f6269bf059d8a707e7baf40e9b8ac784048ed96e8",
   "depends": [
     "git",
