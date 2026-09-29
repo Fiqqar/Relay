@@ -572,7 +572,7 @@ def test_keyboard_interrupt_maps_to_exit_130(wired, capsys):
 def test_cli_surface_is_frozen():
     """ADR-012: CLI surface stability freeze for GA.
 
-    Asserts all 9 subcommands, the global flags, and their argument signatures
+    Asserts all 10 subcommands, the global flags, and their argument signatures
     match the frozen contract so no inadvertent breaking changes occur. Flags
     may be added between minors (that is additive, not breaking); removing or
     renaming any is what this test is here to catch.
@@ -602,6 +602,7 @@ def test_cli_surface_is_frozen():
     expected_subcommands = {
         "amend", "completions", "doctor", "man",
         "pr", "squash", "stage", "telemetry", "undo",
+        "verify-release",
     }
     assert set(subparsers_action.choices.keys()) == expected_subcommands
 
@@ -700,7 +701,9 @@ class TestDispatchTables:
     def test_tables_cover_every_subcommand_exactly_once(self):
         from relay.completions import SUBCOMMANDS
 
-        assert set(_READONLY_HANDLERS) == {"doctor", "completions", "man", "telemetry"}
+        assert set(_READONLY_HANDLERS) == {
+            "doctor", "completions", "man", "telemetry", "verify-release",
+        }
         assert set(_WORKFLOW_HANDLERS) == {"pr", "undo", "stage", "squash", "amend"}
         assert set(_READONLY_HANDLERS) | set(_WORKFLOW_HANDLERS) == set(SUBCOMMANDS)
 

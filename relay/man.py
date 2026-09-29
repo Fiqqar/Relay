@@ -63,6 +63,10 @@ man
 .B relay
 telemetry
 [\fIstatus\fR|\fIon\fR|\fIoff\fR]
+.br
+.B relay
+verify-release
+[\fIVERSION\fR] [\fB\-\-json\fR] [\fB\-\-download\fR]
 
 .SH DESCRIPTION
 .B Relay
@@ -182,6 +186,13 @@ Print a shell completion script for bash, zsh, fish, or powershell.
 .TP
 .B man
 Print this manual page (roff) to stdout.
+.TP
+.B verify-release
+Verify a published release end-to-end: the \fIvX.Y.Z\fR tag exists with the
+strict title, the sdist and wheel match \fISHA256SUMS\fR, and the Scoop
+manifest plus the Homebrew formula point at the same version and hashes.
+\fB\-\-download\fR also re-hashes the wheel bytes locally;
+\fB\-\-json\fR prints the same report as machine-readable JSON.
 .SH ENVIRONMENT
 .TP
 .I GEMINI_API_KEY

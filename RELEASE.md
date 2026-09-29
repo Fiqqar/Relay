@@ -70,7 +70,15 @@ Pushing the `v*` tag triggers the **Release** workflow
 
 ### 4. Verify the artifact
 
-The wheel is published at a predictable URL:
+Verify the published release end-to-end (tag, assets vs `SHA256SUMS`,
+Scoop manifest, Homebrew formula):
+
+```bash
+relay verify-release v2.2.0         # all checks PASS, exits 0
+relay verify-release v2.2.0 --json  # same report as machine-readable JSON
+```
+
+Spot-check the wheel itself at its predictable URL:
 
 ```bash
 pip install "https://github.com/Fiqqar/Relay/releases/download/v2.2.0/relay_cli-2.2.0-py3-none-any.whl"
