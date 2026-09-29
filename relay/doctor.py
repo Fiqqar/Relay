@@ -31,6 +31,7 @@ from .config import (
     anthropic_base_url,
     config_file_path,
     gemini_api_key,
+    gemini_base_url,
     groq_api_key,
     groq_base_url,
     hook_post_push,
@@ -43,6 +44,7 @@ from .config import (
     openai_base_url,
     protected_branches,
     provider_from_env,
+    trusted_github_hosts,
     xai_api_key,
     xai_base_url,
 )
@@ -159,8 +161,11 @@ def _probe_provider(chosen: str) -> Check:
             headers["Authorization"] = f"Bearer {key}"
         else:
             headers["X-Goog-Api-Key"] = key
+        # The probe must hit the same endpoint the client will use: a gateway
+        # set via GEMINI_BASE_URL is exactly where an unprobed misconfiguration
+        # (bad proxy, missing route) would surface first.
         req = urllib.request.Request(
-            "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1",
+            f"{gemini_base_url().rstrip('/')}/v1beta/models?pageSize=1",
             headers=headers,
         )
     elif chosen in ("openai", "groq", "mistral", "xai"):
@@ -333,6 +338,38 @@ def _probe_forge() -> Check | None:
     )
 
 
+def _probe_trusted_github_hosts() -> list[Check]:
+    """Probe every self-hosted GitHub host that GITHUB_TOKEN may be sent to.
+
+    ``RELAY_TRUSTED_GITHUB_HOSTS`` decides which Enterprise hosts ``relay pr``
+    is allowed to authenticate against (``https://<host>/api/v3``), so doctor
+    probes those same hosts: a typo'd or unreachable host otherwise only shows
+    up as a failed `relay pr` run. ``github.com`` is probed by
+    :func:`_probe_forge`, and an unset token means nothing to probe.
+    """
+    token = github_token()
+    if not token:
+        return []
+    checks: list[Check] = []
+    for host in trusted_github_hosts():
+        if host == "github.com":
+            continue
+        check = _probe_forge_endpoint(
+            label=f"GitHub ({host})",
+            token=token,
+            url=f"https://{host}/api/v3/user",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "User-Agent": "relay-cli",
+                "Accept": "application/vnd.github+json",
+            },
+            user_field="login",
+        )
+        if check is not None:
+            checks.append(check)
+    return checks
+
+
 def run_doctor(
     provider: str | None = None,
     probe: bool = False,
@@ -458,6 +495,7 @@ def run_doctor(
         forge_probe = _probe_forge()
         if forge_probe:
             checks.append(forge_probe)
+        checks.extend(_probe_trusted_github_hosts())
 
     # ---- report -----------------------------------------------------------
     counts = {"ok": 0, "warn": 0, "fail": 0}

@@ -12,6 +12,7 @@ from relay.doctor import (
     _probe_forge,
     _probe_forge_endpoint,
     _probe_provider,
+    _probe_trusted_github_hosts,
     run_doctor,
 )
 
@@ -67,6 +68,11 @@ def healthy_env():
         "relay.doctor.hook_pre_commit", return_value=None
     ), mock.patch(
         "relay.doctor.hook_post_push", return_value=None
+    ), mock.patch(
+        "relay.doctor.trusted_github_hosts", return_value=["github.com"]
+    ), mock.patch(
+        "relay.doctor.gemini_base_url",
+        return_value="https://generativelanguage.googleapis.com",
     ):
         yield
 
@@ -804,6 +810,76 @@ def test_probe_unknown_provider_skips():
     check = _probe_provider("watson")
     assert check.status == "skip"
     assert "unknown provider 'watson'" in check.detail
+
+
+def test_probe_gemini_honors_the_configured_base_url():
+    """Regression: the probe hardcoded Google's URL, ignoring GEMINI_BASE_URL.
+
+    A gateway (proxy/enterprise) therefore always looked healthy-or-broken
+    according to the wrong endpoint.
+    """
+    with mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), \
+         mock.patch(
+             "relay.doctor.gemini_base_url",
+             return_value="https://gw.internal.example/ai/",
+         ), \
+         mock.patch(
+             "urllib.request.urlopen", return_value=_ok_probe_response()
+         ) as urlopen:
+        check = _probe_provider("gemini")
+    assert check.status == "ok"
+    assert urlopen.call_args.args[0].full_url == (
+        "https://gw.internal.example/ai/v1beta/models?pageSize=1"
+    )
+
+
+def test_probe_trusted_github_hosts_skips_without_a_token():
+    with mock.patch("relay.doctor.github_token", return_value=None), \
+         mock.patch("relay.doctor.trusted_github_hosts", return_value=["gh.corp"]):
+        assert _probe_trusted_github_hosts() == []
+
+
+def test_probe_trusted_github_hosts_ignores_github_com():
+    with mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com"]):
+        assert _probe_trusted_github_hosts() == []
+
+
+def test_probe_trusted_github_hosts_probes_enterprise_api_v3():
+    """A self-hosted host is probed at the endpoint `relay pr` will use."""
+    resp = _ok_probe_response(b'{"login": "octo"}')
+    with mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com", "gh.corp"]), \
+         mock.patch("urllib.request.urlopen", return_value=resp) as urlopen:
+        checks = _probe_trusted_github_hosts()
+    assert len(checks) == 1
+    assert checks[0].status == "ok"
+    assert "GitHub (gh.corp) @octo" in checks[0].detail
+    assert urlopen.call_args.args[0].full_url == "https://gh.corp/api/v3/user"
+
+
+def test_probe_trusted_github_hosts_reports_a_broken_host():
+    with mock.patch("relay.doctor.github_token", return_value="tok"), \
+         mock.patch("relay.doctor.trusted_github_hosts", return_value=["gh.corp"]), \
+         mock.patch("urllib.request.urlopen", side_effect=OSError("no route")):
+        checks = _probe_trusted_github_hosts()
+    assert len(checks) == 1
+    assert checks[0].status == "fail"
+    assert "GitHub (gh.corp) connection failed" in checks[0].detail
+
+
+def test_doctor_probe_includes_self_hosted_github_hosts(healthy_env, capsys):
+    """`relay doctor --probe` reports every trusted Enterprise host."""
+    resp = _ok_probe_response(b'{"login": "octo"}')
+    with mock.patch("urllib.request.urlopen", return_value=resp), \
+         mock.patch(
+             "relay.doctor.trusted_github_hosts",
+             return_value=["github.com", "gh.corp"],
+         ):
+        assert run_doctor(probe=True) == 0
+    out = capsys.readouterr().out
+    assert "GitHub @octo" in out
+    assert "GitHub (gh.corp) @octo" in out
 
 
 def test_probe_ai_connection_failure_fails():
