@@ -136,8 +136,10 @@ class TestPrSubcommand:
             body=None,
             body_file=None,
             edit=False,
+            provider=None,
             open_browser=False,
             draft=False,
+            dry_run=False,
             verbose=False,
         )
 
@@ -150,10 +152,50 @@ class TestPrSubcommand:
             body=None,
             body_file=None,
             edit=False,
+            provider=None,
             open_browser=False,
             draft=False,
+            dry_run=False,
             verbose=True,
         )
+
+    def test_pr_parses_dry_run_and_provider(self):
+        parser = build_parser()
+        assert parser.parse_args(["pr", "--dry-run"]).dry_run is True
+        assert parser.parse_args(["pr"]).dry_run is False
+        assert parser.parse_args(["pr", "--provider", "ollama"]).provider == "ollama"
+        assert parser.parse_args(["pr"]).provider is None
+
+    def test_main_forwards_pr_dry_run(self):
+        with mock.patch("relay.cli.run_pr", return_value=0) as run:
+            main(["pr", "--dry-run"])
+        assert run.call_args.kwargs["dry_run"] is True
+
+    def test_main_pr_builds_no_provider_by_default(self):
+        """Without --provider the commit message is the title: no API key needed."""
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.run_pr", return_value=0
+        ) as run:
+            main(["pr"])
+        build_provider.assert_not_called()
+        assert run.call_args.kwargs["provider"] is None
+
+    def test_main_pr_forwards_the_built_provider(self):
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.run_pr", return_value=0
+        ) as run:
+            main(["pr", "--provider", "ollama"])
+        build_provider.assert_called_once_with("ollama")
+        assert run.call_args.kwargs["provider"] is build_provider.return_value
+
+    def test_main_pr_provider_failure_degrades_to_the_commit_title(self, capsys):
+        """A missing key must never block opening a PR that needs no AI."""
+        with mock.patch(
+            "relay.cli.build_provider", side_effect=ConfigError("no key")
+        ), mock.patch("relay.cli.run_pr", return_value=0) as run:
+            assert main(["pr", "--provider", "gemini"]) == 0
+        assert run.call_args.kwargs["provider"] is None
+        assert "falling back to the commit message" in capsys.readouterr().out
 
     def test_pr_body_flags_parse(self):
         parser = build_parser()
