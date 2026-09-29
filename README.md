@@ -98,18 +98,28 @@ Run `relay doctor` to verify Python, Git, and credentials:
 
 ```console
 $ relay doctor
-[relay doctor] Relay 2.2.0 - gemini provider
+[relay doctor] Relay 2.5.0 - gemini provider
 
-  Python 3.11+       PASS   3.11.9
-  relay on PATH      PASS   /usr/local/bin/relay
-  git installed      PASS   2.43.0
-  inside a git repo  PASS   branch: feat/auth, remote: yes, working tree: clean
-  provider: gemini   PASS   Gemini API
-  AI credentials     PASS   GEMINI_API_KEY is set
-  GitHub token       PASS   GITHUB_TOKEN is set
+  Python 3.11+        PASS   3.11.9
+  relay on PATH       PASS   /usr/local/bin/relay
+  git installed       PASS   /usr/local/bin/git (2.43.0)
+  inside a git repo   PASS   branch: feat/auth, remote: yes, uncommitted changes: no
+  git identity        PASS   Ada <ada@dev.io>
+  provider: gemini    PASS   Gemini API
+  AI credentials      PASS   GEMINI_API_KEY is set
+  Forge token         PASS   GITHUB_TOKEN is set
+  Protected branches  PASS   main, master
+  User config         PASS   /home/ada/.config/relay/config.toml
+  Repo config         PASS   no .relay.toml; using defaults
+  Hooks               PASS   none configured
+  Encoding            PASS   stdout=utf-8, stderr=utf-8, locale=utf-8
 
-  7 pass, 0 warn, 0 fail - system healthy.
+  13 pass, 0 warn, 0 fail - all good.
 ```
+
+Add `--probe` to also probe the configured AI endpoint and the forge token
+endpoint (including any self-hosted GitHub host in
+`RELAY_TRUSTED_GITHUB_HOSTS`), or `--json` for a machine-readable report.
 
 ### 3. Daily Workflow
 
@@ -132,12 +142,12 @@ relay pr --open
 | :--- | :--- |
 | `relay --solo` | Stage all, generate message, commit, and push to the current branch *(default)*. |
 | `relay --team [NAME]` | Auto-create `<type>/<feature>` branch, commit, and push upstream. |
-| `relay pr` | Open a PR on GitHub, GitLab, or Bitbucket (`-d` draft, `-o` open browser). |
-| `relay undo` | Soft-reset the last commit (`HEAD~1`); modified files stay staged. |
-| `relay amend` | Regenerate and replace the last commit message in place (never force-pushes). |
+| `relay pr` | Open a PR on GitHub, GitLab, or Bitbucket (`-d` draft, `-o` open browser, `--dry-run` show the plan, `--body`/`--body-file`/`-e` description, `--provider` AI title). |
+| `relay undo` | Soft-reset the last commit (`HEAD~1`); modified files stay staged (`--allow-staged` mixes in an already-staged index). |
+| `relay amend` | Regenerate and replace the last commit message in place (never force-pushes); `-m`/`--message` sets it directly, `--no-verify` skips hooks. |
 | `relay squash` | Fold the last N commits into a single clean Conventional Commit. |
 | `relay stage` | Interactive file and hunk staging helper (`git add -p`). |
-| `relay doctor` | Diagnose environment readiness (PATH, Git, tokens, remotes). |
+| `relay doctor` | Diagnose environment readiness (PATH, Git, tokens, config files, hooks, encoding; `--probe`, `--json`). |
 | `relay completions [SHELL]` | Print a shell completion script (bash/zsh/fish/powershell). |
 | `relay man` | Print the `relay(1)` manual page (roff) to stdout. |
 | `relay telemetry [on\|off\|status]` | View or change opt-in anonymous usage telemetry (off by default). |
@@ -145,7 +155,8 @@ relay pr --open
 | `--provider NAME` | AI provider override (`gemini`, `ollama`, `openai`, `anthropic`, `mistral`, `groq`, `xai`). |
 | `--timeout SECONDS` | Seconds to wait for the AI response (default 30, max 120). |
 | `--no-push` | Commit but do not push. |
-| `--no-verify` | Skip git pre-commit and commit-msg hooks. |
+| `--no-verify` | Skip git pre-commit and commit-msg hooks, including Relay's own `[hooks] pre_commit`. |
+| `-s`, `--signoff` | Add a `Signed-off-by:` trailer to the commit (`git commit -s`). |
 | `--repo PATH` | Run on this repo path (repeatable; defaults to current dir). |
 | `--yes` | Skip the confirmation menu and proceed automatically. |
 | `--staged` | Only commit already-staged changes (skips `git add .`). |
@@ -162,7 +173,7 @@ Relay reads settings from environment variables or an optional TOML config file 
 
 | Provider | Identifier | Required Credential | Default Model | Base URL Override (Env) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Gemini** | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` | — |
+| **Gemini** | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` | `GEMINI_BASE_URL` |
 | **Ollama** | `ollama` | None | `qwen2.5-coder:7b` | `OLLAMA_BASE_URL` |
 | **OpenAI** | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` | `OPENAI_BASE_URL` |
 | **Anthropic** | `anthropic` | `ANTHROPIC_API_KEY` | `claude-3-5-haiku-latest` | `ANTHROPIC_BASE_URL` |
@@ -177,13 +188,27 @@ Relay reads settings from environment variables or an optional TOML config file 
 provider = "gemini"
 branch_template = "feat/<feature>"
 pr_open = true
+pr_base = "main"          # default base branch for `relay pr` (RELAY_PR_BASE)
+validate_manual = false
+
+[commit]
+types = ["sec-ops", "deps2"]   # extra Conventional Commit types
+signoff = false
 
 [team.protected]
-branches = ["main", "master", "develop"]
+branches = ["main", "master", "develop", "release/*"]
 
 [relay.ignore]
 paths = ["dist/*", "*.lock", "package-lock.json"]
+
+[hooks.pre_commit]
+command = ["./scripts/check.sh", "--strict"]
 ```
+
+A repo-local `.relay.toml` (committed with the project) may only set a safe
+subset — provider/model choices, ignore paths, protected branches, `pr_base`
+and `[commit] types` — so an untrusted clone can never point Relay at another
+host, widen secret handling, or enable sign-off for you.
 
 > [!IMPORTANT]
 > **Secrets Are Environment-Only**  

@@ -82,6 +82,43 @@ def test_update_path_unix_already_present(tmp_path, monkeypatch):
     assert content.count(target_esc) == 1
 
 
+def test_update_path_fish_uses_fish_add_path(tmp_path, monkeypatch):
+    """fish reads neither ~/.profile nor ~/.bashrc, and rejects `export`."""
+    monkeypatch.setenv("SHELL", "/usr/bin/fish")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    scripts_dir = tmp_path / "bin"
+
+    assert install.update_path_unix(scripts_dir, yes=True) is True
+
+    config = tmp_path / ".config" / "fish" / "config.fish"
+    content = config.read_text(encoding="utf-8")
+    target_esc = install._escape_sh_double(str(scripts_dir))
+    assert f'fish_add_path "{target_esc}"' in content
+    assert "export PATH=" not in content
+    assert not (tmp_path / ".profile").exists()
+
+
+def test_update_path_fish_is_idempotent(tmp_path, monkeypatch):
+    monkeypatch.setenv("SHELL", "/usr/bin/fish")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    scripts_dir = tmp_path / "bin"
+
+    install.update_path_unix(scripts_dir, yes=True)
+    install.update_path_unix(scripts_dir, yes=True)
+
+    config = tmp_path / ".config" / "fish" / "config.fish"
+    assert config.read_text(encoding="utf-8").count("fish_add_path") == 1
+
+
+def test_update_path_fish_declined_prompt_creates_nothing(tmp_path, monkeypatch):
+    monkeypatch.setenv("SHELL", "/usr/bin/fish")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr("builtins.input", lambda *a: "n")
+
+    assert install.update_path_unix(tmp_path / "bin", yes=False) is True
+    assert not (tmp_path / ".config" / "fish" / "config.fish").exists()
+
+
 def test_update_path_windows_already_present(monkeypatch):
     scripts_dir = Path("C:/fake/relay/scripts")
     with mock.patch("install._powershell", return_value=r"C:\WINDOWS;C:\fake\relay\scripts"):
