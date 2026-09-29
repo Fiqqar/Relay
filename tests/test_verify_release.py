@@ -28,7 +28,7 @@ SDIST_HASH = "b" * 64
 
 RELEASE_JSON = {
     "tag_name": f"v{VER}",
-    "title": f"v{VER}",
+    "name": f"v{VER}",
     "assets": [
         {"name": WHEEL, "browser_download_url": f"https://example.com/{WHEEL}"},
         {"name": SDIST, "browser_download_url": f"https://example.com/{SDIST}"},
@@ -159,7 +159,7 @@ class TestRunVerifyRelease:
         assert "tag" in capsys.readouterr().out.lower()
 
     def test_wrong_release_title_fails(self, healthy_mocks, capsys):
-        bad = dict(RELEASE_JSON, title="Release 2.5.0")
+        bad = dict(RELEASE_JSON, name="Release 2.5.0")
         with mock.patch(
             "relay.verify_release._fetch_json",
             side_effect=lambda url, timeout=30: (
@@ -169,7 +169,7 @@ class TestRunVerifyRelease:
             ),
         ):
             assert run_verify_release(VER, scoop_path=healthy_mocks) == 1
-        assert "title" in capsys.readouterr().out.lower()
+        assert "Release 2.5.0" in capsys.readouterr().out
 
     def test_missing_asset_fails(self, healthy_mocks, capsys):
         bad = dict(RELEASE_JSON)
@@ -371,6 +371,88 @@ class TestFetchHelpers:
         assert path.name == "relay.json"
         assert path.parent.name == "bucket"
 
+    def test_fetch_text_follows_redirect_without_credentials(self):
+        import urllib.error
+        import urllib.request
+
+        from relay import verify_release as vr
+
+        redirect = urllib.error.HTTPError(
+            "https://example.com/SHA256SUMS",
+            302,
+            "Found",
+            {"Location": "https://cdn.example/SHA256SUMS"},
+            None,
+        )
+        seen = []
+
+        def fake_urlopen(req, timeout=30):
+            seen.append(req)
+            if len(seen) == 1:
+                raise redirect
+            return self._FakeResp(b"abc  file\n")
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            assert vr._fetch_text("https://example.com/SHA256SUMS") == "abc  file\n"
+        assert seen[1].full_url == "https://cdn.example/SHA256SUMS"
+        for req in seen:
+            assert req.get_header("Authorization") is None
+
+    def test_fetch_bytes_follows_redirect_without_credentials(self):
+        import urllib.error
+
+        from relay import verify_release as vr
+
+        redirect = urllib.error.HTTPError(
+            "https://example.com/w.whl",
+            302,
+            "Found",
+            {"Location": "https://cdn.example/w.whl"},
+            None,
+        )
+        seen = []
+
+        def fake_urlopen(req, timeout=30):
+            seen.append(req)
+            if len(seen) == 1:
+                raise redirect
+            return self._FakeResp(b"wheel-bytes")
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            assert vr._fetch_bytes("https://example.com/w.whl") == b"wheel-bytes"
+        for req in seen:
+            assert req.get_header("Authorization") is None
+
+    def test_fetch_text_rejects_redirect_loops(self):
+        import urllib.error
+
+        from relay import verify_release as vr
+
+        redirect = urllib.error.HTTPError(
+            "https://example.com/SHA256SUMS",
+            302,
+            "Found",
+            {"Location": "https://example.com/SHA256SUMS"},
+            None,
+        )
+        with mock.patch(
+            "urllib.request.urlopen", side_effect=redirect
+        ), pytest.raises(VerifyError, match="too many redirects"):
+            vr._fetch_text("https://example.com/SHA256SUMS")
+
+    def test_fetch_text_forwards_non_redirect_errors(self):
+        import urllib.error
+
+        from relay import verify_release as vr
+
+        missing = urllib.error.HTTPError(
+            "https://example.com/SHA256SUMS", 404, "Not Found", {}, None
+        )
+        with mock.patch(
+            "urllib.request.urlopen", side_effect=missing
+        ), pytest.raises(urllib.error.HTTPError):
+            vr._fetch_text("https://example.com/SHA256SUMS")
+
 
 class TestDecodeFormulaPayload:
     def test_rejects_non_base64_encoding(self):
@@ -437,7 +519,7 @@ class TestRunEdgeCases:
     def test_release_without_assets_lists_everything_missing(
         self, healthy_mocks, capsys
     ):
-        bare = {"tag_name": f"v{VER}", "title": f"v{VER}"}
+        bare = {"tag_name": f"v{VER}", "name": f"v{VER}"}
         with mock.patch(
             "relay.verify_release._fetch_json",
             side_effect=lambda url, timeout=30: (

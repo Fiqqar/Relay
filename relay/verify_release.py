@@ -17,6 +17,7 @@ import hashlib
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,10 @@ _FORMULA_CONTENTS_URL = (
 _MAX_JSON_BYTES = 1024 * 1024
 _MAX_TEXT_BYTES = 1024 * 1024
 _MAX_WHEEL_BYTES = 64 * 1024 * 1024
+# Asset hosts redirect (GitHub release downloads answer 302 to a CDN). The
+# global opener refuses every redirect so a token can never leak to another
+# host, so public assets follow redirects explicitly below instead — bounded.
+_MAX_REDIRECTS = 5
 
 _MARKS = {"ok": "PASS", "fail": "FAIL", "skip": "SKIP"}
 
@@ -125,24 +130,43 @@ def _fetch_json(url: str, timeout: int = 30) -> Any:
     return json.loads(body.decode("utf-8", "replace"))
 
 
+def _fetch_public_body(url: str, timeout: int, max_bytes: int, kind: str) -> bytes:
+    """GET a public release asset, following redirects explicitly.
+
+    Asset hosts (and their redirect targets) never receive credentials: every
+    hop builds a fresh unauthenticated request, so a token can never leak to
+    a redirected host. Redirects are bounded; anything else raises.
+    """
+    current = url
+    for _ in range(_MAX_REDIRECTS):
+        req = urllib.request.Request(
+            current, headers={"User-Agent": "relay-cli", "Accept": "*/*"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+                body = resp.read(max_bytes + 1)
+        except urllib.error.HTTPError as exc:
+            location = exc.headers.get("Location") if exc.headers else None
+            if exc.code in (301, 302, 303, 307, 308) and location:
+                current = urllib.parse.urljoin(current, location)
+                continue
+            raise
+        if len(body) > max_bytes:
+            raise VerifyError(f"{kind} from {url} exceeded the size limit")
+        return body
+    raise VerifyError(f"too many redirects fetching {kind} from {url}")
+
+
 def _fetch_text(url: str, timeout: int = 30) -> str:
     """GET a small text asset (SHA256SUMS) with a size cap."""
-    req = urllib.request.Request(url, headers=_headers("*/*"))
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-        body = resp.read(_MAX_TEXT_BYTES + 1)
-    if len(body) > _MAX_TEXT_BYTES:
-        raise VerifyError(f"response from {url} exceeded the size limit")
-    return body.decode("utf-8", "replace")
+    return _fetch_public_body(url, timeout, _MAX_TEXT_BYTES, "SHA256SUMS").decode(
+        "utf-8", "replace"
+    )
 
 
 def _fetch_bytes(url: str, timeout: int = 30) -> bytes:
     """GET a release artifact for local re-hashing (size-capped)."""
-    req = urllib.request.Request(url, headers=_headers("*/*"))
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-        body = resp.read(_MAX_WHEEL_BYTES + 1)
-    if len(body) > _MAX_WHEEL_BYTES:
-        raise VerifyError(f"artifact from {url} exceeded the size limit")
-    return body
+    return _fetch_public_body(url, timeout, _MAX_WHEEL_BYTES, "artifact")
 
 
 def _default_scoop_path() -> Path:
@@ -253,13 +277,16 @@ def run_verify_release(
             Check("Release tag", "fail", f"tag_name is {found!r}, expected {tag!r}")
         )
         return _report(ver, tag, checks, json_output)
-    title = release.get("title")
-    if title != tag:
+    # The API calls the release title `name` (`gh release create --title`
+    # maps to it); there is no `title` field.
+    name = release.get("name")
+    if name != tag:
         checks.append(
             Check(
                 "Release tag",
                 "fail",
-                f"title is {title!r}, expected {tag!r} (must be strictly vx.y.z)",
+                f"release name is {name!r}, expected {tag!r} "
+                "(must be strictly vx.y.z)",
             )
         )
         return _report(ver, tag, checks, json_output)
