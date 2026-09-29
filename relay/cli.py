@@ -289,6 +289,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Amends the last commit (never pushes; syncing a pushed "
                     "commit needs `git push --force-with-lease`).",
     )
+    amend.add_argument("-m", "--message", metavar="MESSAGE",
+                       help="use this message instead of generating one with AI")
     amend.add_argument("--provider", choices=PROVIDER_NAMES,
                        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
     amend.add_argument("--timeout", type=int, metavar="SECONDS",
@@ -299,6 +301,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="fold already-staged changes into the amended commit (default is message-only)")
     amend.add_argument("--dry-run", action="store_true",
                        help="show the plan; change nothing")
+    amend.add_argument("--no-verify", action="store_true",
+                       help="skip git pre-commit and commit-msg hooks")
     amend.add_argument("--signoff", "-s", action="store_true",
                        help="add a Signed-off-by trailer to the amended commit")
     amend.add_argument("--verbose", action="store_true",
@@ -394,11 +398,15 @@ def _handle_squash(args) -> int:
 
 
 def _handle_amend(args) -> int:
-    try:
-        ai = build_provider(args.provider, timeout=args.timeout)
-    except ConfigError as exc:
-        print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
-        ai = None
+    # An explicit --message needs no AI at all, so don't build a provider (and
+    # don't fail on a missing API key) when one was given.
+    ai = None
+    if not args.message:
+        try:
+            ai = build_provider(args.provider, timeout=args.timeout)
+        except ConfigError as exc:
+            print(f"[relay] AI unavailable ({exc}) — continuing with manual input.")
+            ai = None
     orchestrator = Orchestrator(
         mode="amend",
         feature=None,
@@ -406,10 +414,11 @@ def _handle_amend(args) -> int:
         yes=args.yes,
         no_push=True,
         staged_only=args.staged,
-        no_verify=False,
+        no_verify=args.no_verify,
         signoff=_resolve_signoff(args),
         dry_run=args.dry_run,
         verbose=args.verbose,
+        message=args.message,
     )
     code = orchestrator.run()
     _report_run(args, getattr(ai, "provider_name", ""), ok=code == 0)

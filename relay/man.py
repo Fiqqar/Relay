@@ -48,6 +48,7 @@ stage
 .br
 .B relay
 amend
+[\fB\-m\fR \fIMSG\fR | \fB\-\-message\fR \fIMSG\fR] [\fB\-\-no-verify\fR]
 .br
 .B relay
 undo
@@ -166,6 +167,10 @@ View or change opt-in usage telemetry (off by default).
 .TP
 .B amend
 Rewrite the last commit's message with a freshly generated one (never pushes).
+\fB\-m\fR/\fB\-\-message\fR supplies the message directly (no AI call, no API
+key needed); \fB\-\-no\-verify\fR skips \fI[hooks] pre_commit\fR and git's own
+pre-commit/commit-msg hooks; \fB\-\-staged\fR folds staged changes into the
+amended commit.
 .TP
 .B completions
 Print a shell completion script for bash, zsh, fish, or powershell.

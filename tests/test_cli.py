@@ -237,6 +237,7 @@ class TestAmendSubcommand:
             signoff=False,
             dry_run=False,
             verbose=False,
+            message=None,
         )
         orchestrator_cls.return_value.run.assert_called_once_with()
 
@@ -283,6 +284,33 @@ class TestAmendSubcommand:
         ), mock.patch("relay.cli.Orchestrator") as orchestrator_cls:
             orchestrator_cls.return_value.run.return_value = 0
             assert main(["amend"]) == 0
+        assert orchestrator_cls.call_args.kwargs["provider"] is None
+
+    def test_amend_accepts_message_and_no_verify(self):
+        args = build_parser().parse_args(
+            ["amend", "-m", "fix: corrected", "--no-verify"]
+        )
+        assert args.message == "fix: corrected"
+        assert args.no_verify is True
+
+    def test_main_amend_forwards_message_and_no_verify(self):
+        with mock.patch("relay.cli.build_provider"), mock.patch(
+            "relay.cli.Orchestrator"
+        ) as orchestrator_cls:
+            orchestrator_cls.return_value.run.return_value = 0
+            assert main(["amend", "-m", "fix: corrected", "--no-verify"]) == 0
+        kw = orchestrator_cls.call_args.kwargs
+        assert kw["message"] == "fix: corrected"
+        assert kw["no_verify"] is True
+
+    def test_amend_with_message_never_builds_a_provider(self):
+        """-m must not need an API key: no provider is built or required."""
+        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
+            "relay.cli.Orchestrator"
+        ) as orchestrator_cls:
+            orchestrator_cls.return_value.run.return_value = 0
+            assert main(["amend", "--message", "fix: corrected"]) == 0
+        build_provider.assert_not_called()
         assert orchestrator_cls.call_args.kwargs["provider"] is None
 
 

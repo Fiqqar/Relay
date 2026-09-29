@@ -144,6 +144,14 @@ class TestManPageDocumentsTheCli:
                      r"\-\-count", r"\-\-no-verify", r"\-\-patch", r"\-\-message"):
             assert flag in MAN_PAGE_TEMPLATE, f"man page is missing {flag}"
 
+    def test_man_documents_amend_message_and_no_verify(self):
+        from relay.man import MAN_PAGE_TEMPLATE
+
+        # The amend COMMANDS block only (synopsis excluded).
+        section = MAN_PAGE_TEMPLATE.split(".B amend", 1)[1].split(".TP", 1)[0]
+        assert r"\-\-message" in section
+        assert r"\-\-no\-verify" in section
+
     def test_man_synopsis_mentions_every_subcommand(self):
         from relay.man import MAN_PAGE_TEMPLATE
 
