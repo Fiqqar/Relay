@@ -221,6 +221,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="undo the last commit (soft reset; changes stay staged)",
         description="Moves HEAD back one commit with `git reset --soft HEAD~1`.",
     )
+    undo.add_argument("--allow-staged", action="store_true",
+                      help="undo even when the index already has staged changes "
+                           "(they are mixed into the undone commit)")
     undo.add_argument("--verbose", action="store_true",
                       help="print the git commands being run")
 
@@ -348,7 +351,10 @@ def _handle_doctor(args) -> int:
 
 
 def _handle_undo(args) -> int:
-    return run_undo(verbose=args.verbose)
+    return run_undo(
+        verbose=args.verbose,
+        allow_staged=bool(getattr(args, "allow_staged", False)),
+    )
 
 
 def _handle_stage(args) -> int:

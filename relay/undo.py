@@ -14,8 +14,18 @@ from .errors import GitError
 from .git_manager import GitManager
 
 
-def run_undo(git: GitManager | None = None, verbose: bool = False) -> int:
-    """Undo the last commit. Returns the process exit code."""
+def run_undo(
+    git: GitManager | None = None,
+    verbose: bool = False,
+    allow_staged: bool = False,
+) -> int:
+    """Undo the last commit. Returns the process exit code.
+
+    Refuses when the index already holds staged changes: the soft reset would
+    silently mix them with the undone commit, and the developer would have no
+    way to tell which files came from where. ``allow_staged`` mixes them on
+    purpose (squash.py re-checks the same condition for the same reason).
+    """
     git = git or GitManager(verbose=verbose)
 
     if not git.is_repo():
@@ -33,6 +43,12 @@ def run_undo(git: GitManager | None = None, verbose: bool = False) -> int:
             "only 1 commit on this branch; nothing to undo. "
             "Rewrite its message with `relay amend`, or if you really want to "
             "drop it: `git update-ref -d HEAD` (keeps the working tree)."
+        )
+    if git.has_staged_changes() and not allow_staged:
+        raise GitError(
+            "the index already has staged changes; unstage them first "
+            "(git reset -- <path>) or re-run with --allow-staged to mix "
+            "them with the undone commit"
         )
 
     branch = git.current_branch() or "HEAD"

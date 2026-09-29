@@ -71,12 +71,12 @@ class TestUndoSubcommand:
     def test_main_routes_undo_and_propagates_exit_code(self):
         with mock.patch("relay.cli.run_undo", return_value=0) as run:
             assert main(["undo"]) == 0
-        run.assert_called_once_with(verbose=False)
+        run.assert_called_once_with(verbose=False, allow_staged=False)
 
     def test_main_forwards_undo_verbose(self):
         with mock.patch("relay.cli.run_undo", return_value=0) as run:
             main(["undo", "--verbose"])
-        run.assert_called_once_with(verbose=True)
+        run.assert_called_once_with(verbose=True, allow_staged=False)
 
     def test_team_feature_named_undo_is_not_a_subcommand(self):
         args = build_parser().parse_args(["--team", "undo"])

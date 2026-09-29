@@ -12,12 +12,13 @@ class FakeGit:
     """Stand-in for GitManager with controllable undo behavior."""
 
     def __init__(self, is_repo=True, has_commits=True, branch="main", pushed=False,
-                 commit_count=5):
+                 commit_count=5, staged=False):
         self._is_repo = is_repo
         self._commits = has_commits
         self._branch = branch
         self._pushed = pushed
         self._count = commit_count
+        self._staged = staged
         self.reset_calls = 0
 
     def is_repo(self):
@@ -25,6 +26,9 @@ class FakeGit:
 
     def has_commits(self):
         return self._commits
+
+    def has_staged_changes(self):
+        return self._staged
 
     def commit_count(self):
         return self._count
@@ -92,6 +96,21 @@ def test_undo_detached_head_still_works(git):
     assert git.reset_calls == 1
 
 
+def test_undo_refuses_when_the_index_has_staged_changes(git):
+    """A soft reset would silently mix the staged files with the undone commit."""
+    git._staged = True
+    with pytest.raises(GitError, match="already has staged changes"):
+        run_undo(git)
+    assert git.reset_calls == 0
+
+
+def test_undo_allows_staged_changes_with_the_flag(git, capsys):
+    git._staged = True
+    assert run_undo(git, allow_staged=True) == 0
+    assert git.reset_calls == 1
+    assert "undone last commit" in capsys.readouterr().out
+
+
 # ---- CLI routing -----------------------------------------------------------
 
 def test_parser_routes_undo_subcommand():
@@ -102,7 +121,18 @@ def test_parser_routes_undo_subcommand():
 def test_main_undo_routes_and_propagates_exit_code():
     with mock.patch("relay.cli.run_undo", return_value=0) as run:
         assert main(["undo"]) == 0
-    run.assert_called_once_with(verbose=False)
+    run.assert_called_once_with(verbose=False, allow_staged=False)
+
+
+def test_parser_accepts_allow_staged():
+    assert build_parser().parse_args(["undo", "--allow-staged"]).allow_staged is True
+    assert build_parser().parse_args(["undo"]).allow_staged is False
+
+
+def test_main_undo_forwards_allow_staged():
+    with mock.patch("relay.cli.run_undo", return_value=0) as run:
+        assert main(["undo", "--allow-staged"]) == 0
+    run.assert_called_once_with(verbose=False, allow_staged=True)
 
 
 def test_main_undo_error_maps_to_exit_1():
