@@ -19,10 +19,16 @@ from __future__ import annotations
 # The single source of truth for what the completion scripts advertise. Kept in
 # sync with the argparse definitions in relay/cli.py; order does not matter for
 # any shell, but grouping keeps the generators readable.
+# NOTE: `verify-release` is intentionally absent here — it is a hidden
+# maintainer-only subcommand (argparse.SUPPRESS in cli.py), so tab-completion
+# must not advertise it to end users.
 SUBCOMMANDS = [
     "amend", "completions", "doctor", "man", "pr", "squash", "stage",
-    "telemetry", "undo", "verify-release",
+    "telemetry", "undo",
 ]
+
+# Subcommands that exist in the parser but are hidden from users.
+HIDDEN_SUBCOMMANDS = ("verify-release",)
 
 GLOBAL_FLAGS = [
     "--version", "--solo", "--team", "-m", "--message", "--provider",
@@ -92,11 +98,6 @@ SUBCOMMAND_FLAGS: dict[str, dict[str, str]] = {
         "--allow-staged": "undo even with staged changes in the index",
         "--verbose": "print the git commands being run",
     },
-    "verify-release": {
-        "--json": "print the report as JSON",
-        "--download": "download the wheel and re-hash it",
-        "--verbose": "print the requests being made",
-    },
 }
 
 # One-line descriptions used by the fish generator. Fish takes a -a <name>
@@ -113,7 +114,6 @@ _FISH_DESCRIPTIONS = {
     "stage": "interactively stage a subset of changed files",
     "telemetry": "view or change opt-in usage telemetry",
     "undo": "undo the last commit",
-    "verify-release": "verify a published release end-to-end",
 }
 
 SHELLS = ("bash", "zsh", "fish", "powershell")
@@ -326,6 +326,7 @@ def generate(shell: str) -> str:
 
 __all__ = [
     "SUBCOMMANDS",
+    "HIDDEN_SUBCOMMANDS",
     "GLOBAL_FLAGS",
     "SUBCOMMAND_FLAGS",
     "SHELLS",

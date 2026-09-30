@@ -607,6 +607,22 @@ def test_cli_surface_is_frozen():
     assert set(subparsers_action.choices.keys()) == expected_subcommands
 
 
+def test_verify_release_is_hidden_from_help_but_still_runnable():
+    """Maintainer-only: hidden from top-level --help, still parsable."""
+    import argparse
+
+    parser = build_parser()
+    assert "verify-release" not in parser.format_help()
+    args = parser.parse_args(["verify-release", "v2.5.0"])
+    assert args.command == "verify-release"
+    assert args.version == "v2.5.0"
+    # Direct subcommand help still documents it for the maintainer.
+    sub = next(
+        a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
+    ).choices["verify-release"]
+    assert "Maintainer-only" in sub.description
+
+
 def test_signoff_flag_parses_on_the_workflow_and_both_subcommands():
     parser = build_parser()
     assert parser.parse_args(["--signoff"]).signoff is True
@@ -699,13 +715,15 @@ def test_main_multirepo_130_propagates(wired):
 
 class TestDispatchTables:
     def test_tables_cover_every_subcommand_exactly_once(self):
-        from relay.completions import SUBCOMMANDS
+        from relay.completions import HIDDEN_SUBCOMMANDS, SUBCOMMANDS
 
         assert set(_READONLY_HANDLERS) == {
             "doctor", "completions", "man", "telemetry", "verify-release",
         }
         assert set(_WORKFLOW_HANDLERS) == {"pr", "undo", "stage", "squash", "amend"}
-        assert set(_READONLY_HANDLERS) | set(_WORKFLOW_HANDLERS) == set(SUBCOMMANDS)
+        assert set(_READONLY_HANDLERS) | set(_WORKFLOW_HANDLERS) == set(
+            SUBCOMMANDS
+        ) | set(HIDDEN_SUBCOMMANDS)
 
     def test_workflow_error_mapping(self, capsys):
         args = build_parser().parse_args(["--solo"])

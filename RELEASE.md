@@ -71,7 +71,9 @@ Pushing the `v*` tag triggers the **Release** workflow
 ### 4. Verify the artifact
 
 Verify the published release end-to-end (tag, assets vs `SHA256SUMS`,
-Scoop manifest, Homebrew formula):
+Scoop manifest, Homebrew formula). This is a hidden maintainer-only
+command — it does not appear in `--help`, completions, or `relay man`,
+but it still runs as below:
 
 ```bash
 relay verify-release v2.2.0         # all checks PASS, exits 0
