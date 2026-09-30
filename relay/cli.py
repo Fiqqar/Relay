@@ -319,11 +319,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify_release = subparsers.add_parser(
         "verify-release",
-        help="verify a published release end-to-end (tag, assets, manifests)",
-        description="Read-only release check: the vx.y.z tag exists, the sdist "
-                    "and wheel match SHA256SUMS, and the Scoop manifest plus "
-                    "the Homebrew formula point at the same version and hashes. "
-                    "Exits 0 when everything matches, 1 otherwise.",
+        help=argparse.SUPPRESS,
+        description="Maintainer-only release check: the vx.y.z tag exists, "
+                    "the sdist and wheel match SHA256SUMS, and the Scoop "
+                    "manifest plus the Homebrew formula point at the same "
+                    "version and hashes. Hidden from --help; still runnable "
+                    "as `relay verify-release`. Exits 0 when everything "
+                    "matches, 1 otherwise.",
     )
     verify_release.add_argument(
         "version",
@@ -338,6 +340,12 @@ def build_parser() -> argparse.ArgumentParser:
                                 help="download the wheel and re-hash it locally")
     verify_release.add_argument("--verbose", action="store_true",
                                 help="print the requests being made")
+    # help=SUPPRESS alone still leaks as a literal "==SUPPRESS==" row on
+    # Python 3.14's HelpFormatter, so drop the pseudo-action from the
+    # help listing while keeping it in choices (still parsable/runnable).
+    subparsers._choices_actions = [
+        a for a in subparsers._choices_actions if a.dest != "verify-release"
+    ]
     return parser
 
 

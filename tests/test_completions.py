@@ -94,8 +94,14 @@ class TestSubcommandFlags:
     def test_table_matches_the_parser_exactly(self):
         """Drift in either direction is a bug: a flag users can type that no
         shell completes, or a completion the installed CLI would reject."""
+        from relay.completions import HIDDEN_SUBCOMMANDS
+
         expected = {name: set(flags) for name, flags in SUBCOMMAND_FLAGS.items()}
-        actual = {name: flags for name, flags in _parser_subcommand_flags().items() if flags}
+        actual = {
+            name: flags
+            for name, flags in _parser_subcommand_flags().items()
+            if flags and name not in set(HIDDEN_SUBCOMMANDS)
+        }
         assert actual == expected
 
     @pytest.mark.parametrize("shell", ["bash", "zsh", "fish", "powershell"])
@@ -170,6 +176,17 @@ class TestManPageDocumentsTheCli:
 
         for subcommand in SUBCOMMANDS:
             assert subcommand in MAN_PAGE_TEMPLATE
+
+    def test_verify_release_is_hidden_from_completions_and_man(self):
+        """Maintainer-only: never advertised to end users."""
+        from relay.completions import HIDDEN_SUBCOMMANDS
+        from relay.man import MAN_PAGE_TEMPLATE
+
+        assert "verify-release" in set(HIDDEN_SUBCOMMANDS)
+        assert "verify-release" not in SUBCOMMANDS
+        for shell in SHELLS:
+            assert "verify-release" not in generate(shell)
+        assert "verify-release" not in MAN_PAGE_TEMPLATE
 
     def test_case_insensitive(self):
         assert generate("BASH") == generate("bash")
