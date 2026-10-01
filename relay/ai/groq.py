@@ -6,6 +6,7 @@ Groq's hosted API is OpenAI-compatible, so this provider is a thin subclass of
 ones — no duplicated request machinery, matching the tool's zero-dependency
 philosophy.
 """
+
 from __future__ import annotations
 
 from ..config import ai_timeout, groq_api_key, groq_base_url, groq_model
@@ -28,9 +29,9 @@ class GroqProvider(OpenAIProvider):
         if not self.api_key:
             raise ConfigError(
                 "GROQ_API_KEY is not set. Export it in your shell, e.g.\n"
-                '    set GROQ_API_KEY=...        (Windows cmd)\n'
+                "    set GROQ_API_KEY=...        (Windows cmd)\n"
                 '    $env:GROQ_API_KEY="..."     (PowerShell)\n'
-                '    export GROQ_API_KEY=...     (macOS/Linux)'
+                "    export GROQ_API_KEY=...     (macOS/Linux)"
             )
         self.model = model or groq_model()
         self.base_url = (base_url or groq_base_url()).rstrip("/")

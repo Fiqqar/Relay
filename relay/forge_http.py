@@ -9,6 +9,7 @@ thin wrappers around :func:`request_json`.
 Pure stdlib only, matching the zero-dependency philosophy of the rest of
 the tool.
 """
+
 from __future__ import annotations
 
 import json

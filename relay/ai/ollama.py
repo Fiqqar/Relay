@@ -6,6 +6,7 @@ If Ollama isn't running locally, the connection error surfaces as AIError
 (``unavailable``) and the Orchestrator falls back to manual input, exactly as
 designed.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,9 @@ from .base import AIManager, decode_provider_json, normalize_transport_error, re
 class OllamaProvider(AIManager):
     provider_name = "ollama"
 
-    def __init__(self, base_url: str | None = None, model: str | None = None, timeout: int | None = None):
+    def __init__(
+        self, base_url: str | None = None, model: str | None = None, timeout: int | None = None
+    ):
         self.base_url = (base_url or ollama_base_url()).rstrip("/")
         if not _is_valid_ai_base_url(self.base_url):
             raise ConfigError(

@@ -9,6 +9,7 @@ the workflow does NOT abort. It asks the user for a message with input() and
 continues from the commit step, so a rate limit or an offline machine can
 never leave the developer stranded.
 """
+
 from __future__ import annotations
 
 import random
@@ -213,9 +214,7 @@ class Orchestrator:
         # guard, so a scripted/CI run cannot silently land on main/master.
         if self.mode == "team":
             assert team_branch is not None
-            assert_branch_allowed(
-                team_branch, self.protected_branches, force=force
-            )
+            assert_branch_allowed(team_branch, self.protected_branches, force=force)
 
         # TOCTOU: ensure the index is the same one the AI approved
         self._assert_index_unchanged(tree_before)
@@ -271,10 +270,7 @@ class Orchestrator:
         # empty ref. The commit is already safe — tell the developer how to
         # turn the detached commit into a pushed branch.
         if self.mode == "solo" and not branch:
-            print(
-                "[relay] warning: HEAD is detached; committed, but there is no "
-                "branch to push."
-            )
+            print("[relay] warning: HEAD is detached; committed, but there is no branch to push.")
             print(
                 "[relay] create and push a branch with: "
                 "`git switch -c <branch>` then `git push -u origin <branch>`"
@@ -535,12 +531,16 @@ class Orchestrator:
                 # Transient failures (429 / 5xx) get 2 retries with short backoff.
                 if exc.kind in {"rate_limited", "api_error"} and transient_tries < 2:
                     transient_tries += 1
-                    print(f"[relay] AI {sanitize_terminal(str(exc))}; retrying ({transient_tries}/2)...")
+                    print(
+                        f"[relay] AI {sanitize_terminal(str(exc))}; retrying ({transient_tries}/2)..."
+                    )
                     time.sleep(1.0 * transient_tries + random.uniform(0.1, 0.5))
                     continue
                 # THE FALLBACK: catch any AI exception, ask the user for the
                 # message with plain input(), and continue the workflow.
-                print(f"[relay] AI unavailable ({sanitize_terminal(str(exc))}); falling back to manual input.")
+                print(
+                    f"[relay] AI unavailable ({sanitize_terminal(str(exc))}); falling back to manual input."
+                )
                 return self._manual_input()
 
             # Confirmation gate (skippable with --yes).
@@ -579,15 +579,15 @@ class Orchestrator:
                 while True:
                     try:
                         try:
-                            raw = self.ai.generate(
-                                block, path, branch, recent_commits=recent
-                            )
+                            raw = self.ai.generate(block, path, branch, recent_commits=recent)
                         except TypeError:
                             raw = self.ai.generate(block, path, branch)
                         msg = sanitize_ai_message(raw if isinstance(raw, str) else "")
                         valid, reason = validate_conventional(msg)
                         if not valid:
-                            print(f"[relay] AI hunk {sanitize_terminal(path or 'unknown')} rejected ({reason}); falling back to manual input.")
+                            print(
+                                f"[relay] AI hunk {sanitize_terminal(path or 'unknown')} rejected ({reason}); falling back to manual input."
+                            )
                             return self._manual_input()
                         messages.append(msg)
                         paths.append(path)
@@ -595,10 +595,14 @@ class Orchestrator:
                     except AIError as exc:
                         if exc.kind in {"rate_limited", "api_error"} and tries < 2:
                             tries += 1
-                            print(f"[relay] AI {sanitize_terminal(str(exc))}; retrying hunk {sanitize_terminal(path or '')} ({tries}/2)...")
+                            print(
+                                f"[relay] AI {sanitize_terminal(str(exc))}; retrying hunk {sanitize_terminal(path or '')} ({tries}/2)..."
+                            )
                             time.sleep(1.0 * tries + random.uniform(0.1, 0.5))
                             continue
-                        print(f"[relay] AI unavailable for hunk {sanitize_terminal(path or '')} ({sanitize_terminal(str(exc))}); falling back to manual input.")
+                        print(
+                            f"[relay] AI unavailable for hunk {sanitize_terminal(path or '')} ({sanitize_terminal(str(exc))}); falling back to manual input."
+                        )
                         return self._manual_input()
             subject = messages[0]
             if len(messages) == 1:
@@ -636,7 +640,9 @@ class Orchestrator:
         if self.validate_manual:
             valid, reason = validate_conventional(message)
             if not valid:
-                print(f"[relay] warning: '{message.splitlines()[0]}' is not a Conventional Commit ({reason})")
+                print(
+                    f"[relay] warning: '{message.splitlines()[0]}' is not a Conventional Commit ({reason})"
+                )
         return message
 
     def _resolve_team_branch_name(self, message: str, current_branch: str = "") -> str:

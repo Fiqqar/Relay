@@ -17,6 +17,7 @@ encoded the bug); they are asserted below, together with the ``fix(ai)`` that
 closed them — ``decode_provider_json`` in ``relay/ai/base.py`` plus non-str
 guards at each extraction site and in the Orchestrator.
 """
+
 from unittest import mock
 from unittest.mock import Mock
 

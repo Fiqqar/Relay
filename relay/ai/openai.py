@@ -6,6 +6,7 @@ vLLM, etc. all speak the ``/chat/completions`` protocol, pointing
 ``OPENAI_BASE_URL`` at a local server turns this same provider into a bridge to
 any of them — no extra code paths needed.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,14 +22,20 @@ from .base import AIManager, decode_provider_json, normalize_transport_error, re
 class OpenAIProvider(AIManager):
     provider_name = "openai"
 
-    def __init__(self, api_key: str | None = None, model: str | None = None, base_url: str | None = None, timeout: int | None = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        timeout: int | None = None,
+    ):
         self.api_key = api_key or openai_api_key()
         if not self.api_key:
             raise ConfigError(
                 "OPENAI_API_KEY is not set. Export it in your shell, e.g.\n"
-                '    set OPENAI_API_KEY=sk-...        (Windows cmd)\n'
+                "    set OPENAI_API_KEY=sk-...        (Windows cmd)\n"
                 '    $env:OPENAI_API_KEY="sk-..."     (PowerShell)\n'
-                '    export OPENAI_API_KEY=sk-...     (macOS/Linux)'
+                "    export OPENAI_API_KEY=sk-...     (macOS/Linux)"
             )
         self.model = model or openai_model()
         # The API base already includes the /v1 prefix by default, and llama.cpp
@@ -89,7 +96,9 @@ class OpenAIProvider(AIManager):
         try:
             text = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}") from exc
+            raise AIError(
+                self.provider_name, "bad_response", f"unexpected payload: {data}"
+            ) from exc
         if not isinstance(text, str):
             raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}")
         return text

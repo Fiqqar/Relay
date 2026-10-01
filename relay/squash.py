@@ -20,6 +20,7 @@ The confirmation gate has parity with the solo/team workflow: ``edit`` opens
 ``$EDITOR`` (instead of a one-line prompt), the configured ``pre_commit`` hook
 runs before the folded commit is created, and ``--no-verify`` skips it.
 """
+
 from __future__ import annotations
 
 from .commit import sanitize_ai_message, validate_conventional
@@ -48,8 +49,7 @@ def _confirm(message: str, yes: bool, *, git: GitManager | None = None) -> str:
         if edited:
             return edited
         raise UserAbort(
-            "workflow aborted by user - the editor returned no message "
-            "(nothing was squashed)"
+            "workflow aborted by user - the editor returned no message (nothing was squashed)"
         )
     raise UserAbort("workflow aborted by user")
 
@@ -118,8 +118,7 @@ def run_squash(
         else:
             hint = f" (try --count {total})" if total >= 2 else ""
             raise GitError(
-                f"not enough history to squash {count} commit(s); "
-                f"only {total} on HEAD{hint}"
+                f"not enough history to squash {count} commit(s); only {total} on HEAD{hint}"
             )
 
     subjects = git.log_between(base, tip)

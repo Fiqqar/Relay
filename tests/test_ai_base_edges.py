@@ -3,6 +3,7 @@ diff filtering/splitting fallbacks, unicode truncation, and prompt sections.
 
 Each test targets a branch the suite previously never executed.
 """
+
 import io
 import urllib.error
 from email.message import Message
@@ -20,9 +21,7 @@ from relay.ai.base import (
 
 
 def _http_error(body: bytes, code: int = 500, reason: str = "Error"):
-    return urllib.error.HTTPError(
-        "http://api.test", code, reason, Message(), io.BytesIO(body)
-    )
+    return urllib.error.HTTPError("http://api.test", code, reason, Message(), io.BytesIO(body))
 
 
 def test_error_dict_without_message_falls_back_to_top_level():
@@ -41,7 +40,7 @@ def test_dict_without_known_keys_returns_raw_text():
 
 
 def test_non_object_json_returns_raw_text():
-    exc = _http_error(b'[1, 2]')
+    exc = _http_error(b"[1, 2]")
     assert extract_http_error_detail(exc) == "[1, 2]"
 
 
@@ -79,9 +78,7 @@ def test_filter_ignored_diff_keeps_unparseable_header():
 
 
 def test_split_diff_by_file_keeps_unparseable_header():
-    assert split_diff_by_file("diff --git weird\n+line\n") == [
-        ("", "diff --git weird\n+line\n")
-    ]
+    assert split_diff_by_file("diff --git weird\n+line\n") == [("", "diff --git weird\n+line\n")]
 
 
 def test_truncate_diff_small_unicode_is_passthrough():
@@ -108,9 +105,7 @@ def test_normalize_rate_limited():
 
 
 def test_normalize_server_error_is_unavailable():
-    err = normalize_transport_error(
-        _http_error(b"boom", code=503), provider="ollama", timeout=30
-    )
+    err = normalize_transport_error(_http_error(b"boom", code=503), provider="ollama", timeout=30)
     assert err.kind == "unavailable"
 
 
@@ -144,8 +139,6 @@ def test_normalize_network_error():
 
 
 def test_normalize_connection_error():
-    err = normalize_transport_error(
-        ConnectionError("reset"), provider="x", timeout=7
-    )
+    err = normalize_transport_error(ConnectionError("reset"), provider="x", timeout=7)
     assert err.kind == "unavailable"
     assert "connection error" in str(err)

@@ -4,6 +4,7 @@ Same stdlib-only approach as the other providers, so Relay keeps its
 zero-runtime-dependency promise. Polls ``/v1/messages`` with ``x-api-key``
 auth and reads the answer from ``content[0].text``.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,14 +25,20 @@ from .base import AIManager, decode_provider_json, normalize_transport_error, re
 class AnthropicProvider(AIManager):
     provider_name = "anthropic"
 
-    def __init__(self, api_key: str | None = None, model: str | None = None, base_url: str | None = None, timeout: int | None = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        timeout: int | None = None,
+    ):
         self.api_key = api_key or anthropic_api_key()
         if not self.api_key:
             raise ConfigError(
                 "ANTHROPIC_API_KEY is not set. Export it in your shell, e.g.\n"
-                '    set ANTHROPIC_API_KEY=sk-ant-...        (Windows cmd)\n'
+                "    set ANTHROPIC_API_KEY=sk-ant-...        (Windows cmd)\n"
                 '    $env:ANTHROPIC_API_KEY="sk-ant-..."     (PowerShell)\n'
-                '    export ANTHROPIC_API_KEY=sk-ant-...     (macOS/Linux)'
+                "    export ANTHROPIC_API_KEY=sk-ant-...     (macOS/Linux)"
             )
         self.model = model or anthropic_model()
         self.base_url = (base_url or anthropic_base_url()).rstrip("/")
@@ -93,7 +100,9 @@ class AnthropicProvider(AIManager):
         try:
             text = data["content"][0]["text"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}") from exc
+            raise AIError(
+                self.provider_name, "bad_response", f"unexpected payload: {data}"
+            ) from exc
         if not isinstance(text, str):
             raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}")
         return text

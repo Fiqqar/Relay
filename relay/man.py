@@ -10,11 +10,12 @@ Matching the architecture in docs/ARCHITECTURE.md, this module holds only the
 documentation payload; the CLI routes to it by name, just like doctor.py and
 undo.py.
 """
+
 from __future__ import annotations
 
 from . import __version__
 
-MAN_PAGE_TEMPLATE = fr""".TH RELAY 1 "{__version__}" "relay {__version__}"
+MAN_PAGE_TEMPLATE = rf""".TH RELAY 1 "{__version__}" "relay {__version__}"
 .SH NAME
 relay \- your Git workflow, on autopilot: AI Conventional Commits
 .SH SYNOPSIS

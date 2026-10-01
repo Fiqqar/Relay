@@ -6,6 +6,7 @@ using only ``urllib.request`` — no third-party SDK, matching the tool's
 zero-dependency philosophy (works offline-of-GitHub and behind any proxy that
 the stdlib honors).
 """
+
 from __future__ import annotations
 
 import json
@@ -115,9 +116,7 @@ class GitHubClient:
 
     def _require_token(self) -> str:
         if not self.token:
-            raise GitHubError(
-                "GITHUB_TOKEN (or GH_TOKEN) is not set; run `relay doctor` for help"
-            )
+            raise GitHubError("GITHUB_TOKEN (or GH_TOKEN) is not set; run `relay doctor` for help")
         return self.token
 
     def _request(self, request: urllib.request.Request, *, retries: int = 2):

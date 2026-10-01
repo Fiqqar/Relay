@@ -17,6 +17,7 @@ so an untrusted repo cannot widen trust) before this client is ever
 constructed. Direct use of this class bypasses that boundary and is only
 appropriate for hosts the caller has already vetted.
 """
+
 from __future__ import annotations
 
 import json
@@ -78,18 +79,14 @@ def _extract_reason(payload) -> str:
         return message
     if isinstance(message, dict):
         return "; ".join(
-            f"{field}: {value}"
-            for field, value in message.items()
-            if isinstance(field, str)
+            f"{field}: {value}" for field, value in message.items() if isinstance(field, str)
         )
     return ""
 
 
 def _is_duplicate(body: str) -> bool:
     text = body.lower()
-    return "already exists" in text or (
-        "existing" in text and "merge request" in text
-    )
+    return "already exists" in text or ("existing" in text and "merge request" in text)
 
 
 class GitLabClient:
@@ -140,9 +137,7 @@ class GitLabClient:
     def find_open_mr(self, *, source_branch: str) -> dict | None:
         """Return the first open MR for ``source_branch``, else None."""
         token = self._require_token()
-        query = urllib.parse.urlencode(
-            {"source_branch": source_branch, "state": "opened"}
-        )
+        query = urllib.parse.urlencode({"source_branch": source_branch, "state": "opened"})
         request = urllib.request.Request(
             f"{self.mrs_url}?{query}",
             headers={

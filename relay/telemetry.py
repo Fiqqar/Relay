@@ -14,6 +14,7 @@ Privacy contract (matches the zero-config, zero-phone-home philosophy):
       with a short timeout and catches every exception, so an unreachable
       endpoint can never slow down or break the workflow.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -147,7 +148,13 @@ def _is_valid_ai_base_url(url: str) -> bool:
         if ip.is_loopback:
             return True
         # Any other private/link-local/multicast is rejected
-        if ip.is_private or ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved:
+        if (
+            ip.is_private
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_unspecified
+            or ip.is_reserved
+        ):
             return False
     except ValueError:
         pass

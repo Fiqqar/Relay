@@ -17,6 +17,7 @@ sensitive path (``.env``, ``*.pem``, …) asks for confirmation before it touche
 the index — the same guard the one-shot flow applies, applied here where the
 choice is explicit.
 """
+
 from __future__ import annotations
 
 from .errors import GitError, sanitize_terminal
@@ -60,13 +61,9 @@ def _parse_selection(spec: str, total: int) -> set[int] | None:
         try:
             n = int(chunk)
         except ValueError as exc:
-            raise GitError(
-                f"invalid selection: {chunk} (use numbers, 'all', or 'none')"
-            ) from exc
+            raise GitError(f"invalid selection: {chunk} (use numbers, 'all', or 'none')") from exc
         if not 1 <= n <= total:
-            raise GitError(
-                f"{n} out of range (1..{total}); pick a number in that range"
-            )
+            raise GitError(f"{n} out of range (1..{total}); pick a number in that range")
         picked.add(n)
     if not picked:
         raise GitError("no files selected; pick at least one file (or 'all')")

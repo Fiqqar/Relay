@@ -8,6 +8,7 @@ Deliberately uses only the stdlib (``urllib``) instead of the
 gateway, giving Gemini the same BYO-endpoint story as every other provider. The
 value is validated with the shared SSRF guard before any request is built.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,9 +44,9 @@ class GeminiProvider(AIManager):
             # aborting — so this must stay a ConfigError, never an exit here.
             raise ConfigError(
                 "GEMINI_API_KEY is not set. Export it in your shell, e.g.\n"
-                '    set GEMINI_API_KEY=your_key        (Windows cmd)\n'
+                "    set GEMINI_API_KEY=your_key        (Windows cmd)\n"
                 '    $env:GEMINI_API_KEY="your_key"     (PowerShell)\n'
-                '    export GEMINI_API_KEY=your_key     (macOS/Linux)'
+                "    export GEMINI_API_KEY=your_key     (macOS/Linux)"
             )
         self.model = model or gemini_model()
         # Proxies / enterprise gateways front the API through their own host.
@@ -119,7 +120,9 @@ class GeminiProvider(AIManager):
         try:
             text = data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}") from exc
+            raise AIError(
+                self.provider_name, "bad_response", f"unexpected payload: {data}"
+            ) from exc
         if not isinstance(text, str):
             raise AIError(self.provider_name, "bad_response", f"unexpected payload: {data}")
         return text

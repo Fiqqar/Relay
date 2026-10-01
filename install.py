@@ -25,6 +25,7 @@ Usage
     python install.py --yes     # accept all prompts
     python install.py --no-path # install but leave PATH alone
 """
+
 from __future__ import annotations
 
 import argparse
@@ -91,7 +92,9 @@ def check_pip() -> bool:
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pip", "--version"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
     except (OSError, subprocess.TimeoutExpired):
         proc = None
@@ -101,7 +104,9 @@ def check_pip() -> bool:
         try:
             boot = subprocess.run(
                 [sys.executable, "-m", "ensurepip", "--upgrade"],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             _fail(f"ensurepip failed: {exc}")
@@ -109,7 +114,11 @@ def check_pip() -> bool:
         if boot.returncode != 0:
             _fail(f"ensurepip failed: {boot.stderr.strip()}")
             return False
-    _ok(f"pip: {proc.stdout.splitlines()[0].strip()}" if proc and proc.returncode == 0 else "pip ready")
+    _ok(
+        f"pip: {proc.stdout.splitlines()[0].strip()}"
+        if proc and proc.returncode == 0
+        else "pip ready"
+    )
     return True
 
 
@@ -132,7 +141,9 @@ def install_package() -> bool:
             _ok(f"installed editable package ({'--user' if user else 'default'})")
             return True
         if user:
-            _warn(f"--user install failed ({proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else 'unknown reason'})")
+            _warn(
+                f"--user install failed ({proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else 'unknown reason'})"
+            )
             _warn("retrying without --user ...")
         else:
             _fail("pip install failed.")
@@ -158,7 +169,9 @@ def _powershell(script: str) -> str | None:
     try:
         proc = subprocess.run(
             ["powershell", "-NoProfile", "-Command", script],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -175,9 +188,7 @@ def _escape_ps_single(s: str) -> str:
 def update_path_windows(scripts: Path, yes: bool) -> bool:
     target = str(scripts)
     target_esc = _escape_ps_single(target)
-    user_path = _powershell(
-        "[Environment]::GetEnvironmentVariable('Path','User')"
-    ) or ""
+    user_path = _powershell("[Environment]::GetEnvironmentVariable('Path','User')") or ""
 
     entries = [p for p in user_path.split(";") if p]
     if target.lower().rstrip("\\") in [p.lower().rstrip("\\") for p in entries]:
@@ -196,8 +207,12 @@ def update_path_windows(scripts: Path, yes: bool) -> bool:
     )
     if _powershell(script) != "RELAY_OK":
         _warn("could not update user PATH (PowerShell unavailable or denied).")
-        _warn(f'add it manually via PowerShell:  [Environment]::SetEnvironmentVariable("Path", $env:Path + ";{target_esc}", "User")')
-        _warn(f'or via System Properties -> Environment Variables -> User variables -> Path -> New -> "{target}"')
+        _warn(
+            f'add it manually via PowerShell:  [Environment]::SetEnvironmentVariable("Path", $env:Path + ";{target_esc}", "User")'
+        )
+        _warn(
+            f'or via System Properties -> Environment Variables -> User variables -> Path -> New -> "{target}"'
+        )
         return True
     _ok(f"added {target} to your user PATH")
     print("       New terminals will find `relay`; this one won't until restarted.")
@@ -291,7 +306,7 @@ def main() -> int:
     print("  1. Open a NEW terminal, then run:  relay doctor")
     print("  2. Set the API key of the provider you want to use (gemini is the default):")
     print("     Windows cmd:    set GEMINI_API_KEY=your_key")
-    print("     PowerShell:     $env:GEMINI_API_KEY=\"your_key\"")
+    print('     PowerShell:     $env:GEMINI_API_KEY="your_key"')
     print("     macOS/Linux:    export GEMINI_API_KEY=your_key")
     print("     Other providers: OPENAI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY,")
     print("                      GROQ_API_KEY or XAI_API_KEY (Ollama needs no key).")

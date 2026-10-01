@@ -8,6 +8,7 @@ Design notes
 * Every call captures stdout/stderr and raises GitError on failure, so the
   Orchestrator can decide how to recover without parsing terminal output.
 """
+
 from __future__ import annotations
 
 import codecs
@@ -115,7 +116,7 @@ def _clean_porcelain_path(raw: str, *, is_rename: bool = False) -> str:
         try:
             raw = codecs.escape_decode(content.encode("latin-1"))[0].decode("utf-8")
         except Exception:
-            raw = content.replace(r'\"', '"').replace(r"\\", "\\")
+            raw = content.replace(r"\"", '"').replace(r"\\", "\\")
     return raw
 
 
@@ -209,8 +210,7 @@ class GitManager:
             ) from exc
         except FileNotFoundError:
             raise GitError(
-                "git not found on PATH — install git and make it available in "
-                "your shell",
+                "git not found on PATH — install git and make it available in your shell",
                 command=" ".join(cmd),
             ) from None
         if check and proc.returncode != 0:
@@ -302,9 +302,7 @@ class GitManager:
         """
         if not remote or remote.startswith("-") or not branch:
             return False
-        proc = self._run(
-            "ls-remote", "--exit-code", "--heads", remote, "--", branch, check=False
-        )
+        proc = self._run("ls-remote", "--exit-code", "--heads", remote, "--", branch, check=False)
         return proc.returncode == 0
 
     def latest_commit_message(self) -> str:
@@ -669,9 +667,12 @@ class GitManager:
 
     def is_ancestor(self, ancestor: str, descendant: str) -> bool:
         """True when ``ancestor`` is reachable from ``descendant``."""
-        return self._run(
-            "merge-base", "--is-ancestor", "--", ancestor, descendant, check=False
-        ).returncode == 0
+        return (
+            self._run(
+                "merge-base", "--is-ancestor", "--", ancestor, descendant, check=False
+            ).returncode
+            == 0
+        )
 
     def reset_soft(self, target: str = "HEAD~1") -> None:
         """Non-destructive reset: move HEAD to ``target``, keep changes staged.

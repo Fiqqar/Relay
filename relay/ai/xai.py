@@ -6,6 +6,7 @@ xAI's hosted API is OpenAI-compatible, so this provider is a thin subclass of
 no duplicated request machinery, matching the tool's zero-dependency
 philosophy.
 """
+
 from __future__ import annotations
 
 from ..config import ai_timeout, xai_api_key, xai_base_url, xai_model
@@ -28,9 +29,9 @@ class XaiProvider(OpenAIProvider):
         if not self.api_key:
             raise ConfigError(
                 "XAI_API_KEY is not set. Export it in your shell, e.g.\n"
-                '    set XAI_API_KEY=...        (Windows cmd)\n'
+                "    set XAI_API_KEY=...        (Windows cmd)\n"
                 '    $env:XAI_API_KEY="..."     (PowerShell)\n'
-                '    export XAI_API_KEY=...     (macOS/Linux)'
+                "    export XAI_API_KEY=...     (macOS/Linux)"
             )
         self.model = model or xai_model()
         self.base_url = (base_url or xai_base_url()).rstrip("/")

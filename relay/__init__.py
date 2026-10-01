@@ -1,4 +1,5 @@
 """Relay — your Git workflow, on autopilot."""
+
 from __future__ import annotations
 
 import urllib.request
@@ -15,4 +16,3 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 # Install safe opener globally so urllib.request.urlopen rejects redirects by default.
 urllib.request.install_opener(urllib.request.build_opener(_NoRedirectHandler))
-

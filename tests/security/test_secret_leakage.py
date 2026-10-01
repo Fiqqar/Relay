@@ -16,6 +16,7 @@ stdout/stderr to prove the key value never appears in user-facing output.
 Everything stays on 127.0.0.1 with ephemeral ports: hermetic, no external
 network, no real provider, no real credentials (sentinel values only).
 """
+
 import http.server
 import threading
 
@@ -101,7 +102,10 @@ def _providers_at(origin_port, monkeypatch):
     monkeypatch.setenv("GEMINI_BASE_URL", origin)
     return [
         (GeminiProvider(api_key=SENTINEL_KEY, model="m", timeout=5), "X-Goog-Api-Key"),
-        (OpenAIProvider(api_key=SENTINEL_KEY, model="m", base_url=origin, timeout=5), "Authorization"),
+        (
+            OpenAIProvider(api_key=SENTINEL_KEY, model="m", base_url=origin, timeout=5),
+            "Authorization",
+        ),
         (
             AnthropicProvider(api_key=SENTINEL_KEY, model="m", base_url=origin, timeout=5),
             "x-api-key",

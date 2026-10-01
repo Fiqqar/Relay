@@ -5,6 +5,7 @@ name here so existing imports keep working. The strict security allowlist
 stays in this module — untrusted clones must never expand secrets, base URLs,
 or trusted hosts.
 """
+
 from __future__ import annotations
 
 import os

@@ -5,6 +5,7 @@ tests execute REAL git binaries inside throwaway repositories under ``tmp_path``
 so shell/option-injection payloads face the actual code path — including the
 real ``git`` argument parser on the other end.
 """
+
 import pytest
 from sechelp import init_repo
 
