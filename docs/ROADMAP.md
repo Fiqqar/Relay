@@ -6,6 +6,12 @@ history since. Versions `0.1.0` through `2.5.0` are shipped and closed;
 `v3.0.0` is a reserved placeholder with no promised features. Relay is in
 stable General Availability with hardening releases on top.
 
+> **Maintenance mode (October 2026–):** no new features are planned.
+> `v2.6.0` stays undecided and `v3.0.0` stays reserved. Only two things
+> wake this repo: a critical security issue, or a broken distribution
+> channel (`pip`/`brew`/`scoop` install fails) or red CI. New feature
+> ideas belong in GitHub Issues, not in this roadmap.
+
 ## Legend
 
 - `[x]` done · `[ ]` planned · `[~]` in progress
