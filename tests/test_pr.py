@@ -1,4 +1,5 @@
 """Unit tests for `relay pr` (relay/pr.py)."""
+
 from unittest import mock
 
 import pytest
@@ -53,8 +54,7 @@ class FakeGit:
         # wiring (call timing + refusal propagation), not just its presence.
         if self.current_branch() != branch or self.rev_parse("HEAD") != head:
             raise GitError(
-                "branch/HEAD changed while Relay was running; "
-                "review `git status` and retry"
+                "branch/HEAD changed while Relay was running; review `git status` and retry"
             )
 
     def remote_has_branch(self, branch):
@@ -107,8 +107,7 @@ class TestRunPr:
     def test_opens_pr_with_commit_title(self, fake_client, capsys):
         assert run_pr(git=FakeGit()) == 0
         fake_client.return_value.open_pull.assert_called_once_with(
-            title="feat: add login", head="feat/login", base="main",
-            body=mock.ANY, draft=False
+            title="feat: add login", head="feat/login", base="main", body=mock.ANY, draft=False
         )
         out = capsys.readouterr().out
         assert "PR #12" in out
@@ -202,6 +201,7 @@ class TestRunPr:
         class FakeProvider:
             def generate(self, diff, stat, branch):
                 return "Generated title from diff"
+
         run_pr(git=FakeGit(commit=""), provider=FakeProvider())
         args = fake_client.return_value.open_pull.call_args.kwargs
         assert args["title"] == "Generated title from diff"
@@ -248,16 +248,13 @@ class TestRunPr:
             run_pr(git=FakeGit(), base="..evil")
         fake_client.return_value.open_pull.assert_not_called()
 
-    def test_self_hosted_github_enterprise_allowed_when_env_trusted(
-        self, fake_client, monkeypatch
-    ):
+    def test_self_hosted_github_enterprise_allowed_when_env_trusted(self, fake_client, monkeypatch):
         monkeypatch.setenv("RELAY_TRUSTED_GITHUB_HOSTS", "github.mycompany.internal")
         git = FakeGit(remote="git@github.mycompany.internal:acme/widget.git")
         assert run_pr(git=git) == 0
         fake_client.assert_called_once_with(
             "acme", "widget", host="github.mycompany.internal", verbose=False
         )
-
 
 
 class TestAntiDuplicate:
@@ -290,7 +287,10 @@ class TestDuplicate422SafetyNet:
     def test_post_422_recovers_and_reports_existing_pr(self, fake_client, capsys):
         # The GET missed it (returns None), but the POST is rejected as a duplicate.
         find = fake_client.return_value.find_open_pr
-        find.side_effect = [None, {"number": 9, "html_url": "https://github.com/acme/widget/pull/9"}]
+        find.side_effect = [
+            None,
+            {"number": 9, "html_url": "https://github.com/acme/widget/pull/9"},
+        ]
         fake_client.return_value.open_pull.side_effect = DuplicatePullRequestError(
             "a pull request already exists", status=422, body="already exists"
         )
@@ -444,8 +444,11 @@ class TestGitLab:
     def test_sends_mr_payload(self, fake_gitlab):
         run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git"))
         fake_gitlab.return_value.open_merge_request.assert_called_once_with(
-            title="feat: add login", source_branch="feat/login",
-            target_branch="main", description=mock.ANY, draft=False
+            title="feat: add login",
+            source_branch="feat/login",
+            target_branch="main",
+            description=mock.ANY,
+            draft=False,
         )
 
     def test_mr_draft_forwarded(self, fake_gitlab):
@@ -465,7 +468,10 @@ class TestGitLab:
         }
         assert run_pr(git=FakeGit(remote="git@gitlab.com:acme/widget.git")) == 0
         fake_gitlab.return_value.open_merge_request.assert_not_called()
-        assert "PR already exists: https://gitlab.com/acme/widget/-/merge_requests/7" in capsys.readouterr().out
+        assert (
+            "PR already exists: https://gitlab.com/acme/widget/-/merge_requests/7"
+            in capsys.readouterr().out
+        )
 
     def test_mr_duplicate_post_safety_net(self, fake_gitlab, capsys):
         find = fake_gitlab.return_value.find_open_mr
@@ -498,29 +504,19 @@ class TestGitLab:
             run_pr(git=git)
         fake_gitlab.assert_not_called()
 
-    def test_self_hosted_gitlab_allowed_when_env_trusted(
-        self, fake_gitlab, monkeypatch
-    ):
+    def test_self_hosted_gitlab_allowed_when_env_trusted(self, fake_gitlab, monkeypatch):
         monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com")
         git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
         assert run_pr(git=git) == 0
-        fake_gitlab.assert_called_once_with(
-            "gitlab.example.com", "group/sub/widget", verbose=False
-        )
+        fake_gitlab.assert_called_once_with("gitlab.example.com", "group/sub/widget", verbose=False)
 
-    def test_self_hosted_trust_match_is_case_insensitive(
-        self, fake_gitlab, monkeypatch
-    ):
+    def test_self_hosted_trust_match_is_case_insensitive(self, fake_gitlab, monkeypatch):
         monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "GitLab.Example.COM")
         git = FakeGit(remote="git@gitlab.example.com:group/sub/widget.git")
         assert run_pr(git=git) == 0
-        fake_gitlab.assert_called_once_with(
-            "gitlab.example.com", "group/sub/widget", verbose=False
-        )
+        fake_gitlab.assert_called_once_with("gitlab.example.com", "group/sub/widget", verbose=False)
 
-    def test_self_hosted_gitlab_config_file_is_ignored(
-        self, fake_gitlab, monkeypatch, tmp_path
-    ):
+    def test_self_hosted_gitlab_config_file_is_ignored(self, fake_gitlab, monkeypatch, tmp_path):
         """Config-file trusted hosts must be ignored (env-only)."""
         from relay import config
 
@@ -554,9 +550,7 @@ class TestBitbucket:
             client_cls.return_value.find_open_pull.return_value = None
             client_cls.return_value.open_pull.return_value = {
                 "id": 77,
-                "links": {
-                    "html": {"href": "https://bitbucket.org/acme/widget/pull-requests/77"}
-                },
+                "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/77"}},
             }
             yield client_cls
 
@@ -576,8 +570,11 @@ class TestBitbucket:
     def test_sends_bitbucket_payload(self, fake_bitbucket):
         run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git"))
         fake_bitbucket.return_value.open_pull.assert_called_once_with(
-            title="feat: add login", source_branch="feat/login",
-            destination_branch="main", description=mock.ANY, draft=False
+            title="feat: add login",
+            source_branch="feat/login",
+            destination_branch="main",
+            description=mock.ANY,
+            draft=False,
         )
 
     def test_bitbucket_draft_forwarded(self, fake_bitbucket):
@@ -596,7 +593,10 @@ class TestBitbucket:
         }
         assert run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git")) == 0
         fake_bitbucket.return_value.open_pull.assert_not_called()
-        assert "PR already exists: https://bitbucket.org/acme/widget/pull-requests/9" in capsys.readouterr().out
+        assert (
+            "PR already exists: https://bitbucket.org/acme/widget/pull-requests/9"
+            in capsys.readouterr().out
+        )
 
     def test_existing_bitbucket_pr_opens_browser(self, fake_bitbucket):
         fake_bitbucket.return_value.find_open_pull.return_value = {
@@ -608,7 +608,10 @@ class TestBitbucket:
 
     def test_bitbucket_duplicate_post_safety_net(self, fake_bitbucket, capsys):
         find = fake_bitbucket.return_value.find_open_pull
-        find.side_effect = [None, {"links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/7"}}}]
+        find.side_effect = [
+            None,
+            {"links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/7"}}},
+        ]
         fake_bitbucket.return_value.open_pull.side_effect = BitbucketDuplicateError(
             "already exists", status=400, body="already exists"
         )
@@ -617,8 +620,10 @@ class TestBitbucket:
 
     def test_bitbucket_400_returns_nonzero(self, fake_bitbucket, capsys):
         fake_bitbucket.return_value.open_pull.side_effect = BitbucketError(
-            "Bitbucket API error 400: Invalid source branch", status=400,
-            payload={}, detail="Invalid source branch"
+            "Bitbucket API error 400: Invalid source branch",
+            status=400,
+            payload={},
+            detail="Invalid source branch",
         )
         assert run_pr(git=FakeGit(remote="git@bitbucket.org:acme/widget.git")) == 1
         assert "Cannot open PR: Invalid source branch" in capsys.readouterr().out
@@ -633,8 +638,10 @@ class TestBitbucket:
 
 # ---- coverage: pr helpers (moved from test_coverage_95) ---------------------
 
+
 def test_safe_open_browser_rejects():
     from relay.pr import _safe_open_browser
+
     assert _safe_open_browser("") is False
     assert _safe_open_browser("file:///etc/passwd") is False
     assert _safe_open_browser("ftp://example.com") is False
@@ -642,13 +649,18 @@ def test_safe_open_browser_rejects():
 
 def test_host_web_base():
     from relay.pr import _host_web_base
+
     assert _host_web_base("github.com", "o", "r") == "https://github.com/o/r/pulls"
     assert _host_web_base("bitbucket.org", "o", "r") == "https://bitbucket.org/o/r/pull-requests"
-    assert _host_web_base("gitlab.example.com", "o", "r") == "https://gitlab.example.com/o/r/-/merge_requests"
+    assert (
+        _host_web_base("gitlab.example.com", "o", "r")
+        == "https://gitlab.example.com/o/r/-/merge_requests"
+    )
 
 
 def test_pr_web_url():
     from relay.pr import _pr_web_url
+
     assert _pr_web_url("github.com", "o", "r", 42) == "https://github.com/o/r/pull/42"
     assert _pr_web_url("bitbucket.org", "o", "r", 5) == "https://bitbucket.org/o/r/pull-requests/5"
     assert _pr_web_url("gitlab.com", "o", "r", 7) == "https://gitlab.com/o/r/-/merge_requests/7"
@@ -656,23 +668,32 @@ def test_pr_web_url():
 
 def test_existing_url_none():
     from relay.pr import _existing_url
+
     assert _existing_url("github.com", "o", "r", None) == "https://github.com/o/r/pulls"
 
 
 def test_existing_url_with_links():
     from relay.pr import _existing_url
+
     existing = {"links": {"html": {"href": "https://bitbucket.org/o/r/pull-requests/9"}}}
-    assert _existing_url("bitbucket.org", "o", "r", existing) == "https://bitbucket.org/o/r/pull-requests/9"
+    assert (
+        _existing_url("bitbucket.org", "o", "r", existing)
+        == "https://bitbucket.org/o/r/pull-requests/9"
+    )
     existing2 = {"html_url": "https://github.com/o/r/pull/1"}
     assert _existing_url("github.com", "o", "r", existing2) == "https://github.com/o/r/pull/1"
     existing3 = {"number": 10}
     assert _existing_url("github.com", "o", "r", existing3) == "https://github.com/o/r/pull/10"
     existing4 = {"iid": 3}
-    assert _existing_url("gitlab.com", "o", "r", existing4) == "https://gitlab.com/o/r/-/merge_requests/3"
+    assert (
+        _existing_url("gitlab.com", "o", "r", existing4)
+        == "https://gitlab.com/o/r/-/merge_requests/3"
+    )
 
 
 def test_safe_open_browser_allows_https():
     from relay.pr import _safe_open_browser
+
     with mock.patch("relay.pr.webbrowser.open", return_value=True) as wb:
         assert _safe_open_browser("https://github.com/o/r/pull/1") is True
         wb.assert_called_once()
@@ -754,9 +775,7 @@ class TestBodyResolution:
         assert editor.call_args.args[0].startswith("Commits in")
         assert fake_client.return_value.open_pull.call_args.kwargs["body"] == "Edited body"
 
-    def test_edit_keeps_the_body_when_the_editor_is_unavailable(
-        self, fake_client, capsys
-    ):
+    def test_edit_keeps_the_body_when_the_editor_is_unavailable(self, fake_client, capsys):
         with mock.patch("relay.pr.open_in_editor", return_value=None):
             run_pr(git=FakeGit(log="feat: one"), edit=True)
         assert "editor unavailable" in capsys.readouterr().out
@@ -769,9 +788,10 @@ class TestBodyResolution:
         editor.assert_not_called()
 
     def test_body_reaches_gitlab_and_bitbucket(self, fake_client):
-        with mock.patch("relay.pr.GitLabClient") as gl, mock.patch(
-            "relay.pr.BitbucketClient"
-        ) as bb:
+        with (
+            mock.patch("relay.pr.GitLabClient") as gl,
+            mock.patch("relay.pr.BitbucketClient") as bb,
+        ):
             gl.return_value.find_open_mr.return_value = None
             gl.return_value.open_merge_request.return_value = {
                 "iid": 1,
@@ -817,18 +837,16 @@ def test_lowercase_github_spelling_is_checked_first():
     """Precedence between the two `.github` spellings, asserted as order: on a
     case-insensitive filesystem they are literally the same file, so a content
     comparison there would prove nothing."""
-    assert TEMPLATE_PATHS.index(
-        ".github/pull_request_template.md"
-    ) < TEMPLATE_PATHS.index(".github/PULL_REQUEST_TEMPLATE.md")
+    assert TEMPLATE_PATHS.index(".github/pull_request_template.md") < TEMPLATE_PATHS.index(
+        ".github/PULL_REQUEST_TEMPLATE.md"
+    )
 
 
 def test_github_template_wins_over_the_docs_template(tmp_path):
     git = _temp_repo(tmp_path)
     (tmp_path / ".github").mkdir()
     (tmp_path / "docs").mkdir()
-    (tmp_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text(
-        "GITHUB", encoding="utf-8"
-    )
+    (tmp_path / ".github" / "PULL_REQUEST_TEMPLATE.md").write_text("GITHUB", encoding="utf-8")
     (tmp_path / "docs" / "pull_request_template.md").write_text("DOCS", encoding="utf-8")
     assert _read_template(git) == "GITHUB"
 
@@ -843,9 +861,9 @@ def test_docs_template_is_discovered(tmp_path):
 def test_gitlab_default_template_is_discovered(tmp_path):
     git = _temp_repo(tmp_path)
     (tmp_path / ".gitlab" / "merge_request_templates").mkdir(parents=True)
-    (
-        tmp_path / ".gitlab" / "merge_request_templates" / "Default.md"
-    ).write_text("GITLAB", encoding="utf-8")
+    (tmp_path / ".gitlab" / "merge_request_templates" / "Default.md").write_text(
+        "GITLAB", encoding="utf-8"
+    )
     assert _read_template(git) == "GITLAB"
 
 
@@ -875,4 +893,3 @@ def test_template_root_is_none_outside_a_work_tree(tmp_path, monkeypatch):
     git = _temp_repo(tmp_path)
     monkeypatch.setattr("relay.pr.find_repo_root", lambda start=None: None)
     assert _template_root(git) is None
-

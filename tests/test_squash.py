@@ -1,4 +1,5 @@
 """Unit tests for `relay squash` (relay/squash.py) and its CLI routing."""
+
 from unittest import mock
 
 import pytest
@@ -11,8 +12,9 @@ from relay.squash import run_squash
 class FakeGit:
     """Stand-in for GitManager with controllable squash behavior."""
 
-    def __init__(self, count=2, message="feat(billing): add invoicing", pushed=False,
-                 depth=5, staged=False):
+    def __init__(
+        self, count=2, message="feat(billing): add invoicing", pushed=False, depth=5, staged=False
+    ):
         self._count = count
         self._message = message
         self._pushed = pushed
@@ -80,8 +82,7 @@ class FakeGit:
         # wiring (call timing + refusal propagation), not just its presence.
         if self.current_branch() != branch or self.rev_parse("HEAD") != head:
             raise GitError(
-                "branch/HEAD changed while Relay was running; "
-                "review `git status` and retry"
+                "branch/HEAD changed while Relay was running; review `git status` and retry"
             )
 
     def is_ancestor(self, ancestor, descendant):
@@ -184,6 +185,7 @@ def test_squash_ai_failure_falls_back_to_top_commit_message(git):
     """Regression: _message_from_ai used to raise UserAbort after printing
     "keeping the original commit message", aborting the squash instead of
     actually falling back. An unavailable AI must not block the fold."""
+
     class BrokenProvider:
         def generate(self, diff, stat, branch):
             raise RuntimeError("offline")
@@ -296,6 +298,7 @@ def test_squash_entire_history_restores_head_on_commit_failure(git, capsys):
 
 # ---- confirmation gate ------------------------------------------------------
 
+
 def test_squash_confirms_before_mutating(git):
     with mock.patch("relay.squash.input", return_value="A"):
         with pytest.raises(UserAbort):
@@ -311,9 +314,10 @@ def test_squash_confirm_accept(git):
 
 
 def test_squash_confirm_edit_opens_the_editor(git):
-    with mock.patch("relay.squash.input", return_value="e"), mock.patch(
-        "relay.squash.open_in_editor", return_value="feat: custom edited"
-    ) as editor:
+    with (
+        mock.patch("relay.squash.input", return_value="e"),
+        mock.patch("relay.squash.open_in_editor", return_value="feat: custom edited") as editor,
+    ):
         assert run_squash(git=git, count=2) == 0
     editor.assert_called_once_with("feat(billing): add invoicing", git=git)
     assert git.commit_messages == ["feat: custom edited"]
@@ -321,16 +325,18 @@ def test_squash_confirm_edit_opens_the_editor(git):
 
 def test_squash_confirm_edit_asks_only_the_menu(git):
     """`edit` must not fall back to a second one-line input() prompt."""
-    with mock.patch("relay.squash.open_in_editor", return_value="fix: edited"), mock.patch(
-        "relay.squash.input", return_value="e"
-    ) as prompt:
+    with (
+        mock.patch("relay.squash.open_in_editor", return_value="fix: edited"),
+        mock.patch("relay.squash.input", return_value="e") as prompt,
+    ):
         assert run_squash(git=git, count=2) == 0
     prompt.assert_called_once()
 
 
 def test_squash_confirm_edit_editor_returning_nothing_aborts(git):
-    with mock.patch("relay.squash.input", return_value="e"), mock.patch(
-        "relay.squash.open_in_editor", return_value=None
+    with (
+        mock.patch("relay.squash.input", return_value="e"),
+        mock.patch("relay.squash.open_in_editor", return_value=None),
     ):
         with pytest.raises(UserAbort, match="editor returned no message"):
             run_squash(git=git, count=2)
@@ -338,8 +344,9 @@ def test_squash_confirm_edit_editor_returning_nothing_aborts(git):
 
 
 def test_squash_confirm_edit_empty_editor_output_aborts(git):
-    with mock.patch("relay.squash.input", return_value="e"), mock.patch(
-        "relay.squash.open_in_editor", return_value=""
+    with (
+        mock.patch("relay.squash.input", return_value="e"),
+        mock.patch("relay.squash.open_in_editor", return_value=""),
     ):
         with pytest.raises(UserAbort):
             run_squash(git=git, count=2)
@@ -351,11 +358,12 @@ def test_squash_confirm_edit_empty_editor_output_aborts(git):
 def test_squash_runs_the_pre_commit_hook_before_committing(git):
     events = []
     git.commit = lambda message, **kw: events.append(("commit", message))
-    with mock.patch(
-        "relay.squash.hook_pre_commit", return_value=["./check.sh"]
-    ), mock.patch(
-        "relay.squash.run_hook",
-        side_effect=lambda argv, verbose=False: events.append(("hook", argv)),
+    with (
+        mock.patch("relay.squash.hook_pre_commit", return_value=["./check.sh"]),
+        mock.patch(
+            "relay.squash.run_hook",
+            side_effect=lambda argv, verbose=False: events.append(("hook", argv)),
+        ),
     ):
         assert run_squash(git=git, count=2, yes=True) == 0
     assert events == [
@@ -365,27 +373,30 @@ def test_squash_runs_the_pre_commit_hook_before_committing(git):
 
 
 def test_squash_no_verify_skips_the_hook_and_git_hooks(git):
-    with mock.patch(
-        "relay.squash.hook_pre_commit", return_value=["./check.sh"]
-    ), mock.patch("relay.squash.run_hook") as hook:
+    with (
+        mock.patch("relay.squash.hook_pre_commit", return_value=["./check.sh"]),
+        mock.patch("relay.squash.run_hook") as hook,
+    ):
         assert run_squash(git=git, count=2, yes=True, no_verify=True) == 0
     hook.assert_not_called()
     assert git.no_verify_flags == [True]
 
 
 def test_squash_without_a_configured_hook_runs_none(git):
-    with mock.patch("relay.squash.hook_pre_commit", return_value=None), mock.patch(
-        "relay.squash.run_hook"
-    ) as hook:
+    with (
+        mock.patch("relay.squash.hook_pre_commit", return_value=None),
+        mock.patch("relay.squash.run_hook") as hook,
+    ):
         assert run_squash(git=git, count=2, yes=True) == 0
     hook.assert_not_called()
     assert git.no_verify_flags == [False]
 
 
 def test_squash_hook_failure_restores_head(git):
-    with mock.patch(
-        "relay.squash.hook_pre_commit", return_value=["./check.sh"]
-    ), mock.patch("relay.squash.run_hook", side_effect=GitError("hook failed (exit 1)")):
+    with (
+        mock.patch("relay.squash.hook_pre_commit", return_value=["./check.sh"]),
+        mock.patch("relay.squash.run_hook", side_effect=GitError("hook failed (exit 1)")),
+    ):
         with pytest.raises(GitError, match="hook failed"):
             run_squash(git=git, count=2, yes=True)
     assert git.reset_targets[-1] == "tip123"  # HEAD restored, nothing lost
@@ -404,20 +415,22 @@ def test_squash_restore_head_failure_does_not_crash(git, capsys):
     # Make the second reset_soft (the restore) fail as well
     call_count = 0
     original_reset = git.reset_soft
+
     def flaking_reset(target):
         nonlocal call_count
         call_count += 1
         if call_count > 1:
             raise GitError("cannot restore")
         return original_reset(target)
+
     git.reset_soft = flaking_reset
     with pytest.raises(GitError, match="commit hook fail"):
         run_squash(git=git, count=2, yes=True)
     assert "automatic recovery failed" in capsys.readouterr().out
 
 
-
 # ---- CLI routing ------------------------------------------------------------
+
 
 def test_squash_forwards_signoff_to_commit(git):
     assert run_squash(git=git, count=2, yes=True, signoff=True) == 0
@@ -448,34 +461,39 @@ def test_parser_squash_no_verify_flag():
 
 
 def test_main_squash_forwards_the_no_verify_flag():
-    with mock.patch("relay.cli.build_provider"), mock.patch(
-        "relay.cli.run_squash", return_value=0
-    ) as run:
+    with (
+        mock.patch("relay.cli.build_provider"),
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["squash", "--no-verify"]) == 0
     assert run.call_args.kwargs["no_verify"] is True
 
 
 def test_main_squash_forwards_no_verify_given_before_subcommand():
-    with mock.patch("relay.cli.build_provider"), mock.patch(
-        "relay.cli.run_squash", return_value=0
-    ) as run:
+    with (
+        mock.patch("relay.cli.build_provider"),
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["--no-verify", "squash"]) == 0
     assert run.call_args.kwargs["no_verify"] is True
 
 
 def test_main_squash_forwards_the_signoff_flag():
-    with mock.patch("relay.cli.build_provider"), mock.patch(
-        "relay.cli.run_squash", return_value=0
-    ) as run:
+    with (
+        mock.patch("relay.cli.build_provider"),
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["squash", "--signoff"]) == 0
     assert run.call_args.kwargs["signoff"] is True
 
 
 def test_main_squash_resolves_signoff_from_config():
     """`[commit] signoff = true` signs a squash even without --signoff."""
-    with mock.patch("relay.cli.commit_signoff", return_value=True), mock.patch(
-        "relay.cli.build_provider"
-    ), mock.patch("relay.cli.run_squash", return_value=0) as run:
+    with (
+        mock.patch("relay.cli.commit_signoff", return_value=True),
+        mock.patch("relay.cli.build_provider"),
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["squash"]) == 0
     assert run.call_args.kwargs["signoff"] is True
 
@@ -486,17 +504,19 @@ def test_parser_squash_count_flag():
 
 
 def test_main_squash_routes_and_forwards():
-    with mock.patch("relay.cli.build_provider"), mock.patch(
-        "relay.cli.run_squash", return_value=0
-    ) as run:
+    with (
+        mock.patch("relay.cli.build_provider"),
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["squash", "--count", "4"]) == 0
     run.assert_called_once()
     assert run.call_args.kwargs["count"] == 4
 
 
 def test_main_squash_error_maps_to_exit_1():
-    with mock.patch("relay.cli.build_provider"), mock.patch(
-        "relay.cli.run_squash", side_effect=GitError("boom")
+    with (
+        mock.patch("relay.cli.build_provider"),
+        mock.patch("relay.cli.run_squash", side_effect=GitError("boom")),
     ):
         assert main(["squash"]) == 1
 
@@ -505,9 +525,10 @@ def test_main_squash_with_message_skips_the_provider():
     """Regression: squash built the provider unconditionally, so
     `relay squash --message ...` failed with a ConfigError when no API key
     was set, even though the AI is never used in that path."""
-    with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-        "relay.cli.run_squash", return_value=0
-    ) as run:
+    with (
+        mock.patch("relay.cli.build_provider") as build_provider,
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["squash", "--message", "chore: bump lockfile"]) == 0
     build_provider.assert_not_called()
     assert run.call_args.kwargs["provider"] is None
@@ -516,8 +537,9 @@ def test_main_squash_with_message_skips_the_provider():
 def test_main_squash_missing_key_falls_back_to_provider_none():
     """A missing GEMINI_API_KEY must not abort a plain squash; squash.py
     falls back to the top commit's message when provider is None."""
-    with mock.patch(
-        "relay.cli.build_provider", side_effect=ConfigError("no key")
-    ), mock.patch("relay.cli.run_squash", return_value=0) as run:
+    with (
+        mock.patch("relay.cli.build_provider", side_effect=ConfigError("no key")),
+        mock.patch("relay.cli.run_squash", return_value=0) as run,
+    ):
         assert main(["squash"]) == 0
     assert run.call_args.kwargs["provider"] is None

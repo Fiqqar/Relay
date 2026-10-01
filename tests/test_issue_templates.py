@@ -17,6 +17,7 @@ YAML parser would not be installed in CI. These tests lint the raw text with a
 small, deliberate scanner instead — it only needs to understand the handful of
 shapes an issue form is allowed to use.
 """
+
 from __future__ import annotations
 
 import re
@@ -76,7 +77,7 @@ def validation_problems(text: str, name: str = "template.yml") -> list[str]:
                 f"{inline!r}; it must be a mapping (e.g. `required: true`)"
             )
             continue
-        following = next((ln for ln in lines[index + 1:] if ln.strip()), "")
+        following = next((ln for ln in lines[index + 1 :] if ln.strip()), "")
         # A mapping entry is `key: ...` deeper than the key; anything else
         # (nothing, a sibling, a `- item`, or a bare scalar like `false`) makes
         # `validations` a boolean/null/sequence instead of a Hash.
@@ -84,7 +85,7 @@ def validation_problems(text: str, name: str = "template.yml") -> list[str]:
         if not following or _indent(following) <= indent or not is_mapping_entry:
             problems.append(
                 f"{name}:{index + 1}: `validations:` is not a mapping "
-                "(GitHub: \"validations must be of type Hash\")"
+                '(GitHub: "validations must be of type Hash")'
             )
     return problems
 
@@ -143,7 +144,7 @@ def test_validations_only_uses_known_keys(path: Path):
         if not match:
             continue
         indent = len(match.group(1))
-        for offset, nested in enumerate(lines[index + 1:], start=index + 2):
+        for offset, nested in enumerate(lines[index + 1 :], start=index + 2):
             if not nested.strip():
                 continue
             if _indent(nested) <= indent:
@@ -173,11 +174,7 @@ def test_form_metadata_is_complete(path: Path):
 
 @pytest.mark.parametrize("path", _FORM_PATHS, ids=lambda p: p.name)
 def test_body_item_types_are_canonical(path: Path):
-    unknown = [
-        kind
-        for kind, _ in _body_items(_read(path))
-        if kind not in _BODY_TYPES
-    ]
+    unknown = [kind for kind, _ in _body_items(_read(path)) if kind not in _BODY_TYPES]
     assert unknown == [], f"{path.name} uses unsupported input types: {unknown}"
 
 
@@ -232,9 +229,9 @@ def test_scanner_rejects_the_shipped_boolean_form():
 @pytest.mark.parametrize(
     "fragment",
     [
-        "    validations: false",          # inline scalar
-        "    validations:\n",             # null (nothing nested)
-        "    validations:\n      - required: true",   # sequence, not mapping
+        "    validations: false",  # inline scalar
+        "    validations:\n",  # null (nothing nested)
+        "    validations:\n      - required: true",  # sequence, not mapping
         "    validations:\n    next: 1",  # sibling at the same depth
     ],
 )

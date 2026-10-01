@@ -1,4 +1,5 @@
 """Tests for multi-repo runs — --repo flag + [repos] config."""
+
 import textwrap
 from unittest import mock
 
@@ -23,6 +24,7 @@ def _write(monkeypatch, tmp_path, body: str):
 
 # ---- config ---------------------------------------------------------------
 
+
 def test_repos_defaults_empty():
     assert config.repos() == []
 
@@ -33,39 +35,56 @@ def test_repos_env_comma_split(monkeypatch):
 
 
 def test_repos_env_beats_file(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [repos]
         paths = ["from-file"]
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_REPOS", "from-env")
     assert config.repos() == ["from-env"]
 
 
 def test_repos_file_paths(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [repos]
         paths = ["worktree/a", "worktree/b"]
-    """)
+    """,
+    )
     assert config.repos() == ["worktree/a", "worktree/b"]
 
 
 def test_repos_file_repos_key_compat(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [repos]
         repos = ["a", "b"]
-    """)
+    """,
+    )
     assert config.repos() == ["a", "b"]
 
 
 def test_repos_empty_file_falls_back(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [repos]
         paths = []
-    """)
+    """,
+    )
     assert config.repos() == []
 
 
 # ---- cli parsing ----------------------------------------------------------
+
 
 def test_cli_repo_single():
     args = build_parser().parse_args(["--repo", "a/b"])
@@ -89,6 +108,7 @@ def test_cli_repo_with_solo():
 
 
 # ---- orchestrator loop ----------------------------------------------------
+
 
 class StubAI:
     def generate(self, diff, stat, branch):
@@ -133,17 +153,25 @@ def test_main_multirepo_loops(monkeypatch, tmp_path):
                 # GitManager created with cwd per repo
                 assert MockGM.call_count == 2
                 # Check that first call had cwd "a"
-                assert MockGM.call_args_list[0][1].get("cwd") == "a" or "a" in str(MockGM.call_args_list[0])
-                assert MockGM.call_args_list[1][1].get("cwd") == "b" or "b" in str(MockGM.call_args_list[1])
+                assert MockGM.call_args_list[0][1].get("cwd") == "a" or "a" in str(
+                    MockGM.call_args_list[0]
+                )
+                assert MockGM.call_args_list[1][1].get("cwd") == "b" or "b" in str(
+                    MockGM.call_args_list[1]
+                )
 
 
 def test_main_multirepo_from_config(monkeypatch, tmp_path):
     from relay.cli import main
 
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [repos]
         paths = ["r1", "r2"]
-    """)
+    """,
+    )
     with mock.patch("relay.cli.GitManager") as MockGM:
         with mock.patch("relay.cli.build_provider", return_value=StubAI()):
             mock_git = _make_git()

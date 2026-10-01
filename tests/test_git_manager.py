@@ -4,6 +4,7 @@ subprocess.run is mocked on EVERY test so no real git commands are ever
 executed — the suite is fully hermetic and safe to run on a machine that may
 not even have git installed.
 """
+
 import subprocess
 from unittest import mock
 
@@ -64,9 +65,7 @@ class TestRun:
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_raises_git_error_on_nonzero_exit(self, mock_run, git, make_proc):
-        mock_run.return_value = make_proc(
-            returncode=128, stderr="fatal: not a git repository"
-        )
+        mock_run.return_value = make_proc(returncode=128, stderr="fatal: not a git repository")
         with pytest.raises(GitError) as exc_info:
             git._run("rev-parse")
         assert "exit 128" in str(exc_info.value)
@@ -164,9 +163,7 @@ class TestMutations:
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_staged_diff_binary_only_true_when_all_binary(self, mock_run, git, make_proc):
-        mock_run.return_value = make_proc(
-            stdout="-\t-\tassets/logo.png\n-\t-\tsounds/beep.wav\n"
-        )
+        mock_run.return_value = make_proc(stdout="-\t-\tassets/logo.png\n-\t-\tsounds/beep.wav\n")
         assert git.staged_diff_binary_only() is True
         assert mock_run.call_args.args[0] == ["git", "diff", "--cached", "--numstat"]
 
@@ -187,13 +184,21 @@ class TestMutations:
         mock_run.return_value = make_proc(stdout="range diff")
         assert git.diff_range("base123", "tip456") == "range diff"
         assert mock_run.call_args.args[0] == [
-            "git", "diff", "base123..tip456", "--unified=0", "--",
+            "git",
+            "diff",
+            "base123..tip456",
+            "--unified=0",
+            "--",
         ]
 
         mock_run.return_value = make_proc(stdout="range stat")
         assert git.stat_range("base123", "tip456") == "range stat"
         assert mock_run.call_args.args[0] == [
-            "git", "diff", "base123..tip456", "--stat", "--",
+            "git",
+            "diff",
+            "base123..tip456",
+            "--stat",
+            "--",
         ]
 
     @mock.patch("relay.git_manager.subprocess.run")
@@ -208,7 +213,11 @@ class TestMutations:
         mock_run.return_value = make_proc()
         git.commit("fix: urgent", no_verify=True)
         assert mock_run.call_args.args[0] == [
-            "git", "commit", "--no-verify", "-F", "-",
+            "git",
+            "commit",
+            "--no-verify",
+            "-F",
+            "-",
         ]
         assert mock_run.call_args.kwargs["input"] == "fix: urgent"
 
@@ -217,7 +226,11 @@ class TestMutations:
         mock_run.return_value = make_proc()
         git.commit("fix: last commit", amend=True)
         assert mock_run.call_args.args[0] == [
-            "git", "commit", "--amend", "-F", "-",
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
         ]
         assert mock_run.call_args.kwargs["input"] == "fix: last commit"
 
@@ -226,7 +239,12 @@ class TestMutations:
         mock_run.return_value = make_proc()
         git.commit("fix: x", amend=True, no_verify=True)
         assert mock_run.call_args.args[0] == [
-            "git", "commit", "--no-verify", "--amend", "-F", "-",
+            "git",
+            "commit",
+            "--no-verify",
+            "--amend",
+            "-F",
+            "-",
         ]
 
     @mock.patch("relay.git_manager.subprocess.run")
@@ -244,6 +262,7 @@ class TestMutations:
     @mock.patch("relay.git_manager.subprocess.run")
     def test_commit_honors_commit_gpgsign(self, mock_run, git, make_proc):
         """A repo configured to sign its commits keeps getting signed ones."""
+
         def fake_run(argv, **kw):
             if argv[:3] == ["git", "config", "--get"]:
                 return make_proc(stdout="true\n")
@@ -274,7 +293,13 @@ class TestMutations:
         mock_run.side_effect = fake_run
         git.commit("fix: x", signoff=True, no_verify=True)
         assert mock_run.call_args.args[0] == [
-            "git", "commit", "--no-verify", "-s", "-S", "-F", "-",
+            "git",
+            "commit",
+            "--no-verify",
+            "-s",
+            "-S",
+            "-F",
+            "-",
         ]
 
     def test_wants_gpg_sign_swallows_config_errors(self):
@@ -317,7 +342,14 @@ class TestMutations:
     def test_push_with_upstream(self, mock_run, git, make_proc):
         mock_run.return_value = make_proc()
         git.push("status/payments", set_upstream=True)
-        assert mock_run.call_args.args[0] == ["git", "push", "-u", "origin", "--", "status/payments"]
+        assert mock_run.call_args.args[0] == [
+            "git",
+            "push",
+            "-u",
+            "origin",
+            "--",
+            "status/payments",
+        ]
 
     @mock.patch("relay.git_manager.subprocess.run")
     def test_fetch_remote_and_ref(self, mock_run, git, make_proc):
@@ -359,7 +391,13 @@ class TestMutations:
         mock_run.return_value = make_proc(returncode=0)
         assert git.remote_has_branch("--all") is True
         assert mock_run.call_args.args[0] == [
-            "git", "ls-remote", "--exit-code", "--heads", "origin", "--", "--all",
+            "git",
+            "ls-remote",
+            "--exit-code",
+            "--heads",
+            "origin",
+            "--",
+            "--all",
         ]
 
     @mock.patch("relay.git_manager.subprocess.run")
@@ -496,7 +534,9 @@ class TestRemoteHelpers:
     @mock.patch("relay.git_manager.subprocess.run")
     def test_recent_subjects_empty_when_no_commits_or_invalid_count(self, mock_run, git, make_proc):
         assert git.recent_subjects(count=0) == []
-        mock_run.return_value = make_proc(returncode=128, stderr="fatal: your branch has no commits")
+        mock_run.return_value = make_proc(
+            returncode=128, stderr="fatal: your branch has no commits"
+        )
         assert git.recent_subjects(count=5) == []
 
 
@@ -579,10 +619,15 @@ class TestStagingEdgePaths:
         assert _clean_porcelain_path("plain.py") == "plain.py"
         assert _clean_porcelain_path('"quoted with space.py"') == "quoted with space.py"
         assert _clean_porcelain_path("old.py -> new.py", is_rename=True) == "new.py"
-        assert _clean_porcelain_path('"old name.py" -> "new name.py"', is_rename=True) == "new name.py"
+        assert (
+            _clean_porcelain_path('"old name.py" -> "new name.py"', is_rename=True) == "new name.py"
+        )
         assert _clean_porcelain_path(r'"path\"with\"quote.py"') == 'path"with"quote.py'
         assert _clean_porcelain_path(r'"caf\303\251.py"') == "café.py"
-        assert _clean_porcelain_path(r'"old_\303\251.py" -> "new_\303\251.py"', is_rename=True) == "new_é.py"
+        assert (
+            _clean_porcelain_path(r'"old_\303\251.py" -> "new_\303\251.py"', is_rename=True)
+            == "new_é.py"
+        )
 
     def test_clean_porcelain_path_keeps_literal_arrow_without_rename(self):
         """L4: an untracked file literally named `a -> b` must survive intact —
@@ -761,6 +806,7 @@ class TestUndoAndSquashGuards:
 
 # ---- coverage: empty-repo head_diff / binary paths ------------------------
 
+
 class FakeRun:
     def __init__(self, stdout="", returncode=0):
         self.stdout = stdout
@@ -777,6 +823,7 @@ def test_head_diff_empty_repo_fallback(git):
         if args == ("diff", "--unified=0"):
             return FakeRun("unstaged diff\n")
         return FakeRun("")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git.head_diff() == "cached diff\nunstaged diff"
 
@@ -786,6 +833,7 @@ def test_head_diff_empty_repo_both_empty(git):
         if args == ("diff", "HEAD", "--unified=0"):
             return FakeRun("", returncode=128)
         return FakeRun("")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git.head_diff() == ""
 
@@ -799,6 +847,7 @@ def test_head_stat_empty_repo(git):
         if args == ("diff", "--stat"):
             return FakeRun(" 1 file | 1 +\n")
         return FakeRun("")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert "1 file" in git.head_stat()
 
@@ -812,6 +861,7 @@ def test_head_diff_binary_empty_repo(git):
         if args == ("diff", "--numstat"):
             return FakeRun("10\t0\tfile.py\n")
         return FakeRun("")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git.head_diff_binary_only() is False
 
@@ -825,6 +875,7 @@ def test_head_diff_binary_all_binary_empty_repo(git):
         if args == ("diff", "--numstat"):
             return FakeRun("-\t-\tb.png\n")
         return FakeRun("")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git.head_diff_binary_only() is True
 
@@ -834,6 +885,7 @@ def test_head_diff_binary_empty_no_lines(git):
         if args == ("diff", "HEAD", "--numstat"):
             return FakeRun("", returncode=0)
         return FakeRun("\n")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git.head_diff_binary_only() is False
 
@@ -905,13 +957,7 @@ def test_is_sensitive_path_ignores_normal_files():
 
 
 def test_staged_sensitive_paths_filters_the_index(git):
-    out = (
-        "app.py\n"
-        ".env\n"
-        "certs/server.pem\n"
-        "config/.env.local\n"
-        "docs/.env.example.txt\n"
-    )
+    out = "app.py\n.env\ncerts/server.pem\nconfig/.env.local\ndocs/.env.example.txt\n"
     with mock.patch.object(git, "_run", return_value=FakeRun(out)) as run:
         assert git.staged_sensitive_paths() == [
             ".env",
@@ -932,13 +978,7 @@ def test_staged_sensitive_paths_empty_index(git):
 def test_unstaged_badges_by_status(git):
     """Untracked/modified/deleted get a badge; index-only entries are excluded
     so the badge table always agrees with unstaged_changes()."""
-    out = (
-        "?? new.txt\n"
-        " M app.py\n"
-        " D gone.py\n"
-        "A  added_staged.py\n"
-        "M  modified_staged.py\n"
-    )
+    out = "?? new.txt\n M app.py\n D gone.py\nA  added_staged.py\nM  modified_staged.py\n"
     with mock.patch.object(git, "_run", return_value=FakeRun(out)):
         assert git.unstaged_badges() == {"new.txt": "?", "app.py": "M", "gone.py": "D"}
 
@@ -968,6 +1008,7 @@ def test_diff_with_head_fallback_prefers_head(git):
         if args == ("diff", "HEAD", "--stat"):
             return FakeRun("head stat\n")
         raise AssertionError(f"unexpected git call: {args}")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git._diff_with_head_fallback("--stat") == "head stat\n"
 
@@ -981,5 +1022,6 @@ def test_diff_with_head_fallback_joins_with_newline_separator(git):
         if args == ("diff", "--stat"):
             return FakeRun("unstaged-part")
         return FakeRun("")
+
     with mock.patch.object(git, "_run", side_effect=fake_run):
         assert git._diff_with_head_fallback("--stat") == "cached-part\nunstaged-part"

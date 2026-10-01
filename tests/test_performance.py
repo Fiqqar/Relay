@@ -4,6 +4,7 @@ NFR-1 target: sub-500 ms CLI overhead excluding LLM network latency.
 These tests verify that parser initialization, config resolution, and preflight
 execution execute well within the performance budget (typically < 50 ms).
 """
+
 import time
 from unittest import mock
 
@@ -30,7 +31,7 @@ def test_cli_parser_init_latency():
         parser = build_parser()
         assert parser.prog == "relay"
     elapsed = (time.perf_counter() - start) / 50
-    assert elapsed < 0.02, f"Parser init took {elapsed*1000:.2f} ms (budget 20 ms)"
+    assert elapsed < 0.02, f"Parser init took {elapsed * 1000:.2f} ms (budget 20 ms)"
 
 
 def test_config_resolution_latency():
@@ -48,7 +49,7 @@ def test_config_resolution_latency():
         _ = trusted_gitlab_hosts()
         _ = repos()
     elapsed = (time.perf_counter() - start) / 50
-    assert elapsed < 0.02, f"Config resolution took {elapsed*1000:.2f} ms (budget 20 ms)"
+    assert elapsed < 0.02, f"Config resolution took {elapsed * 1000:.2f} ms (budget 20 ms)"
 
 
 def test_preflight_check_latency_hermetic():
@@ -65,7 +66,7 @@ def test_preflight_check_latency_hermetic():
         code = orch._preflight()
         assert code is None
     elapsed = (time.perf_counter() - start) / 50
-    assert elapsed < 0.05, f"Preflight took {elapsed*1000:.2f} ms (budget 50 ms)"
+    assert elapsed < 0.05, f"Preflight took {elapsed * 1000:.2f} ms (budget 50 ms)"
 
 
 def test_orchestrator_local_dispatch_latency():
@@ -89,7 +90,7 @@ def test_orchestrator_local_dispatch_latency():
         code = orch.run()
         assert code == 0
     elapsed = (time.perf_counter() - start) / 20
-    assert elapsed < 0.05, f"Orchestrator dispatch took {elapsed*1000:.2f} ms (budget 50 ms)"
+    assert elapsed < 0.05, f"Orchestrator dispatch took {elapsed * 1000:.2f} ms (budget 50 ms)"
 
 
 def test_config_file_cache_hit_latency(monkeypatch, tmp_path):
@@ -109,7 +110,7 @@ def test_config_file_cache_hit_latency(monkeypatch, tmp_path):
         data = config._load_raw()
         assert data.get("relay", {}).get("provider") == "gemini"
     elapsed = (time.perf_counter() - start) / 100
-    assert elapsed < 0.005, f"Config cache hit took {elapsed*1000:.2f} ms (budget 5 ms)"
+    assert elapsed < 0.005, f"Config cache hit took {elapsed * 1000:.2f} ms (budget 5 ms)"
 
 
 def test_truncate_diff_large_input_latency():
@@ -123,12 +124,11 @@ def test_truncate_diff_large_input_latency():
     elapsed = time.perf_counter() - start
     assert truncated is True
     assert "more diff lines truncated" in out
-    assert elapsed < 0.5, f"line truncation took {elapsed*1000:.2f} ms (budget 500 ms)"
+    assert elapsed < 0.5, f"line truncation took {elapsed * 1000:.2f} ms (budget 500 ms)"
     # Byte-budget path: slices the UTF-8 payload without decoding per line.
     start = time.perf_counter()
     out, truncated = truncate_diff(big, max_lines=20000)
     elapsed = time.perf_counter() - start
     assert truncated is True
     assert len(out.encode("utf-8")) <= MAX_DIFF_BYTES + 200
-    assert elapsed < 0.5, f"byte truncation took {elapsed*1000:.2f} ms (budget 500 ms)"
-
+    assert elapsed < 0.5, f"byte truncation took {elapsed * 1000:.2f} ms (budget 500 ms)"

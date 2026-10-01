@@ -9,6 +9,7 @@ cover, per provider:
 * a malformed/unexpected payload;
 * the AIManager.generate() wrapper that turns unexpected exceptions into AIError.
 """
+
 import json
 import urllib.error
 from unittest import mock
@@ -99,9 +100,7 @@ class TestGemini:
         assert exc_info.value.kind == "unavailable"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        http_error = urllib.error.HTTPError(
-            "https://example.com", 401, "Unauthorized", {}, None
-        )
+        http_error = urllib.error.HTTPError("https://example.com", 401, "Unauthorized", {}, None)
         with mock.patch("urllib.request.urlopen", side_effect=http_error):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
@@ -147,9 +146,7 @@ class TestGemini:
 
     # ---- GEMINI_BASE_URL (proxy / enterprise gateway parity) ----------------
 
-    def test_default_base_url_targets_google(
-        self, monkeypatch, sample_diff, sample_stat
-    ):
+    def test_default_base_url_targets_google(self, monkeypatch, sample_diff, sample_stat):
         monkeypatch.delenv("GEMINI_BASE_URL", raising=False)
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value.__enter__.return_value = fake_http(GEMINI_SUCCESS)
@@ -182,9 +179,7 @@ class TestGemini:
         )
 
     def test_trailing_slash_is_normalized(self):
-        provider = GeminiProvider(
-            api_key="k", model="m", base_url="https://g.example/", timeout=5
-        )
+        provider = GeminiProvider(api_key="k", model="m", base_url="https://g.example/", timeout=5)
         assert provider.base_url == "https://g.example"
 
     def test_private_base_url_is_refused(self):
@@ -196,7 +191,9 @@ class TestGemini:
 
 class TestOllama:
     def make_provider(self):
-        return OllamaProvider(base_url="http://localhost:11434", model="qwen2.5-coder:7b", timeout=5)
+        return OllamaProvider(
+            base_url="http://localhost:11434", model="qwen2.5-coder:7b", timeout=5
+        )
 
     def test_success_returns_response_field(self, sample_diff, sample_stat):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -218,9 +215,7 @@ class TestOllama:
         assert exc_info.value.kind == "rate_limited"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        http_error = urllib.error.HTTPError(
-            "http://localhost:11434", 404, "Not Found", {}, None
-        )
+        http_error = urllib.error.HTTPError("http://localhost:11434", 404, "Not Found", {}, None)
         with mock.patch("urllib.request.urlopen", side_effect=http_error):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
@@ -250,7 +245,9 @@ class TestOllama:
 
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": "model not found"})
+            mock_urlopen.return_value.__enter__.return_value = fake_http(
+                {"error": "model not found"}
+            )
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "bad_response"
@@ -258,7 +255,9 @@ class TestOllama:
 
 class TestOpenAI:
     def make_provider(self):
-        return OpenAIProvider(api_key="test-key", model="gpt-4o-mini", base_url="https://api.openai.com/v1", timeout=5)
+        return OpenAIProvider(
+            api_key="test-key", model="gpt-4o-mini", base_url="https://api.openai.com/v1", timeout=5
+        )
 
     def test_success_returns_content_and_sends_correct_request(self, sample_diff, sample_stat):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -273,32 +272,45 @@ class TestOpenAI:
         assert headers["content-type"] == "application/json"
 
     def test_custom_base_url_targets_llama_compatible_endpoint(self):
-        provider = OpenAIProvider(api_key="k", model="llama3", base_url="http://localhost:8080/v1", timeout=5)
+        provider = OpenAIProvider(
+            api_key="k", model="llama3", base_url="http://localhost:8080/v1", timeout=5
+        )
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value.__enter__.return_value = fake_http(OPENAI_SUCCESS)
             provider.generate_commit_message("d", "s", "b")
-        assert mock_urlopen.call_args.args[0].full_url == "http://localhost:8080/v1/chat/completions"
+        assert (
+            mock_urlopen.call_args.args[0].full_url == "http://localhost:8080/v1/chat/completions"
+        )
 
     def test_http_429_maps_to_rate_limited_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 429, "Too Many Requests", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 429, "Too Many Requests", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "rate_limited"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 401, "Unauthorized", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 401, "Unauthorized", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "api_error"
 
     def test_http_5xx_maps_to_unavailable_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 503, "Service Unavailable", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 503, "Service Unavailable", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
@@ -343,7 +355,9 @@ class TestOpenAI:
 
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
+            mock_urlopen.return_value.__enter__.return_value = fake_http(
+                {"error": {"message": "bad"}}
+            )
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "bad_response"
@@ -351,7 +365,12 @@ class TestOpenAI:
 
 class TestAnthropic:
     def make_provider(self):
-        return AnthropicProvider(api_key="test-key", model="claude-3-5-haiku-latest", base_url="https://api.anthropic.com/v1", timeout=5)
+        return AnthropicProvider(
+            api_key="test-key",
+            model="claude-3-5-haiku-latest",
+            base_url="https://api.anthropic.com/v1",
+            timeout=5,
+        )
 
     def test_success_returns_text_and_sends_correct_request(self, sample_diff, sample_stat):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -366,25 +385,34 @@ class TestAnthropic:
         assert headers["anthropic-version"] == "2023-06-01"
 
     def test_http_500_maps_to_unavailable_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://api.anthropic.com", 500, "Internal Server Error", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://api.anthropic.com", 500, "Internal Server Error", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://api.anthropic.com", 403, "Forbidden", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://api.anthropic.com", 403, "Forbidden", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "api_error"
 
     def test_http_429_maps_to_rate_limited_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://api.anthropic.com", 429, "Too Many Requests", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://api.anthropic.com", 429, "Too Many Requests", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "rate_limited"
@@ -438,7 +466,9 @@ class TestAnthropic:
 
 class TestXai:
     def make_provider(self):
-        return XaiProvider(api_key="test-key", model="grok-beta", base_url="https://api.x.ai/v1", timeout=5)
+        return XaiProvider(
+            api_key="test-key", model="grok-beta", base_url="https://api.x.ai/v1", timeout=5
+        )
 
     def test_success_returns_text_and_sends_correct_request(self, sample_diff, sample_stat):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -458,25 +488,34 @@ class TestXai:
                 XaiProvider(model="m", base_url="https://x/v1")
 
     def test_http_429_maps_to_rate_limited_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 429, "Too Many Requests", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 429, "Too Many Requests", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "rate_limited"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 401, "Unauthorized", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 401, "Unauthorized", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "api_error"
 
     def test_http_5xx_maps_to_unavailable_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 503, "Service Unavailable", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 503, "Service Unavailable", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
@@ -491,7 +530,9 @@ class TestXai:
 
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
+            mock_urlopen.return_value.__enter__.return_value = fake_http(
+                {"error": {"message": "bad"}}
+            )
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "bad_response"
@@ -499,7 +540,12 @@ class TestXai:
 
 class TestGroq:
     def make_provider(self):
-        return GroqProvider(api_key="test-key", model="llama-3.3-70b-versatile", base_url="https://api.groq.com/openai/v1", timeout=5)
+        return GroqProvider(
+            api_key="test-key",
+            model="llama-3.3-70b-versatile",
+            base_url="https://api.groq.com/openai/v1",
+            timeout=5,
+        )
 
     def test_success_returns_text_and_sends_correct_request(self, sample_diff, sample_stat):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -519,25 +565,34 @@ class TestGroq:
                 GroqProvider(model="m", base_url="https://x/v1")
 
     def test_http_429_maps_to_rate_limited_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 429, "Too Many Requests", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 429, "Too Many Requests", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "rate_limited"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 401, "Unauthorized", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 401, "Unauthorized", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "api_error"
 
     def test_http_5xx_maps_to_unavailable_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 503, "Service Unavailable", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 503, "Service Unavailable", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
@@ -552,7 +607,9 @@ class TestGroq:
 
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
+            mock_urlopen.return_value.__enter__.return_value = fake_http(
+                {"error": {"message": "bad"}}
+            )
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "bad_response"
@@ -560,7 +617,12 @@ class TestGroq:
 
 class TestMistral:
     def make_provider(self):
-        return MistralProvider(api_key="test-key", model="mistral-small-latest", base_url="https://api.mistral.ai/v1", timeout=5)
+        return MistralProvider(
+            api_key="test-key",
+            model="mistral-small-latest",
+            base_url="https://api.mistral.ai/v1",
+            timeout=5,
+        )
 
     def test_success_returns_text_and_sends_correct_request(self, sample_diff, sample_stat):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
@@ -575,11 +637,15 @@ class TestMistral:
         assert headers["content-type"] == "application/json"
 
     def test_custom_base_url_is_forwarded(self):
-        provider = MistralProvider(api_key="k", model="m", base_url="http://localhost:8080/v1", timeout=5)
+        provider = MistralProvider(
+            api_key="k", model="m", base_url="http://localhost:8080/v1", timeout=5
+        )
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value.__enter__.return_value = fake_http(OPENAI_SUCCESS)
             provider.generate_commit_message("d", "s", "b")
-        assert mock_urlopen.call_args.args[0].full_url == "http://localhost:8080/v1/chat/completions"
+        assert (
+            mock_urlopen.call_args.args[0].full_url == "http://localhost:8080/v1/chat/completions"
+        )
 
     def test_missing_api_key_raises_config_error(self):
         with mock.patch("relay.ai.mistral.mistral_api_key", return_value=None):
@@ -587,25 +653,34 @@ class TestMistral:
                 MistralProvider(model="m", base_url="https://x/v1")
 
     def test_http_429_maps_to_rate_limited_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 429, "Too Many Requests", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 429, "Too Many Requests", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "rate_limited"
 
     def test_http_4xx_maps_to_api_error_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 401, "Unauthorized", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 401, "Unauthorized", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "api_error"
 
     def test_http_5xx_maps_to_unavailable_aierror(self):
-        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-            "https://example.com", 503, "Service Unavailable", {}, None
-        )):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError(
+                "https://example.com", 503, "Service Unavailable", {}, None
+            ),
+        ):
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "unavailable"
@@ -620,7 +695,9 @@ class TestMistral:
 
     def test_error_field_maps_to_bad_response_aierror(self):
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value = fake_http({"error": {"message": "bad"}})
+            mock_urlopen.return_value.__enter__.return_value = fake_http(
+                {"error": {"message": "bad"}}
+            )
             with pytest.raises(AIError) as exc_info:
                 self.make_provider().generate_commit_message("d", "s", "b")
         assert exc_info.value.kind == "bad_response"
@@ -835,8 +912,9 @@ class TestBuildProvider:
     """The registry (relay/ai/__init__.py) maps a flag/env value to a provider."""
 
     def test_explicit_name_constructs_that_provider(self):
-        with mock.patch("relay.ai.openai.openai_api_key", return_value="k"), mock.patch(
-            "relay.ai.anthropic.anthropic_api_key", return_value="k"
+        with (
+            mock.patch("relay.ai.openai.openai_api_key", return_value="k"),
+            mock.patch("relay.ai.anthropic.anthropic_api_key", return_value="k"),
         ):
             assert isinstance(build_provider("ollama"), OllamaProvider)
             assert isinstance(build_provider("openai"), OpenAIProvider)
@@ -863,14 +941,16 @@ class TestBuildProvider:
             assert isinstance(build_provider("OpenAI"), OpenAIProvider)
 
     def test_default_provider_comes_from_env(self):
-        with mock.patch("relay.config.provider_from_env", return_value="gemini"), mock.patch(
-            "relay.ai.gemini.gemini_api_key", return_value="k"
+        with (
+            mock.patch("relay.config.provider_from_env", return_value="gemini"),
+            mock.patch("relay.ai.gemini.gemini_api_key", return_value="k"),
         ):
             assert isinstance(build_provider(), GeminiProvider)
 
     def test_explicit_name_beats_env_default(self):
-        with mock.patch("relay.config.provider_from_env", return_value="gemini"), mock.patch(
-            "relay.ai.openai.openai_api_key", return_value="k"
+        with (
+            mock.patch("relay.config.provider_from_env", return_value="gemini"),
+            mock.patch("relay.ai.openai.openai_api_key", return_value="k"),
         ):
             assert isinstance(build_provider("openai"), OpenAIProvider)
 
@@ -943,12 +1023,11 @@ class TestGenerateWrapper:
             with mock.patch("builtins.input", side_effect=["fix: typed manually", ""]):
                 code = Orchestrator(git=git, provider=provider, no_push=True).run()
         assert code == 0
-        git.commit.assert_called_once_with(
-            "fix: typed manually", no_verify=False, signoff=False
-        )
+        git.commit.assert_called_once_with("fix: typed manually", no_verify=False, signoff=False)
 
 
 # ---- coverage: ollama missing branches (moved from test_coverage_95) ---------
+
 
 def test_ollama_invalid_base_url():
     with pytest.raises(Exception) as exc:
@@ -996,6 +1075,7 @@ def test_ollama_connection_error():
 
 
 # ---- coverage: ai/base.py edge cases -----------------------------------------
+
 
 def test_path_matches_empty_and_purepath():
     from relay.ai.base import _path_matches
@@ -1111,9 +1191,12 @@ def test_openai_provider_includes_extracted_error_detail():
 
     provider = OpenAIProvider(api_key="k", model="m", base_url="https://api.openai.com/v1")
     body = io.BytesIO(b'{"error": {"message": "Quota limit reached"}}')
-    with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-        "https://api.openai.com/v1", 429, "Too Many Requests", {}, body
-    )):
+    with mock.patch(
+        "urllib.request.urlopen",
+        side_effect=urllib.error.HTTPError(
+            "https://api.openai.com/v1", 429, "Too Many Requests", {}, body
+        ),
+    ):
         with pytest.raises(AIError) as exc_info:
             provider.generate_commit_message("d", "s", "b")
         assert "Quota limit reached" in str(exc_info.value)
@@ -1178,15 +1261,13 @@ def test_gemini_aq_key_uses_bearer_auth(sample_diff, sample_stat):
 def test_gemini_connection_error_is_unavailable(sample_diff, sample_stat):
     """A dropped Gemini connection degrades to unavailable, never raises."""
     provider = GeminiProvider(api_key="test-key", model="m", timeout=5)
-    with mock.patch(
-        "urllib.request.urlopen", side_effect=ConnectionError("reset")
-    ):
+    with mock.patch("urllib.request.urlopen", side_effect=ConnectionError("reset")):
         with pytest.raises(AIError) as exc_info:
             provider.generate_commit_message(sample_diff, sample_stat, "main")
     assert exc_info.value.kind == "unavailable"
 
     # 4-byte UTF-8 character: U+1F680 (rocket) is b'\xf0\x9f\x9a\x80'
-    rocket = "\U0001F680"
+    rocket = "\U0001f680"
     base_prefix = "commit-"
     diff_4byte = base_prefix + rocket
     for offset in range(1, 4):

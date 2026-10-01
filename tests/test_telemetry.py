@@ -4,6 +4,7 @@ The core contract under test: nothing is ever sent (and no thread even starts)
 unless the user explicitly opted in. The rest is the fire-and-forget payload
 shape, which is asserted through a fake thread target.
 """
+
 import json
 import urllib.error
 from unittest import mock
@@ -209,8 +210,12 @@ class TestSendPayload:
         monkeypatch.setenv("RELAY_TELEMETRY_URL", "https://t.example/collect")
         handler = telemetry._SafeRedirectHandler()
         assert handler.redirect_request(None, None, 302, "msg", {}, "http://127.0.0.1/evil") is None
-        assert handler.redirect_request(None, None, 302, "msg", {}, "https://127.0.0.1/evil") is None
-        assert handler.redirect_request(None, None, 302, "msg", {}, "http://t.example/other") is None
+        assert (
+            handler.redirect_request(None, None, 302, "msg", {}, "https://127.0.0.1/evil") is None
+        )
+        assert (
+            handler.redirect_request(None, None, 302, "msg", {}, "http://t.example/other") is None
+        )
         # public https redirect is allowed (returns a Request or not None)
         # We only verify it doesn't return None for a public https URL
         # Use a dummy request to see it passes _is_https
@@ -246,6 +251,7 @@ class TestCliTelemetry:
 
 
 # ---- coverage: missing branches (moved from test_coverage_95) ----------------
+
 
 def test_is_local_or_private_host_localhost():
     assert telemetry._is_local_or_private_host("localhost") is True
@@ -319,9 +325,11 @@ def test_report_with_malformed_url_never_raises(monkeypatch, capsys):
     assert "warning" in capsys.readouterr().err.lower()
 
     def test_main_reports_after_workflow(self):
-        with mock.patch("relay.cli.build_provider"), mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls, mock.patch("relay.cli.report") as report:
+        with (
+            mock.patch("relay.cli.build_provider"),
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+            mock.patch("relay.cli.report") as report,
+        ):
             orchestrator_cls.return_value.run.return_value = 0
             report.return_value = None
             assert main(["--solo", "--yes"]) == 0

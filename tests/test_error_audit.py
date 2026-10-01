@@ -14,6 +14,7 @@ next step.
 * ``UserAbort`` is the user's own deliberate choice to stop; exit 130 already
   tells the story.
 """
+
 from __future__ import annotations
 
 import ast

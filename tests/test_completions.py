@@ -1,4 +1,5 @@
 """Unit tests for relay/completions.py and the `relay completions` CLI path."""
+
 import argparse
 from unittest import mock
 
@@ -20,8 +21,7 @@ def _parser_subcommand_flags() -> dict[str, set[str]]:
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
             return {
-                name: {opt for a in sub._actions for opt in a.option_strings}
-                - {"-h", "--help"}
+                name: {opt for a in sub._actions for opt in a.option_strings} - {"-h", "--help"}
                 for name, sub in action.choices.items()
             }
     raise AssertionError("no subparsers found in the parser")
@@ -137,8 +137,14 @@ class TestSubcommandFlags:
         assert "-split ' '" not in generate("powershell")
 
     def test_global_flags_grew_with_the_release(self):
-        for flag in ("-m", "--message", "-s", "--signoff", "--validate-manual",
-                     "--allow-sensitive"):
+        for flag in (
+            "-m",
+            "--message",
+            "-s",
+            "--signoff",
+            "--validate-manual",
+            "--allow-sensitive",
+        ):
             assert flag in GLOBAL_FLAGS, flag
 
 
@@ -159,8 +165,16 @@ class TestManPageDocumentsTheCli:
     def test_man_documents_subcommand_flags(self):
         from relay.man import MAN_PAGE_TEMPLATE
 
-        for flag in (r"\-\-json", r"\-\-probe", r"\-\-body-file", r"\-\-edit",
-                     r"\-\-count", r"\-\-no-verify", r"\-\-patch", r"\-\-message"):
+        for flag in (
+            r"\-\-json",
+            r"\-\-probe",
+            r"\-\-body-file",
+            r"\-\-edit",
+            r"\-\-count",
+            r"\-\-no-verify",
+            r"\-\-patch",
+            r"\-\-message",
+        ):
             assert flag in MAN_PAGE_TEMPLATE, f"man page is missing {flag}"
 
     def test_man_documents_amend_message_and_no_verify(self):

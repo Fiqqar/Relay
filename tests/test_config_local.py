@@ -5,6 +5,7 @@ Covers the branches the suite previously missed: parent-directory traversal in
 files, and every arm of the security allowlist (non-dict sections, non-list
 ``ignore.paths``, disallowed ``[ai]`` keys, invalid ``[team.protected]``).
 """
+
 import pytest
 
 from relay import config_local
@@ -64,18 +65,12 @@ class TestLoadLocalRawErrors:
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(tmp_path))
         assert _load_local_raw() == {}
 
-    def test_file_vanishing_before_read_returns_empty_dict(
-        self, tmp_path, monkeypatch
-    ):
+    def test_file_vanishing_before_read_returns_empty_dict(self, tmp_path, monkeypatch):
         ghost = tmp_path / "ghost.toml"
-        monkeypatch.setattr(
-            config_local, "local_config_file_path", lambda: ghost
-        )
+        monkeypatch.setattr(config_local, "local_config_file_path", lambda: ghost)
         assert _load_local_raw() == {}
 
-    def test_malformed_toml_warns_and_returns_empty_dict(
-        self, tmp_path, monkeypatch, capsys
-    ):
+    def test_malformed_toml_warns_and_returns_empty_dict(self, tmp_path, monkeypatch, capsys):
         cfg = _write_local_config(tmp_path, "[[[broken\n")
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_raw() == {}
@@ -90,28 +85,19 @@ class TestLoadLocalRawErrors:
 
 class TestAllowlistBranches:
     def test_top_level_scalar_is_ignored(self, tmp_path, monkeypatch):
-        cfg = _write_local_config(
-            tmp_path, 'title = "hello"\n[relay]\nprovider = "openai"\n'
-        )
+        cfg = _write_local_config(tmp_path, 'title = "hello"\n[relay]\nprovider = "openai"\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_raw() == {"relay": {"provider": "openai"}}
 
-    def test_relay_ignore_with_non_list_paths_adds_nothing(
-        self, tmp_path, monkeypatch
-    ):
-        cfg = _write_local_config(
-            tmp_path, '[relay]\nignore = {paths = "nope"}\n'
-        )
+    def test_relay_ignore_with_non_list_paths_adds_nothing(self, tmp_path, monkeypatch):
+        cfg = _write_local_config(tmp_path, '[relay]\nignore = {paths = "nope"}\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_raw() == {"relay": {}}
 
-    def test_disallowed_ai_key_is_dropped_with_warning(
-        self, tmp_path, monkeypatch, capsys
-    ):
+    def test_disallowed_ai_key_is_dropped_with_warning(self, tmp_path, monkeypatch, capsys):
         cfg = _write_local_config(
             tmp_path,
-            '[ai]\nopenai_base_url = "https://evil.example/v1"\n'
-            'openai_model = "gpt-4o"\n',
+            '[ai]\nopenai_base_url = "https://evil.example/v1"\nopenai_model = "gpt-4o"\n',
         )
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         raw = _load_local_raw()
@@ -123,19 +109,13 @@ class TestAllowlistBranches:
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_team_protected() == {}
 
-    def test_team_protected_with_non_list_branches_yields_empty(
-        self, tmp_path, monkeypatch
-    ):
-        cfg = _write_local_config(
-            tmp_path, '[team.protected]\nbranches = "production"\n'
-        )
+    def test_team_protected_with_non_list_branches_yields_empty(self, tmp_path, monkeypatch):
+        cfg = _write_local_config(tmp_path, '[team.protected]\nbranches = "production"\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_team_protected() == {}
 
     def test_team_protected_with_branch_list(self, tmp_path, monkeypatch):
-        cfg = _write_local_config(
-            tmp_path, '[team.protected]\nbranches = ["production"]\n'
-        )
+        cfg = _write_local_config(tmp_path, '[team.protected]\nbranches = ["production"]\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_team_protected() == {"branches": ["production"]}
 
@@ -146,9 +126,7 @@ class TestAllowlistBranches:
 
     def test_commit_types_section_is_allowed(self, tmp_path, monkeypatch):
         """`[commit] types` is shareable; it only widens a word allowlist."""
-        cfg = _write_local_config(
-            tmp_path, '[commit]\ntypes = ["sec-ops", "deps2"]\n'
-        )
+        cfg = _write_local_config(tmp_path, '[commit]\ntypes = ["sec-ops", "deps2"]\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_raw() == {"commit": {"types": ["sec-ops", "deps2"]}}
         assert _load_local_commit() == {"types": ["sec-ops", "deps2"]}
@@ -156,17 +134,13 @@ class TestAllowlistBranches:
     def test_commit_signoff_in_repo_config_is_dropped_with_warning(
         self, tmp_path, monkeypatch, capsys
     ):
-        cfg = _write_local_config(
-            tmp_path, '[commit]\nsignoff = true\ntypes = ["sec"]\n'
-        )
+        cfg = _write_local_config(tmp_path, '[commit]\nsignoff = true\ntypes = ["sec"]\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_commit() == {"types": ["sec"]}
         assert "security-restricted key 'signoff'" in capsys.readouterr().err
 
-    def test_commit_section_with_only_signoff_adds_nothing(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        cfg = _write_local_config(tmp_path, '[commit]\nsignoff = true\n')
+    def test_commit_section_with_only_signoff_adds_nothing(self, tmp_path, monkeypatch, capsys):
+        cfg = _write_local_config(tmp_path, "[commit]\nsignoff = true\n")
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_raw() == {}
         assert "security-restricted key 'signoff'" in capsys.readouterr().err
@@ -181,9 +155,7 @@ class TestAllowlistBranches:
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_ignore() == {"paths": ["*.log"]}
 
-    def test_top_level_ignore_section_without_list_is_dropped(
-        self, tmp_path, monkeypatch
-    ):
+    def test_top_level_ignore_section_without_list_is_dropped(self, tmp_path, monkeypatch):
         cfg = _write_local_config(tmp_path, '[ignore]\npaths = "*.log"\n')
         monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(cfg))
         assert _load_local_raw() == {}

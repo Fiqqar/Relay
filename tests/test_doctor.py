@@ -1,4 +1,5 @@
 """Unit tests for `relay doctor` (relay/doctor.py) and its CLI routing."""
+
 import json
 import subprocess
 from unittest import mock
@@ -21,8 +22,9 @@ from relay.doctor import (
 class FakeGit:
     """Stand-in for GitManager with controllable results."""
 
-    def __init__(self, is_repo=True, has_changes=False, has_remote=True, branch="main",
-                 config=None):
+    def __init__(
+        self, is_repo=True, has_changes=False, has_remote=True, branch="main", config=None
+    ):
         self._is_repo = is_repo
         self._changes = has_changes
         self._remote = has_remote
@@ -48,32 +50,31 @@ class FakeGit:
 @pytest.fixture
 def healthy_env():
     """Environment where every doctor check passes."""
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), mock.patch(
-        "relay.doctor._git_version", return_value="2.42.0"
-    ), mock.patch("relay.doctor.shutil.which", side_effect=lambda name: {
-        "relay": r"C:\tools\Scripts\relay.exe",
-        "git": r"C:\tools\git.exe",
-    }.get(name)    ), mock.patch(
-        "relay.doctor.provider_from_env", return_value="gemini"
-    ), mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), mock.patch(
-        "relay.doctor.github_token", return_value="test-token"
-    ), mock.patch("relay.doctor.gitlab_token", return_value=None), mock.patch(
-        "relay.doctor.bitbucket_token", return_value=None
-    ), mock.patch(
-        "relay.doctor.protected_branches", return_value=["main", "master"]
-    ), mock.patch(
-        "relay.doctor.config_file_path", return_value=None
-    ), mock.patch(
-        "relay.doctor.local_config_file_path", return_value=None
-    ), mock.patch(
-        "relay.doctor.hook_pre_commit", return_value=None
-    ), mock.patch(
-        "relay.doctor.hook_post_push", return_value=None
-    ), mock.patch(
-        "relay.doctor.trusted_github_hosts", return_value=["github.com"]
-    ), mock.patch(
-        "relay.doctor.gemini_base_url",
-        return_value="https://generativelanguage.googleapis.com",
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch(
+            "relay.doctor.shutil.which",
+            side_effect=lambda name: {
+                "relay": r"C:\tools\Scripts\relay.exe",
+                "git": r"C:\tools\git.exe",
+            }.get(name),
+        ),
+        mock.patch("relay.doctor.provider_from_env", return_value="gemini"),
+        mock.patch("relay.doctor.gemini_api_key", return_value="test-key"),
+        mock.patch("relay.doctor.github_token", return_value="test-token"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main", "master"]),
+        mock.patch("relay.doctor.config_file_path", return_value=None),
+        mock.patch("relay.doctor.local_config_file_path", return_value=None),
+        mock.patch("relay.doctor.hook_pre_commit", return_value=None),
+        mock.patch("relay.doctor.hook_post_push", return_value=None),
+        mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com"]),
+        mock.patch(
+            "relay.doctor.gemini_base_url",
+            return_value="https://generativelanguage.googleapis.com",
+        ),
     ):
         yield
 
@@ -128,9 +129,7 @@ def test_uncommitted_changes_reported(healthy_env, capsys):
 
 class TestGitVersion:
     def test_parses_git_version_output(self):
-        proc = subprocess.CompletedProcess(
-            [], 0, "git version 2.46.0.windows.1\n", ""
-        )
+        proc = subprocess.CompletedProcess([], 0, "git version 2.46.0.windows.1\n", "")
         with mock.patch("relay.doctor.subprocess.run", return_value=proc):
             assert _git_version() == "2.46.0.windows.1"
 
@@ -140,12 +139,8 @@ class TestGitVersion:
 
     def test_uses_utf8_replace_decoding(self):
         """Non-UTF-8 locale bytes must not break the git version probe."""
-        proc = subprocess.CompletedProcess(
-            [], 0, "git version 2.46.0.windows.1 — em—dash\n", ""
-        )
-        with mock.patch(
-            "relay.doctor.subprocess.run", return_value=proc
-        ) as mock_run:
+        proc = subprocess.CompletedProcess([], 0, "git version 2.46.0.windows.1 — em—dash\n", "")
+        with mock.patch("relay.doctor.subprocess.run", return_value=proc) as mock_run:
             assert _git_version() == "2.46.0.windows.1 — em—dash"
         kwargs = mock_run.call_args.kwargs
         assert kwargs.get("encoding") == "utf-8"
@@ -167,9 +162,7 @@ class TestOllamaReachable:
         assert ok is True
 
     def test_not_reachable_on_os_error(self):
-        with mock.patch(
-            "relay.doctor.socket.create_connection", side_effect=OSError("refused")
-        ):
+        with mock.patch("relay.doctor.socket.create_connection", side_effect=OSError("refused")):
             ok, detail = _ollama_reachable("http://localhost:11434")
         assert ok is False
         assert "not reachable" in detail
@@ -205,9 +198,14 @@ def test_not_a_repo_warns_but_passes(healthy_env, capsys):
 
 
 def test_ollama_provider_skips_gemini_key(healthy_env, capsys):
-    with mock.patch("relay.doctor.provider_from_env", return_value="ollama"), mock.patch(
-        "relay.doctor.ollama_base_url", return_value="http://localhost:11434"
-    ), mock.patch("relay.doctor._ollama_reachable", return_value=(True, "reachable at http://localhost:11434")):
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="ollama"),
+        mock.patch("relay.doctor.ollama_base_url", return_value="http://localhost:11434"),
+        mock.patch(
+            "relay.doctor._ollama_reachable",
+            return_value=(True, "reachable at http://localhost:11434"),
+        ),
+    ):
         assert run_doctor() == 0
     out = capsys.readouterr().out
     assert "Ollama" in out
@@ -215,41 +213,47 @@ def test_ollama_provider_skips_gemini_key(healthy_env, capsys):
 
 
 def test_openai_provider_checks_openai_key(healthy_env, capsys):
-    with mock.patch("relay.doctor.provider_from_env", return_value="openai"), mock.patch(
-        "relay.doctor.openai_api_key", return_value="sk-test"
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="openai"),
+        mock.patch("relay.doctor.openai_api_key", return_value="sk-test"),
     ):
         assert run_doctor() == 0
     assert "OPENAI_API_KEY is set" in capsys.readouterr().out
 
 
 def test_openai_provider_missing_key_fails(healthy_env, capsys):
-    with mock.patch("relay.doctor.provider_from_env", return_value="openai"), mock.patch(
-        "relay.doctor.openai_api_key", return_value=None
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="openai"),
+        mock.patch("relay.doctor.openai_api_key", return_value=None),
     ):
         assert run_doctor() == 1
     assert "OPENAI_API_KEY is not set" in capsys.readouterr().out
 
 
 def test_anthropic_provider_checks_anthropic_key(healthy_env, capsys):
-    with mock.patch("relay.doctor.provider_from_env", return_value="anthropic"), mock.patch(
-        "relay.doctor.anthropic_api_key", return_value="sk-ant-test"
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="anthropic"),
+        mock.patch("relay.doctor.anthropic_api_key", return_value="sk-ant-test"),
     ):
         assert run_doctor() == 0
     assert "ANTHROPIC_API_KEY is set" in capsys.readouterr().out
 
 
 def test_anthropic_provider_missing_key_fails(healthy_env, capsys):
-    with mock.patch("relay.doctor.provider_from_env", return_value="anthropic"), mock.patch(
-        "relay.doctor.anthropic_api_key", return_value=None
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="anthropic"),
+        mock.patch("relay.doctor.anthropic_api_key", return_value=None),
     ):
         assert run_doctor() == 1
     assert "ANTHROPIC_API_KEY is not set" in capsys.readouterr().out
 
 
 def test_ollama_custom_base_url_reported_in_detail(healthy_env, capsys):
-    with mock.patch("relay.doctor.provider_from_env", return_value="ollama"), mock.patch(
-        "relay.doctor.ollama_base_url", return_value="http://mybox:8080"
-    ), mock.patch("relay.doctor._ollama_reachable", return_value=(False, "not reachable")):
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="ollama"),
+        mock.patch("relay.doctor.ollama_base_url", return_value="http://mybox:8080"),
+        mock.patch("relay.doctor._ollama_reachable", return_value=(False, "not reachable")),
+    ):
         run_doctor()
     assert "Ollama (http://mybox:8080)" in capsys.readouterr().out
 
@@ -274,34 +278,38 @@ def test_github_token_missing_warns_but_passes(healthy_env, capsys):
 
 
 def test_gitlab_token_set_passes(healthy_env, capsys):
-    with mock.patch("relay.doctor.github_token", return_value=None), mock.patch(
-        "relay.doctor.gitlab_token", return_value="glpat-test"
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value="glpat-test"),
     ):
         assert run_doctor() == 0
     assert "GITLAB_TOKEN is set" in capsys.readouterr().out
 
 
 def test_bitbucket_token_set_passes(healthy_env, capsys):
-    with mock.patch("relay.doctor.github_token", return_value=None), mock.patch(
-        "relay.doctor.gitlab_token", return_value=None
-    ), mock.patch("relay.doctor.bitbucket_token", return_value="user:app_password"):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value="user:app_password"),
+    ):
         assert run_doctor() == 0
     assert "BITBUCKET_TOKEN is set" in capsys.readouterr().out
 
 
 def test_provider_override_flag(healthy_env):
-    with mock.patch("relay.doctor.provider_from_env", return_value="gemini") as from_env, mock.patch(
-        "relay.doctor.ollama_base_url", return_value="http://localhost:11434"
-    ), mock.patch(
-        "relay.doctor._ollama_reachable", return_value=(True, "reachable")
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value="gemini") as from_env,
+        mock.patch("relay.doctor.ollama_base_url", return_value="http://localhost:11434"),
+        mock.patch("relay.doctor._ollama_reachable", return_value=(True, "reachable")),
     ):
         run_doctor(provider="ollama")
         from_env.assert_not_called()  # the explicit flag wins
 
 
 def test_explicit_provider_wins_over_env(healthy_env):
-    with mock.patch("relay.doctor.ollama_base_url", return_value="http://localhost:11434"), mock.patch(
-        "relay.doctor._ollama_reachable", return_value=(True, "reachable")
+    with (
+        mock.patch("relay.doctor.ollama_base_url", return_value="http://localhost:11434"),
+        mock.patch("relay.doctor._ollama_reachable", return_value=(True, "reachable")),
     ):
         assert run_doctor(provider="ollama") == 0
 
@@ -399,8 +407,9 @@ def test_doctor_reports_missing_config_file_as_defaults(healthy_env, capsys, tmp
 
 
 def test_doctor_hook_on_path_passes(healthy_env, capsys):
-    with mock.patch("relay.doctor.hook_pre_commit", return_value=["pre-commit"]), mock.patch(
-        "relay.doctor.shutil.which", return_value="/usr/bin/pre-commit"
+    with (
+        mock.patch("relay.doctor.hook_pre_commit", return_value=["pre-commit"]),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/pre-commit"),
     ):
         assert run_doctor() == 0
     assert "pre_commit: pre-commit" in capsys.readouterr().out
@@ -417,9 +426,7 @@ def test_doctor_hook_as_existing_file_passes(healthy_env, capsys, tmp_path):
 
 
 def test_doctor_missing_hook_executable_warns(healthy_env, capsys):
-    with mock.patch(
-        "relay.doctor.hook_pre_commit", return_value=["no-such-hook-binary-xyz"]
-    ):
+    with mock.patch("relay.doctor.hook_pre_commit", return_value=["no-such-hook-binary-xyz"]):
         assert run_doctor() == 0  # a broken hook warns; it is not fatal
     out = capsys.readouterr().out
     assert "executable not found" in out
@@ -429,12 +436,15 @@ def test_doctor_missing_hook_executable_warns(healthy_env, capsys):
 
 def test_doctor_hook_path_error_warns_instead_of_raising(healthy_env, capsys):
     """A hook path that makes Path.is_file() raise still degrades to a warn."""
+
     def which(name):
         return None if name == "weird" else r"C:\tools\git.exe"
 
-    with mock.patch("relay.doctor.hook_pre_commit", return_value=["weird"]), mock.patch(
-        "relay.doctor.shutil.which", side_effect=which
-    ), mock.patch("relay.doctor.Path.is_file", side_effect=OSError("bad path")):
+    with (
+        mock.patch("relay.doctor.hook_pre_commit", return_value=["weird"]),
+        mock.patch("relay.doctor.shutil.which", side_effect=which),
+        mock.patch("relay.doctor.Path.is_file", side_effect=OSError("bad path")),
+    ):
         assert run_doctor() == 0
     assert "executable not found" in capsys.readouterr().out
 
@@ -483,6 +493,7 @@ def test_doctor_json_report_is_terminal_safe(healthy_env, capsys):
 
 # ---- CLI routing -----------------------------------------------------------
 
+
 def test_parser_routes_doctor_subcommand():
     assert build_parser().parse_args(["doctor"]).command == "doctor"
     assert build_parser().parse_args([]).command is None
@@ -520,6 +531,7 @@ def test_main_doctor_failure_is_not_fatal(capsys):
 
 # ---- coverage: missing branches (moved from test_coverage_95) ----------------
 
+
 def test_ollama_reachable_parse_exception():
     with mock.patch("relay.doctor.urllib.parse.urlparse", side_effect=ValueError("bad")):
         ok, detail = _ollama_reachable("http://localhost:11434")
@@ -541,92 +553,106 @@ def test_ollama_reachable_https_default_port():
 
 
 def test_doctor_mistral_key_set():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="mistral"), \
-         mock.patch("relay.doctor.mistral_api_key", return_value="test-key"), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="mistral"),
+        mock.patch("relay.doctor.mistral_api_key", return_value="test-key"),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 0
 
 
 def test_doctor_mistral_missing_key():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="mistral"), \
-         mock.patch("relay.doctor.mistral_api_key", return_value=None), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="mistral"),
+        mock.patch("relay.doctor.mistral_api_key", return_value=None),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 1
 
 
 def test_doctor_groq_key_set():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="groq"), \
-         mock.patch("relay.doctor.groq_api_key", return_value="k"), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="groq"),
+        mock.patch("relay.doctor.groq_api_key", return_value="k"),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 0
 
 
 def test_doctor_groq_missing():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="groq"), \
-         mock.patch("relay.doctor.groq_api_key", return_value=None), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="groq"),
+        mock.patch("relay.doctor.groq_api_key", return_value=None),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 1
 
 
 def test_doctor_xai_key_set():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="xai"), \
-         mock.patch("relay.doctor.xai_api_key", return_value="k"), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="xai"),
+        mock.patch("relay.doctor.xai_api_key", return_value="k"),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 0
 
 
 def test_doctor_xai_missing():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="xai"), \
-         mock.patch("relay.doctor.xai_api_key", return_value=None), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="xai"),
+        mock.patch("relay.doctor.xai_api_key", return_value=None),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 1
 
 
 def test_doctor_unknown_provider_warns_extra():
-    with mock.patch("relay.doctor.GitManager", return_value=FakeGit()), \
-         mock.patch("relay.doctor._git_version", return_value="2.42.0"), \
-         mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"), \
-         mock.patch("relay.doctor.provider_from_env", return_value="unknown_xyz"), \
-         mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("relay.doctor.protected_branches", return_value=["main"]):
+    with (
+        mock.patch("relay.doctor.GitManager", return_value=FakeGit()),
+        mock.patch("relay.doctor._git_version", return_value="2.42.0"),
+        mock.patch("relay.doctor.shutil.which", return_value="/usr/bin/git"),
+        mock.patch("relay.doctor.provider_from_env", return_value="unknown_xyz"),
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("relay.doctor.protected_branches", return_value=["main"]),
+    ):
         assert run_doctor() == 0
 
 
@@ -697,9 +723,11 @@ def test_doctor_probe_success(healthy_env, capsys):
 
 def test_doctor_probe_ai_failure(healthy_env, capsys):
     import urllib.error
-    with mock.patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
-        "https://api.test", 401, "Unauthorized", {}, None
-    )):
+
+    with mock.patch(
+        "urllib.request.urlopen",
+        side_effect=urllib.error.HTTPError("https://api.test", 401, "Unauthorized", {}, None),
+    ):
         code = run_doctor(probe=True)
     assert code == 1
     out = capsys.readouterr().out
@@ -709,8 +737,10 @@ def test_doctor_probe_ai_failure(healthy_env, capsys):
 
 
 def test_doctor_probe_skipped_when_key_missing(healthy_env, capsys):
-    with mock.patch("relay.doctor.gemini_api_key", return_value=None), \
-         mock.patch("relay.doctor.github_token", return_value=None):
+    with (
+        mock.patch("relay.doctor.gemini_api_key", return_value=None),
+        mock.patch("relay.doctor.github_token", return_value=None),
+    ):
         code = run_doctor(probe=True)
     # AI credentials check fails, probe skips
     assert code == 1
@@ -725,13 +755,17 @@ def test_doctor_probe_various_providers(healthy_env, capsys):
     mock_resp.__enter__.return_value = mock_resp
 
     for prov in ("openai", "anthropic", "ollama", "mistral", "groq", "xai"):
-        with mock.patch("urllib.request.urlopen", return_value=mock_resp), \
-             mock.patch(
-                 f"relay.doctor.{prov}_api_key" if prov != "ollama" else "relay.doctor.ollama_base_url",
-                 return_value="http://localhost:11434" if prov == "ollama" else "dummy_key",
-             ), \
-             mock.patch("relay.doctor._ollama_reachable", return_value=(True, "reachable")), \
-             mock.patch("relay.doctor.github_token", return_value=None):
+        with (
+            mock.patch("urllib.request.urlopen", return_value=mock_resp),
+            mock.patch(
+                f"relay.doctor.{prov}_api_key"
+                if prov != "ollama"
+                else "relay.doctor.ollama_base_url",
+                return_value="http://localhost:11434" if prov == "ollama" else "dummy_key",
+            ),
+            mock.patch("relay.doctor._ollama_reachable", return_value=(True, "reachable")),
+            mock.patch("relay.doctor.github_token", return_value=None),
+        ):
             run_doctor(provider=prov, probe=True)
 
 
@@ -740,17 +774,21 @@ def test_doctor_probe_forges_gitlab_and_bitbucket(healthy_env, capsys):
     mock_resp.read.return_value = b'{"username": "forge_user"}'
     mock_resp.__enter__.return_value = mock_resp
 
-    with mock.patch("urllib.request.urlopen", return_value=mock_resp), \
-         mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"):
+    with (
+        mock.patch("urllib.request.urlopen", return_value=mock_resp),
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"),
+    ):
         code = run_doctor(probe=True)
         assert code == 0
         assert "GitLab @forge_user" in capsys.readouterr().out
 
-    with mock.patch("urllib.request.urlopen", return_value=mock_resp), \
-         mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"):
+    with (
+        mock.patch("urllib.request.urlopen", return_value=mock_resp),
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"),
+    ):
         code = run_doctor(probe=True)
         assert code == 0
         assert "Bitbucket @forge_user" in capsys.readouterr().out
@@ -803,19 +841,19 @@ def test_keyed_provider_table_covers_all_keyed_providers():
         ("xai", "XAI_API_KEY"),
     ],
 )
-def test_keyed_providers_share_set_missing_message_convention(
-    healthy_env, capsys, prov, env
-):
+def test_keyed_providers_share_set_missing_message_convention(healthy_env, capsys, prov, env):
     """Table refactor must preserve the exact '<ENV> is set / is not set' UX."""
-    with mock.patch(
-        "relay.doctor.provider_from_env", return_value=prov
-    ), mock.patch(f"relay.doctor.{prov}_api_key", return_value="k"):
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value=prov),
+        mock.patch(f"relay.doctor.{prov}_api_key", return_value="k"),
+    ):
         assert run_doctor() == 0
     assert f"{env} is set" in capsys.readouterr().out
 
-    with mock.patch(
-        "relay.doctor.provider_from_env", return_value=prov
-    ), mock.patch(f"relay.doctor.{prov}_api_key", return_value=None):
+    with (
+        mock.patch("relay.doctor.provider_from_env", return_value=prov),
+        mock.patch(f"relay.doctor.{prov}_api_key", return_value=None),
+    ):
         assert run_doctor() == 1
     assert f"{env} is not set" in capsys.readouterr().out
 
@@ -833,8 +871,10 @@ def _ok_probe_response(body: bytes = b"{}"):
 
 def test_probe_gemini_aq_key_uses_bearer_auth():
     """Gemini keys starting with 'AQ.' authenticate via a Bearer header."""
-    with mock.patch("relay.doctor.gemini_api_key", return_value="AQ.test-token"), \
-         mock.patch("urllib.request.urlopen", return_value=_ok_probe_response()) as urlopen:
+    with (
+        mock.patch("relay.doctor.gemini_api_key", return_value="AQ.test-token"),
+        mock.patch("urllib.request.urlopen", return_value=_ok_probe_response()) as urlopen,
+    ):
         check = _probe_provider("gemini")
     assert check.status == "ok"
     headers = {k.lower(): v for k, v in urlopen.call_args.args[0].header_items()}
@@ -870,14 +910,14 @@ def test_probe_gemini_honors_the_configured_base_url():
     A gateway (proxy/enterprise) therefore always looked healthy-or-broken
     according to the wrong endpoint.
     """
-    with mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), \
-         mock.patch(
-             "relay.doctor.gemini_base_url",
-             return_value="https://gw.internal.example/ai/",
-         ), \
-         mock.patch(
-             "urllib.request.urlopen", return_value=_ok_probe_response()
-         ) as urlopen:
+    with (
+        mock.patch("relay.doctor.gemini_api_key", return_value="test-key"),
+        mock.patch(
+            "relay.doctor.gemini_base_url",
+            return_value="https://gw.internal.example/ai/",
+        ),
+        mock.patch("urllib.request.urlopen", return_value=_ok_probe_response()) as urlopen,
+    ):
         check = _probe_provider("gemini")
     assert check.status == "ok"
     assert urlopen.call_args.args[0].full_url == (
@@ -886,23 +926,29 @@ def test_probe_gemini_honors_the_configured_base_url():
 
 
 def test_probe_trusted_github_hosts_skips_without_a_token():
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.trusted_github_hosts", return_value=["gh.corp"]):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.trusted_github_hosts", return_value=["gh.corp"]),
+    ):
         assert _probe_trusted_github_hosts() == []
 
 
 def test_probe_trusted_github_hosts_ignores_github_com():
-    with mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com"]):
+    with (
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com"]),
+    ):
         assert _probe_trusted_github_hosts() == []
 
 
 def test_probe_trusted_github_hosts_probes_enterprise_api_v3():
     """A self-hosted host is probed at the endpoint `relay pr` will use."""
     resp = _ok_probe_response(b'{"login": "octo"}')
-    with mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com", "gh.corp"]), \
-         mock.patch("urllib.request.urlopen", return_value=resp) as urlopen:
+    with (
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.trusted_github_hosts", return_value=["github.com", "gh.corp"]),
+        mock.patch("urllib.request.urlopen", return_value=resp) as urlopen,
+    ):
         checks = _probe_trusted_github_hosts()
     assert len(checks) == 1
     assert checks[0].status == "ok"
@@ -911,9 +957,11 @@ def test_probe_trusted_github_hosts_probes_enterprise_api_v3():
 
 
 def test_probe_trusted_github_hosts_reports_a_broken_host():
-    with mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("relay.doctor.trusted_github_hosts", return_value=["gh.corp"]), \
-         mock.patch("urllib.request.urlopen", side_effect=OSError("no route")):
+    with (
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("relay.doctor.trusted_github_hosts", return_value=["gh.corp"]),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("no route")),
+    ):
         checks = _probe_trusted_github_hosts()
     assert len(checks) == 1
     assert checks[0].status == "fail"
@@ -923,11 +971,13 @@ def test_probe_trusted_github_hosts_reports_a_broken_host():
 def test_doctor_probe_includes_self_hosted_github_hosts(healthy_env, capsys):
     """`relay doctor --probe` reports every trusted Enterprise host."""
     resp = _ok_probe_response(b'{"login": "octo"}')
-    with mock.patch("urllib.request.urlopen", return_value=resp), \
-         mock.patch(
-             "relay.doctor.trusted_github_hosts",
-             return_value=["github.com", "gh.corp"],
-         ):
+    with (
+        mock.patch("urllib.request.urlopen", return_value=resp),
+        mock.patch(
+            "relay.doctor.trusted_github_hosts",
+            return_value=["github.com", "gh.corp"],
+        ),
+    ):
         assert run_doctor(probe=True) == 0
     out = capsys.readouterr().out
     assert "GitHub @octo" in out
@@ -936,8 +986,10 @@ def test_doctor_probe_includes_self_hosted_github_hosts(healthy_env, capsys):
 
 def test_probe_ai_connection_failure_fails():
     """Non-HTTP probe errors degrade to FAIL, never raise out of the probe."""
-    with mock.patch("relay.doctor.gemini_api_key", return_value="test-key"), \
-         mock.patch("urllib.request.urlopen", side_effect=OSError("dns boom")):
+    with (
+        mock.patch("relay.doctor.gemini_api_key", return_value="test-key"),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("dns boom")),
+    ):
         check = _probe_provider("gemini")
     assert check.status == "fail"
     assert "connection failed" in check.detail
@@ -945,8 +997,10 @@ def test_probe_ai_connection_failure_fails():
 
 def test_probe_forge_github_connection_failure():
     """The GitHub probe maps transport errors to FAIL."""
-    with mock.patch("relay.doctor.github_token", return_value="tok"), \
-         mock.patch("urllib.request.urlopen", side_effect=OSError("reset")):
+    with (
+        mock.patch("relay.doctor.github_token", return_value="tok"),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("reset")),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -958,10 +1012,12 @@ def test_probe_forge_gitlab_oversized_body_fails():
     from relay.doctor import _MAX_PROBE_BODY_BYTES
 
     big = _ok_probe_response(b"x" * (_MAX_PROBE_BODY_BYTES + 1))
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("urllib.request.urlopen", return_value=big):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("urllib.request.urlopen", return_value=big),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -973,10 +1029,12 @@ def test_probe_forge_gitlab_http_error_fails():
     import urllib.error
 
     err = urllib.error.HTTPError("https://gitlab.test", 403, "Forbidden", {}, None)
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("urllib.request.urlopen", side_effect=err):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("urllib.request.urlopen", side_effect=err),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -985,10 +1043,12 @@ def test_probe_forge_gitlab_http_error_fails():
 
 def test_probe_forge_gitlab_connection_failure():
     """The GitLab probe maps transport errors to FAIL."""
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"), \
-         mock.patch("relay.doctor.bitbucket_token", return_value=None), \
-         mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value="gl_tok"),
+        mock.patch("relay.doctor.bitbucket_token", return_value=None),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -1000,10 +1060,12 @@ def test_probe_forge_bitbucket_oversized_body_fails():
     from relay.doctor import _MAX_PROBE_BODY_BYTES
 
     big = _ok_probe_response(b"x" * (_MAX_PROBE_BODY_BYTES + 1))
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"), \
-         mock.patch("urllib.request.urlopen", return_value=big):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"),
+        mock.patch("urllib.request.urlopen", return_value=big),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -1014,13 +1076,13 @@ def test_probe_forge_bitbucket_http_error_fails():
     """The Bitbucket probe maps HTTP errors to FAIL."""
     import urllib.error
 
-    err = urllib.error.HTTPError(
-        "https://bitbucket.test", 401, "Unauthorized", {}, None
-    )
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"), \
-         mock.patch("urllib.request.urlopen", side_effect=err):
+    err = urllib.error.HTTPError("https://bitbucket.test", 401, "Unauthorized", {}, None)
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"),
+        mock.patch("urllib.request.urlopen", side_effect=err),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -1029,10 +1091,12 @@ def test_probe_forge_bitbucket_http_error_fails():
 
 def test_probe_forge_bitbucket_connection_failure():
     """The Bitbucket probe maps transport errors to FAIL."""
-    with mock.patch("relay.doctor.github_token", return_value=None), \
-         mock.patch("relay.doctor.gitlab_token", return_value=None), \
-         mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"), \
-         mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
+    with (
+        mock.patch("relay.doctor.github_token", return_value=None),
+        mock.patch("relay.doctor.gitlab_token", return_value=None),
+        mock.patch("relay.doctor.bitbucket_token", return_value="bb_tok"),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+    ):
         check = _probe_forge()
     assert check is not None
     assert check.status == "fail"
@@ -1068,5 +1132,3 @@ def test_probe_forge_endpoint_reports_user():
     assert check is not None
     assert check.status == "ok"
     assert "GitHub @octo" in check.detail
-
-

@@ -1,5 +1,6 @@
 """Unit tests for the CLI entry point (relay/cli.py): flag parsing, mode
 resolution, and exit-code mapping."""
+
 import os
 from unittest import mock
 
@@ -173,26 +174,29 @@ class TestPrSubcommand:
 
     def test_main_pr_builds_no_provider_by_default(self):
         """Without --provider the commit message is the title: no API key needed."""
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-            "relay.cli.run_pr", return_value=0
-        ) as run:
+        with (
+            mock.patch("relay.cli.build_provider") as build_provider,
+            mock.patch("relay.cli.run_pr", return_value=0) as run,
+        ):
             main(["pr"])
         build_provider.assert_not_called()
         assert run.call_args.kwargs["provider"] is None
 
     def test_main_pr_forwards_the_built_provider(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-            "relay.cli.run_pr", return_value=0
-        ) as run:
+        with (
+            mock.patch("relay.cli.build_provider") as build_provider,
+            mock.patch("relay.cli.run_pr", return_value=0) as run,
+        ):
             main(["pr", "--provider", "ollama"])
         build_provider.assert_called_once_with("ollama")
         assert run.call_args.kwargs["provider"] is build_provider.return_value
 
     def test_main_pr_provider_failure_degrades_to_the_commit_title(self, capsys):
         """A missing key must never block opening a PR that needs no AI."""
-        with mock.patch(
-            "relay.cli.build_provider", side_effect=ConfigError("no key")
-        ), mock.patch("relay.cli.run_pr", return_value=0) as run:
+        with (
+            mock.patch("relay.cli.build_provider", side_effect=ConfigError("no key")),
+            mock.patch("relay.cli.run_pr", return_value=0) as run,
+        ):
             assert main(["pr", "--provider", "gemini"]) == 0
         assert run.call_args.kwargs["provider"] is None
         assert "falling back to the commit message" in capsys.readouterr().out
@@ -256,8 +260,17 @@ class TestAmendSubcommand:
 
     def test_amend_accepts_workflow_flags(self):
         args = build_parser().parse_args(
-            ["amend", "--provider", "ollama", "--timeout", "45", "--yes",
-             "--staged", "--dry-run", "--verbose"]
+            [
+                "amend",
+                "--provider",
+                "ollama",
+                "--timeout",
+                "45",
+                "--yes",
+                "--staged",
+                "--dry-run",
+                "--verbose",
+            ]
         )
         assert args.provider == "ollama"
         assert args.timeout == 45
@@ -272,9 +285,10 @@ class TestAmendSubcommand:
         assert args.team == "amend"
 
     def test_main_routes_amend_to_orchestrator(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls:
+        with (
+            mock.patch("relay.cli.build_provider") as build_provider,
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
             orchestrator_cls.return_value.run.return_value = 0
             assert main(["amend"]) == 0
         orchestrator_cls.assert_called_once_with(
@@ -293,11 +307,11 @@ class TestAmendSubcommand:
         orchestrator_cls.return_value.run.assert_called_once_with()
 
     def test_main_forwards_amend_flags(self):
-        with mock.patch("relay.cli.build_provider"), mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls:
-            main(["amend", "--yes", "--staged", "--dry-run", "--verbose",
-                  "--timeout", "50"])
+        with (
+            mock.patch("relay.cli.build_provider"),
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
+            main(["amend", "--yes", "--staged", "--dry-run", "--verbose", "--timeout", "50"])
         kw = orchestrator_cls.call_args.kwargs
         assert kw["mode"] == "amend"
         assert kw["yes"] is True
@@ -307,47 +321,50 @@ class TestAmendSubcommand:
         assert kw["no_push"] is True
 
     def test_main_amend_forwards_provider_timeout(self):
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-            "relay.cli.Orchestrator"
+        with (
+            mock.patch("relay.cli.build_provider") as build_provider,
+            mock.patch("relay.cli.Orchestrator"),
         ):
             main(["amend", "--provider", "ollama", "--timeout", "30"])
         build_provider.assert_called_once_with("ollama", timeout=30)
 
     def test_main_amend_propagates_exit_code(self):
-        with mock.patch("relay.cli.build_provider"), mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls:
+        with (
+            mock.patch("relay.cli.build_provider"),
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
             orchestrator_cls.return_value.run.return_value = 7
             assert main(["amend"]) == 7
 
     def test_main_amend_user_abort_maps_to_exit_130(self):
-        with mock.patch("relay.cli.build_provider"), mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls:
+        with (
+            mock.patch("relay.cli.build_provider"),
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
             orchestrator_cls.return_value.run.side_effect = UserAbort("aborted")
             assert main(["amend"]) == 130
 
     def test_main_amend_no_key_falls_back_to_manual(self):
         """A missing API key must not abort amend: degrade to provider=None
         so the Orchestrator's manual-input fallback takes over (H-14)."""
-        with mock.patch(
-            "relay.cli.build_provider", side_effect=ConfigError("no key")
-        ), mock.patch("relay.cli.Orchestrator") as orchestrator_cls:
+        with (
+            mock.patch("relay.cli.build_provider", side_effect=ConfigError("no key")),
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
             orchestrator_cls.return_value.run.return_value = 0
             assert main(["amend"]) == 0
         assert orchestrator_cls.call_args.kwargs["provider"] is None
 
     def test_amend_accepts_message_and_no_verify(self):
-        args = build_parser().parse_args(
-            ["amend", "-m", "fix: corrected", "--no-verify"]
-        )
+        args = build_parser().parse_args(["amend", "-m", "fix: corrected", "--no-verify"])
         assert args.message == "fix: corrected"
         assert args.no_verify is True
 
     def test_main_amend_forwards_message_and_no_verify(self):
-        with mock.patch("relay.cli.build_provider"), mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls:
+        with (
+            mock.patch("relay.cli.build_provider"),
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
             orchestrator_cls.return_value.run.return_value = 0
             assert main(["amend", "-m", "fix: corrected", "--no-verify"]) == 0
         kw = orchestrator_cls.call_args.kwargs
@@ -356,9 +373,10 @@ class TestAmendSubcommand:
 
     def test_amend_with_message_never_builds_a_provider(self):
         """-m must not need an API key: no provider is built or required."""
-        with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-            "relay.cli.Orchestrator"
-        ) as orchestrator_cls:
+        with (
+            mock.patch("relay.cli.build_provider") as build_provider,
+            mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+        ):
             orchestrator_cls.return_value.run.return_value = 0
             assert main(["amend", "--message", "fix: corrected"]) == 0
         build_provider.assert_not_called()
@@ -368,9 +386,10 @@ class TestAmendSubcommand:
 @pytest.fixture
 def wired():
     """Patch the CLI's provider factory and Orchestrator, returning the mocks."""
-    with mock.patch("relay.cli.build_provider") as build_provider, mock.patch(
-        "relay.cli.Orchestrator"
-    ) as orchestrator_cls:
+    with (
+        mock.patch("relay.cli.build_provider") as build_provider,
+        mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+    ):
         orchestrator_cls.return_value.run.return_value = 0
         yield build_provider, orchestrator_cls
 
@@ -457,9 +476,10 @@ def test_missing_gemini_key_falls_back_to_manual_provider():
     """A missing GEMINI_API_KEY must not abort the solo run: the provider is
     built lazily and degraded to None so the Orchestrator's manual-input
     fallback takes over (H-14)."""
-    with mock.patch(
-        "relay.cli.build_provider", side_effect=ConfigError("no key")
-    ), mock.patch("relay.cli.Orchestrator") as orchestrator_cls:
+    with (
+        mock.patch("relay.cli.build_provider", side_effect=ConfigError("no key")),
+        mock.patch("relay.cli.Orchestrator") as orchestrator_cls,
+    ):
         orchestrator_cls.return_value.run.return_value = 0
         assert main(["--solo"]) == 0
     assert orchestrator_cls.call_args.kwargs["provider"] is None
@@ -583,14 +603,28 @@ def test_cli_surface_is_frozen():
 
     # 1. Global flags
     expected_flags = {
-        "-h", "--help", "--version",
-        "--solo", "--team",
-        "--provider", "--timeout",
-        "--yes", "--dry-run", "--no-push",
-        "--staged", "--no-verify", "--allow-protected",
-        "--repo", "--hunks", "--verbose",
-        "-m", "--message", "--validate-manual", "--allow-sensitive",
-        "-s", "--signoff",
+        "-h",
+        "--help",
+        "--version",
+        "--solo",
+        "--team",
+        "--provider",
+        "--timeout",
+        "--yes",
+        "--dry-run",
+        "--no-push",
+        "--staged",
+        "--no-verify",
+        "--allow-protected",
+        "--repo",
+        "--hunks",
+        "--verbose",
+        "-m",
+        "--message",
+        "--validate-manual",
+        "--allow-sensitive",
+        "-s",
+        "--signoff",
     }
     actual_flags = {opt for action in parser._actions for opt in action.option_strings}
     assert expected_flags == actual_flags
@@ -600,8 +634,15 @@ def test_cli_surface_is_frozen():
         a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
     )
     expected_subcommands = {
-        "amend", "completions", "doctor", "man",
-        "pr", "squash", "stage", "telemetry", "undo",
+        "amend",
+        "completions",
+        "doctor",
+        "man",
+        "pr",
+        "squash",
+        "stage",
+        "telemetry",
+        "undo",
         "verify-release",
     }
     assert set(subparsers_action.choices.keys()) == expected_subcommands
@@ -617,9 +658,9 @@ def test_verify_release_is_hidden_from_help_but_still_runnable():
     assert args.command == "verify-release"
     assert args.version == "v2.5.0"
     # Direct subcommand help still documents it for the maintainer.
-    sub = next(
-        a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
-    ).choices["verify-release"]
+    sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction)).choices[
+        "verify-release"
+    ]
     assert "Maintainer-only" in sub.description
 
 
@@ -718,12 +759,16 @@ class TestDispatchTables:
         from relay.completions import HIDDEN_SUBCOMMANDS, SUBCOMMANDS
 
         assert set(_READONLY_HANDLERS) == {
-            "doctor", "completions", "man", "telemetry", "verify-release",
+            "doctor",
+            "completions",
+            "man",
+            "telemetry",
+            "verify-release",
         }
         assert set(_WORKFLOW_HANDLERS) == {"pr", "undo", "stage", "squash", "amend"}
-        assert set(_READONLY_HANDLERS) | set(_WORKFLOW_HANDLERS) == set(
-            SUBCOMMANDS
-        ) | set(HIDDEN_SUBCOMMANDS)
+        assert set(_READONLY_HANDLERS) | set(_WORKFLOW_HANDLERS) == set(SUBCOMMANDS) | set(
+            HIDDEN_SUBCOMMANDS
+        )
 
     def test_workflow_error_mapping(self, capsys):
         args = build_parser().parse_args(["--solo"])
@@ -779,6 +824,3 @@ class TestEnsureUtf8Stdout:
         with mock.patch.object(cli_mod, "_ensure_utf8_stdout") as ensure:
             main(["--solo", "--yes", "--no-push"])
         ensure.assert_called_once_with()
-
-
-

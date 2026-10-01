@@ -1,4 +1,5 @@
 """Unit tests for relay/gitlab.py — the zero-dependency GitLab MR client."""
+
 import io
 import json
 import urllib.error
@@ -47,8 +48,11 @@ class TestGitLabClient:
         with mock.patch("urllib.request.urlopen") as urlopen:
             urlopen.return_value.__enter__.return_value = fake_http(payload)
             result = make_client().open_merge_request(
-                title="feat: add login", source_branch="feat/login",
-                target_branch="main", description="body", draft=False,
+                title="feat: add login",
+                source_branch="feat/login",
+                target_branch="main",
+                description="body",
+                draft=False,
             )
         assert result == payload
         request = urlopen.call_args.args[0]
@@ -59,9 +63,7 @@ class TestGitLabClient:
     def test_draft_prefixes_title(self):
         with mock.patch("urllib.request.urlopen") as urlopen:
             urlopen.return_value.__enter__.return_value = fake_http({})
-            make_client().open_merge_request(
-                title="feat: add login", source_branch="b", draft=True
-            )
+            make_client().open_merge_request(title="feat: add login", source_branch="b", draft=True)
         body = json.loads(urlopen.call_args.args[0].data.decode("utf-8"))
         assert body["title"] == "Draft: feat: add login"
         assert "draft" not in body
@@ -89,35 +91,27 @@ class TestGitLabClient:
             assert make_client().find_open_mr(source_branch="feat/login") is None
 
     def test_http_409_duplicate_raises_duplicate_error(self):
-        err = urllib.error.HTTPError(
-            "https://gitlab.com", 409, "Conflict", {}, None
+        err = urllib.error.HTTPError("https://gitlab.com", 409, "Conflict", {}, None)
+        err.read = lambda *args: (
+            b'{"message":"Another open merge request already exists for this source branch"}'
         )
-        err.read = lambda *args: b'{"message":"Another open merge request already exists for this source branch"}'
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(DuplicateMergeRequestError):
-                make_client().open_merge_request(
-                    title="t", source_branch="b", target_branch="main"
-                )
+                make_client().open_merge_request(title="t", source_branch="b", target_branch="main")
 
     def test_http_400_raises_gitlab_error_with_detail(self):
-        err = urllib.error.HTTPError(
-            "https://gitlab.com", 400, "Bad Request", {}, None
-        )
+        err = urllib.error.HTTPError("https://gitlab.com", 400, "Bad Request", {}, None)
         err.read = lambda *args: b'{"message":"Bad source branch name"}'
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(GitLabError) as exc_info:
-                make_client().open_merge_request(
-                    title="t", source_branch="b", target_branch="main"
-                )
+                make_client().open_merge_request(title="t", source_branch="b", target_branch="main")
         assert exc_info.value.status == 400
         assert "Bad source branch name" in exc_info.value.reason
 
     def test_error_body_read_is_capped_at_10kib(self):
         from relay.gitlab import _MAX_ERROR_BODY_BYTES
 
-        err = urllib.error.HTTPError(
-            "https://gitlab.com", 500, "Internal Server Error", {}, None
-        )
+        err = urllib.error.HTTPError("https://gitlab.com", 500, "Internal Server Error", {}, None)
         err.read = lambda n=0: (b"x" * (_MAX_ERROR_BODY_BYTES + 100))[:n]
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(GitLabError) as exc_info:
@@ -125,15 +119,11 @@ class TestGitLabClient:
         assert len(exc_info.value.body) <= _MAX_ERROR_BODY_BYTES
 
     def test_reason_handles_field_keyed_message(self):
-        err = urllib.error.HTTPError(
-            "https://gitlab.com", 400, "Bad Request", {}, None
-        )
+        err = urllib.error.HTTPError("https://gitlab.com", 400, "Bad Request", {}, None)
         err.read = lambda *args: b'{"message":{"source_branch":["is invalid"]}}'
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with pytest.raises(GitLabError) as exc_info:
-                make_client().open_merge_request(
-                    title="t", source_branch="b", target_branch="main"
-                )
+                make_client().open_merge_request(title="t", source_branch="b", target_branch="main")
         assert "source_branch" in exc_info.value.reason
 
     def test_connection_error_surfaces_clearly(self):
@@ -141,9 +131,7 @@ class TestGitLabClient:
 
         with mock.patch("urllib.request.urlopen", side_effect=URLError("timed out")):
             with pytest.raises(GitLabError, match="cannot reach"):
-                make_client().open_merge_request(
-                    title="t", source_branch="b", target_branch="main"
-                )
+                make_client().open_merge_request(title="t", source_branch="b", target_branch="main")
 
     def test_oversized_success_response_is_rejected(self):
         """A healthy-looking but huge 2xx body must not be slurped whole."""
@@ -159,13 +147,20 @@ class TestGitLabClient:
     def test_transient_http_errors_retry_and_recover(self):
         err_503 = urllib.error.HTTPError("url", 503, "Service Unavailable", {}, io.BytesIO(b"{}"))
         success_resp = mock.MagicMock()
-        success_resp.read.return_value = b'{"iid": 1, "web_url": "https://gitlab.com/acme/widget/-/merge_requests/1"}'
+        success_resp.read.return_value = (
+            b'{"iid": 1, "web_url": "https://gitlab.com/acme/widget/-/merge_requests/1"}'
+        )
         with mock.patch("relay.forge_http.time.sleep") as mock_sleep:
-            with mock.patch("urllib.request.urlopen", side_effect=[err_503, mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp))]) as mock_urlopen:
+            with mock.patch(
+                "urllib.request.urlopen",
+                side_effect=[
+                    err_503,
+                    mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp)),
+                ],
+            ) as mock_urlopen:
                 client = make_client()
                 res = client.open_merge_request(title="t", source_branch="b", target_branch="main")
                 assert res["iid"] == 1
                 assert mock_urlopen.call_count == 2
                 assert mock_sleep.call_count == 1
                 assert 1.0 <= mock_sleep.call_args.args[0] <= 1.6
-

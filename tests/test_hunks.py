@@ -1,4 +1,5 @@
 """Tests for hunk-level AI messages."""
+
 from unittest import mock
 
 from relay.ai.base import split_diff_by_file
@@ -31,7 +32,7 @@ def test_split_diff_by_file_two():
     blocks = split_diff_by_file(SAMPLE_TWO_FILES)
     assert len(blocks) == 2
     assert blocks[0][0] == "a.py"
-    assert "print(\"a\")" in blocks[0][1]
+    assert 'print("a")' in blocks[0][1]
     assert blocks[1][0] == "b.py"
 
 
@@ -53,6 +54,7 @@ def test_cli_hunks_flag():
 
 
 # ---- orchestrator hunks --------------------------------------------------
+
 
 class StubAI:
     def __init__(self, responses):

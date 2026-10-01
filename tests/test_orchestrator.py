@@ -5,6 +5,7 @@ builtins.input is patched so prompts are answered programmatically. The heart
 of the suite verifies the exact requirement: when the AI throws an exception,
 the workflow falls back to manual input WITHOUT exiting.
 """
+
 from unittest import mock
 
 import pytest
@@ -67,7 +68,9 @@ def test_ai_failure_falls_back_to_manual_input_and_commits(mock_input, git):
     code = make_orchestrator(git, provider=ai).run()
 
     assert code == 0
-    git.commit.assert_called_once_with("fix: manual fallback message", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "fix: manual fallback message", no_verify=False, signoff=False
+    )
     git.push.assert_not_called()  # --no-push
     assert ai.generate_calls, "the AI must have been tried before falling back"
 
@@ -101,7 +104,9 @@ def test_connection_refused_also_falls_back(mock_input, git):
     ai = StubAI(error=AIError("ollama", "unavailable", "connection refused"))
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: manual fallback message", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "fix: manual fallback message", no_verify=False, signoff=False
+    )
 
 
 @mock.patch("builtins.input", return_value="")
@@ -110,6 +115,7 @@ def test_empty_manual_input_aborts_without_committing(mock_input, git):
     with pytest.raises(UserAbort):
         make_orchestrator(git, provider=ai).run()
     git.commit.assert_not_called()
+
 
 # ---- F4: transient (429/5xx) retry + backoff ----------------------------------
 
@@ -133,11 +139,13 @@ class FlakyAI:
 @mock.patch("builtins.input", side_effect=["fix: after retries", ""])
 def test_rate_limited_is_retried_twice_before_fallback(mock_input, mock_sleep, git):
     # Two transient failures in a row, then a manual fallback.
-    ai = FlakyAI([
-        AIError("gemini", "rate_limited", "HTTP 429"),
-        AIError("gemini", "rate_limited", "HTTP 429"),
-        AIError("gemini", "rate_limited", "HTTP 429"),
-    ])
+    ai = FlakyAI(
+        [
+            AIError("gemini", "rate_limited", "HTTP 429"),
+            AIError("gemini", "rate_limited", "HTTP 429"),
+            AIError("gemini", "rate_limited", "HTTP 429"),
+        ]
+    )
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     assert len(ai.generate_calls) == 3  # 2 retries, then manual fallback
@@ -164,10 +172,16 @@ def test_ollama_429_triggers_retry_in_orchestrator(mock_sleep, git):
 
     from relay.ai.ollama import OllamaProvider
 
-    provider = OllamaProvider(base_url="http://localhost:11434", model="qwen2.5-coder:7b", timeout=5)
-    err_429 = urllib.error.HTTPError("http://localhost:11434/api/generate", 429, "Too Many Requests", {}, None)
+    provider = OllamaProvider(
+        base_url="http://localhost:11434", model="qwen2.5-coder:7b", timeout=5
+    )
+    err_429 = urllib.error.HTTPError(
+        "http://localhost:11434/api/generate", 429, "Too Many Requests", {}, None
+    )
     success_resp = mock.MagicMock()
-    success_resp.read.return_value = json.dumps({"response": "feat(core): recovered from 429"}).encode("utf-8")
+    success_resp.read.return_value = json.dumps(
+        {"response": "feat(core): recovered from 429"}
+    ).encode("utf-8")
     success_resp.__enter__.return_value = success_resp
     success_resp.__exit__.return_value = False
 
@@ -176,7 +190,9 @@ def test_ollama_429_triggers_retry_in_orchestrator(mock_sleep, git):
 
     assert code == 0
     assert mock_sleep.call_count == 1
-    git.commit.assert_called_once_with("feat(core): recovered from 429", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "feat(core): recovered from 429", no_verify=False, signoff=False
+    )
 
 
 @mock.patch("relay.orchestrator.time.sleep")
@@ -184,11 +200,13 @@ def test_ollama_429_triggers_retry_in_orchestrator(mock_sleep, git):
 def test_api_error_is_retried_twice_before_fallback(mock_input, mock_sleep, git):
     """api_error (e.g. a 4xx HTTP status) is in the transient retry set, so it
     gets the same 2x backoff as rate_limited before the manual fallback."""
-    ai = FlakyAI([
-        AIError("gemini", "api_error", "HTTP 401"),
-        AIError("gemini", "api_error", "HTTP 401"),
-        AIError("gemini", "api_error", "HTTP 401"),
-    ])
+    ai = FlakyAI(
+        [
+            AIError("gemini", "api_error", "HTTP 401"),
+            AIError("gemini", "api_error", "HTTP 401"),
+            AIError("gemini", "api_error", "HTTP 401"),
+        ]
+    )
     with pytest.raises(UserAbort):  # empty manual input aborts
         make_orchestrator(git, provider=ai).run()
     assert len(ai.generate_calls) == 3  # 2 retries, then manual fallback
@@ -200,8 +218,7 @@ def test_api_error_is_retried_twice_before_fallback(mock_input, mock_sleep, git)
 @mock.patch("relay.orchestrator.time.sleep")
 def test_non_transient_error_is_not_retried(mock_sleep, git):
     ai = FlakyAI([AIError("ollama", "unavailable", "down")])
-    with mock.patch("builtins.input",
-                    side_effect=["fix: straight to manual", ""]):
+    with mock.patch("builtins.input", side_effect=["fix: straight to manual", ""]):
         make_orchestrator(git, provider=ai).run()
     assert mock_sleep.call_count == 0  # unavailable is never retried
     git.commit.assert_called_once_with("fix: straight to manual", no_verify=False, signoff=False)
@@ -222,7 +239,9 @@ def test_garbage_ai_response_triggers_fallback(mock_input, git):
     ai = StubAI(responses=["wip stuff"])
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
-    git.commit.assert_called_once_with("fix: garbage response fallback", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "fix: garbage response fallback", no_verify=False, signoff=False
+    )
 
 
 # ---- Confirmation gate -------------------------------------------------------
@@ -266,12 +285,14 @@ def test_retry_ai_regenerates_before_accept(mock_input, git):
 def test_user_retry_after_transient_retries_does_not_abort_early(mock_input, mock_sleep, git):
     from relay.errors import AIError
 
-    ai = FlakyAI([
-        AIError("gemini", "rate_limited", "slow down"),
-        AIError("gemini", "rate_limited", "slow down"),
-        "feat(api): first try",
-        "feat(api): second try",
-    ])
+    ai = FlakyAI(
+        [
+            AIError("gemini", "rate_limited", "slow down"),
+            AIError("gemini", "rate_limited", "slow down"),
+            "feat(api): first try",
+            "feat(api): second try",
+        ]
+    )
     code = make_orchestrator(git, provider=ai).run()
     assert code == 0
     git.commit.assert_called_once_with("feat(api): second try", no_verify=False, signoff=False)
@@ -343,17 +364,13 @@ def test_no_verify_forwards_to_commit(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
     code = make_orchestrator(git, provider=ai, no_verify=True).run()
     assert code == 0
-    git.commit.assert_called_once_with(
-        "fix: skip hooks", no_verify=True, signoff=False
-    )
+    git.commit.assert_called_once_with("fix: skip hooks", no_verify=True, signoff=False)
 
 
 @mock.patch("builtins.input", side_effect=["feat: team work", ""])
 def test_team_mode_creates_branch_and_pushes_upstream(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
-    code = make_orchestrator(
-        git, provider=ai, mode="team", feature="payments", no_push=False
-    ).run()
+    code = make_orchestrator(git, provider=ai, mode="team", feature="payments", no_push=False).run()
     assert code == 0
     git.create_branch.assert_called_once_with("feat/payments")
     git.push.assert_called_once_with("feat/payments", set_upstream=True)
@@ -383,20 +400,18 @@ def test_team_feature_prompted_when_nothing_to_derive_from(mock_input, git):
 @mock.patch("builtins.input", side_effect=["a"])
 def test_team_branch_uses_commit_type_from_ai_message(mock_input, git):
     ai = StubAI(responses=["fix(api): correct validation"])
-    code = make_orchestrator(
-        git, provider=ai, mode="team", feature="payments", no_push=True
-    ).run()
+    code = make_orchestrator(git, provider=ai, mode="team", feature="payments", no_push=True).run()
     assert code == 0
     git.create_branch.assert_called_once_with("fix/payments")
-    git.commit.assert_called_once_with("fix(api): correct validation", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "fix(api): correct validation", no_verify=False, signoff=False
+    )
 
 
 @mock.patch("builtins.input", side_effect=["WIP stuff", ""])
 def test_team_branch_falls_back_to_feat_for_non_conventional_message(mock_input, git):
     ai = StubAI(error=AIError("fake", "unavailable", "down"))
-    code = make_orchestrator(
-        git, provider=ai, mode="team", feature="payments", no_push=True
-    ).run()
+    code = make_orchestrator(git, provider=ai, mode="team", feature="payments", no_push=True).run()
     assert code == 0
     git.create_branch.assert_called_once_with("feat/payments")
 
@@ -404,9 +419,7 @@ def test_team_branch_falls_back_to_feat_for_non_conventional_message(mock_input,
 @mock.patch("builtins.input", side_effect=["a"])
 def test_team_branch_uses_docs_type_from_ai_message(mock_input, git):
     ai = StubAI(responses=["docs(readme): clarify install"])
-    code = make_orchestrator(
-        git, provider=ai, mode="team", feature="setup", no_push=True
-    ).run()
+    code = make_orchestrator(git, provider=ai, mode="team", feature="setup", no_push=True).run()
     assert code == 0
     git.create_branch.assert_called_once_with("docs/setup")
 
@@ -631,6 +644,7 @@ def test_multi_line_manual_message_separates_subject_and_body(mock_input, git):
 
 # ---- amend mode: rewrite the last commit, never push -------------------------
 
+
 @mock.patch("builtins.input", side_effect=["fix: amend last commit", ""])
 def test_amend_mode_commits_with_amend_and_never_pushes(mock_input, git):
     git.has_staged_changes.return_value = False
@@ -739,6 +753,7 @@ def test_binary_only_staged_diff_skips_ai_and_uses_manual_message(mock_input, gi
 
 # ---- TOCTOU and hook edge cases ---------------------------------------------
 
+
 def test_toctou_index_change_raises_git_error(git):
     from relay.errors import GitError
 
@@ -775,8 +790,7 @@ def test_branch_switch_aborts_before_commit(git):
     def _check(branch, head):
         if git.current_branch() != branch or git.rev_parse("HEAD") != head:
             raise GitError(
-                "branch/HEAD changed while Relay was running; "
-                "review `git status` and retry"
+                "branch/HEAD changed while Relay was running; review `git status` and retry"
             )
 
     git.check_branch_and_head.side_effect = _check
@@ -797,15 +811,19 @@ def test_initial_write_tree_giterror_gracefully_degrades(git):
 
 def test_dry_run_with_hooks_prints_hook_names(git, capsys, monkeypatch, tmp_path):
     from relay import config
+
     config._RAW_CACHE.clear()
     cfg = tmp_path / "config.toml"
-    cfg.write_text("""
+    cfg.write_text(
+        """
     [hooks.pre_commit]
     command = ["echo", "pre"]
 
     [hooks.post_push]
     command = ["echo", "post"]
-    """, encoding="utf-8")
+    """,
+        encoding="utf-8",
+    )
     monkeypatch.setenv("RELAY_CONFIG", str(cfg))
     ai = StubAI(responses=["feat: dry run"])
     code = make_orchestrator(git, provider=ai, dry_run=True, yes=True).run()
@@ -861,9 +879,13 @@ def test_ai_error_ansi_escapes_are_sanitized_in_orchestrator(git, capsys):
 
 def test_explicit_message_skips_ai_and_commits_directly(git):
     ai = StubAI(responses=["feat(ai): should not be called"])
-    code = make_orchestrator(git, provider=ai, message="feat(auth): login with google", yes=True).run()
+    code = make_orchestrator(
+        git, provider=ai, message="feat(auth): login with google", yes=True
+    ).run()
     assert code == 0
-    git.commit.assert_called_once_with("feat(auth): login with google", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "feat(auth): login with google", no_verify=False, signoff=False
+    )
     assert not ai.generate_calls
 
 
@@ -893,7 +915,9 @@ def test_explicit_message_confirmation_abort(git):
 
 def test_explicit_message_warns_if_not_conventional(git, capsys):
     ai = StubAI()
-    code = make_orchestrator(git, provider=ai, message="plain commit without convention", yes=True).run()
+    code = make_orchestrator(
+        git, provider=ai, message="plain commit without convention", yes=True
+    ).run()
     assert code == 0
     out = capsys.readouterr().out
     assert "warning: 'plain commit without convention' is not a Conventional Commit" in out
@@ -1035,7 +1059,6 @@ def test_open_in_editor_windows_backslash_paths(git):
                     assert captured_cmds[-1][2] == "--wait"
 
 
-
 def test_orchestrator_passes_recent_commits_to_ai(git):
     git.recent_subjects.return_value = ["feat(cli): old commit", "fix(core): bug"]
     mock_ai = mock.Mock()
@@ -1059,7 +1082,9 @@ def test_orchestrator_passes_rejected_message_on_retry(git):
     assert mock_ai.generate.call_count == 2
     second_call_kwargs = mock_ai.generate.call_args_list[1].kwargs
     assert second_call_kwargs.get("rejected_message") == "feat(core): first rejected idea"
-    git.commit.assert_called_once_with("feat(core): second accepted idea", no_verify=False, signoff=False)
+    git.commit.assert_called_once_with(
+        "feat(core): second accepted idea", no_verify=False, signoff=False
+    )
 
 
 def test_preflight_aborts_on_unresolved_conflicts(git, capsys):
@@ -1296,9 +1321,10 @@ def test_solo_refuses_when_retree_fails(git):
 
 def test_solo_run_executes_pre_commit_hook(git):
     """A configured pre_commit hook runs before the commit."""
-    with mock.patch(
-        "relay.orchestrator.get_pre_commit_hook", return_value=["echo", "hi"]
-    ), mock.patch("relay.orchestrator.run_hook") as run_hook:
+    with (
+        mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "hi"]),
+        mock.patch("relay.orchestrator.run_hook") as run_hook,
+    ):
         code = make_orchestrator(git, message="fix: hooked", yes=True).run()
     assert code == 0
     run_hook.assert_called_once_with(["echo", "hi"], cwd=git.cwd, verbose=False)
@@ -1307,16 +1333,12 @@ def test_solo_run_executes_pre_commit_hook(git):
 def test_post_push_hook_failure_warns_with_stderr(git, capsys):
     """A failing post_push hook warns (with its stderr) but keeps the push."""
     err = GitError("hook blew", stderr="boom-err")
-    with mock.patch(
-        "relay.orchestrator.get_pre_commit_hook", return_value=None
-    ), mock.patch(
-        "relay.orchestrator.get_post_push_hook", return_value=["lint"]
-    ), mock.patch(
-        "relay.orchestrator.run_hook", side_effect=err
+    with (
+        mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=None),
+        mock.patch("relay.orchestrator.get_post_push_hook", return_value=["lint"]),
+        mock.patch("relay.orchestrator.run_hook", side_effect=err),
     ):
-        code = make_orchestrator(
-            git, message="fix: push it", yes=True, no_push=False
-        ).run()
+        code = make_orchestrator(git, message="fix: push it", yes=True, no_push=False).run()
     assert code == 0
     out = capsys.readouterr().out
     assert "post_push hook failed" in out
@@ -1326,9 +1348,7 @@ def test_post_push_hook_failure_warns_with_stderr(git, capsys):
 def test_amend_dry_run_reports_pre_commit_hook(git, capsys):
     """Amend dry-run prints the configured pre_commit hook in the plan."""
     git.has_staged_changes.return_value = False
-    with mock.patch(
-        "relay.orchestrator.get_pre_commit_hook", return_value=["npx", "test"]
-    ):
+    with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["npx", "test"]):
         code = make_orchestrator(
             git, mode="amend", message="fix: amend dry hooked", yes=True, dry_run=True
         ).run()
@@ -1339,12 +1359,11 @@ def test_amend_dry_run_reports_pre_commit_hook(git, capsys):
 def test_amend_runs_pre_commit_hook(git):
     """Message-only amend executes the pre_commit hook before rewriting."""
     git.has_staged_changes.return_value = False
-    with mock.patch(
-        "relay.orchestrator.get_pre_commit_hook", return_value=["echo", "hi"]
-    ), mock.patch("relay.orchestrator.run_hook") as run_hook:
-        code = make_orchestrator(
-            git, mode="amend", message="fix: amend hooked", yes=True
-        ).run()
+    with (
+        mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "hi"]),
+        mock.patch("relay.orchestrator.run_hook") as run_hook,
+    ):
+        code = make_orchestrator(git, mode="amend", message="fix: amend hooked", yes=True).run()
     assert code == 0
     run_hook.assert_called_once_with(["echo", "hi"], cwd=git.cwd, verbose=False)
 
@@ -1362,27 +1381,21 @@ def test_warn_sensitive_returns_when_lookup_raises(git):
     """Sensitive-path lookup failures never block the workflow."""
     git.unstaged_changes.return_value = ["secrets.env"]
     orch = make_orchestrator(git)
-    with mock.patch(
-        "relay.orchestrator.is_sensitive_path", side_effect=Exception("boom")
-    ):
+    with mock.patch("relay.orchestrator.is_sensitive_path", side_effect=Exception("boom")):
         assert orch._warn_sensitive_files() is None
 
 
 def test_obtain_message_tolerates_recent_subjects_failure(git):
     """A failing recent-subjects lookup still yields the AI message."""
     git.recent_subjects.side_effect = Exception("no log")
-    orch = make_orchestrator(
-        git, provider=StubAI(responses=["fix: fresh work"]), yes=True
-    )
+    orch = make_orchestrator(git, provider=StubAI(responses=["fix: fresh work"]), yes=True)
     assert orch._obtain_message("diff", "stat", "main") == "fix: fresh work"
 
 
 def test_obtain_hunks_message_single_block(git):
     """One hunk block yields its subject without a bullet body."""
     git.recent_subjects.side_effect = Exception("no log")
-    orch = make_orchestrator(
-        git, provider=StubAI(responses=["fix: one hunk"]), yes=True
-    )
+    orch = make_orchestrator(git, provider=StubAI(responses=["fix: one hunk"]), yes=True)
     blocks = [("app.py", "diff --git a/app.py b/app.py\n+print(1)\n")]
     assert orch._obtain_hunks_message(blocks, "main") == "fix: one hunk"
 
@@ -1425,9 +1438,7 @@ def test_obtain_hunks_message_retry_then_accept(mock_input, git):
 @mock.patch("builtins.input", side_effect=["n"])
 def test_obtain_hunks_message_abort_raises(mock_input, git):
     """Aborting at the hunks confirmation raises without a message."""
-    orch = make_orchestrator(
-        git, provider=StubAI(responses=["fix: unwanted"]), yes=False
-    )
+    orch = make_orchestrator(git, provider=StubAI(responses=["fix: unwanted"]), yes=False)
     blocks = [("app.py", "diff --git a/app.py b/app.py\n+print(1)\n")]
     with pytest.raises(UserAbort):
         orch._obtain_hunks_message(blocks, "main")
@@ -1443,16 +1454,12 @@ def test_manual_input_warns_on_non_conventional_when_validating(git, capsys):
 
 def test_post_push_hook_failure_without_stderr_still_warns(git, capsys):
     """A stderr-less post_push failure warns once and keeps the push."""
-    with mock.patch(
-        "relay.orchestrator.get_pre_commit_hook", return_value=None
-    ), mock.patch(
-        "relay.orchestrator.get_post_push_hook", return_value=["lint"]
-    ), mock.patch(
-        "relay.orchestrator.run_hook", side_effect=GitError("hook blew")
+    with (
+        mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=None),
+        mock.patch("relay.orchestrator.get_post_push_hook", return_value=["lint"]),
+        mock.patch("relay.orchestrator.run_hook", side_effect=GitError("hook blew")),
     ):
-        code = make_orchestrator(
-            git, message="fix: push it", yes=True, no_push=False
-        ).run()
+        code = make_orchestrator(git, message="fix: push it", yes=True, no_push=False).run()
     assert code == 0
     assert "post_push hook failed" in capsys.readouterr().out
 
@@ -1460,9 +1467,7 @@ def test_post_push_hook_failure_without_stderr_still_warns(git, capsys):
 def test_manual_input_valid_message_passes_validation_quietly(git, capsys):
     """--validate-manual stays silent for a Conventional message."""
     orch = make_orchestrator(git, validate_manual=True)
-    with mock.patch(
-        "relay.orchestrator.manual_input", return_value="fix: proper message"
-    ):
+    with mock.patch("relay.orchestrator.manual_input", return_value="fix: proper message"):
         assert orch._manual_input() == "fix: proper message"
     assert "not a Conventional Commit" not in capsys.readouterr().out
 
@@ -1502,9 +1507,7 @@ def test_signoff_flag_is_forwarded_to_commit(git):
     ai = StubAI(responses=["feat(api): add login"])
     code = make_orchestrator(git, provider=ai, yes=True, signoff=True).run()
     assert code == 0
-    git.commit.assert_called_once_with(
-        "feat(api): add login", no_verify=False, signoff=True
-    )
+    git.commit.assert_called_once_with("feat(api): add login", no_verify=False, signoff=True)
 
 
 def test_amend_forwards_signoff(git):
@@ -1517,11 +1520,3 @@ def test_amend_forwards_signoff(git):
     git.commit.assert_called_once_with(
         "fix: amend signed", amend=True, no_verify=False, signoff=True
     )
-
-
-
-
-
-
-
-
