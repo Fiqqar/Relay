@@ -5,6 +5,7 @@ Each test targets a branch the suite previously never executed.
 """
 import io
 import urllib.error
+from email.message import Message
 from unittest import mock
 
 from relay.ai.base import (
@@ -20,7 +21,7 @@ from relay.ai.base import (
 
 def _http_error(body: bytes, code: int = 500, reason: str = "Error"):
     return urllib.error.HTTPError(
-        "http://api.test", code, reason, {}, io.BytesIO(body)
+        "http://api.test", code, reason, Message(), io.BytesIO(body)
     )
 
 
@@ -47,7 +48,7 @@ def test_non_object_json_returns_raw_text():
 def test_unreadable_error_body_falls_back_to_reason():
     fp = mock.Mock()
     fp.read.side_effect = OSError("gone")
-    exc = urllib.error.HTTPError("http://api.test", 500, "Boom", {}, fp)
+    exc = urllib.error.HTTPError("http://api.test", 500, "Boom", Message(), fp)
     assert extract_http_error_detail(exc) == "Boom"
 
 
