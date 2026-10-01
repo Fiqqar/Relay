@@ -1,4 +1,5 @@
 """Unit tests for `relay undo` (relay/undo.py) and its CLI routing."""
+
 from unittest import mock
 
 import pytest
@@ -11,8 +12,15 @@ from relay.undo import run_undo
 class FakeGit:
     """Stand-in for GitManager with controllable undo behavior."""
 
-    def __init__(self, is_repo=True, has_commits=True, branch="main", pushed=False,
-                 commit_count=5, staged=False):
+    def __init__(
+        self,
+        is_repo=True,
+        has_commits=True,
+        branch="main",
+        pushed=False,
+        commit_count=5,
+        staged=False,
+    ):
         self._is_repo = is_repo
         self._commits = has_commits
         self._branch = branch
@@ -112,6 +120,7 @@ def test_undo_allows_staged_changes_with_the_flag(git, capsys):
 
 
 # ---- CLI routing -----------------------------------------------------------
+
 
 def test_parser_routes_undo_subcommand():
     assert build_parser().parse_args(["undo"]).command == "undo"

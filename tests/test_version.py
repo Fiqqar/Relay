@@ -8,6 +8,7 @@ The Homebrew formula is not covered here since v0.6: it lives in its own tap
 repo (``Fiqqar/homebrew-Relay``), so its consistency is enforced by the release
 runbook instead of a local test.
 """
+
 import json
 import tomllib
 from pathlib import Path

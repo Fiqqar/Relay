@@ -1,4 +1,5 @@
 """Tests for custom hooks — [hooks.pre_commit] / [hooks.post_push]."""
+
 import textwrap
 from unittest import mock
 
@@ -24,105 +25,151 @@ def _write(monkeypatch, tmp_path, body: str):
 
 # ---- config parsing -------------------------------------------------------
 
+
 def test_no_hooks_returns_none():
     assert config.hook_pre_commit() is None
     assert config.hook_post_push() is None
 
 
 def test_pre_commit_command_list(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = ["./scripts/check.sh", "--strict"]
-    """)
+    """,
+    )
     assert config.hook_pre_commit() == ["./scripts/check.sh", "--strict"]
     assert config.hook_post_push() is None
 
 
 def test_post_push_command_list(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.post_push]
         command = ["echo", "pushed"]
-    """)
+    """,
+    )
     assert config.hook_post_push() == ["echo", "pushed"]
 
 
 def test_hooks_both_tables(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = ["echo", "pre"]
 
         [hooks.post_push]
         command = ["echo", "post"]
-    """)
+    """,
+    )
     assert config.hook_pre_commit() == ["echo", "pre"]
     assert config.hook_post_push() == ["echo", "post"]
 
 
 def test_hooks_direct_list_compat(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks]
         pre_commit = ["echo", "hi"]
-    """)
+    """,
+    )
     assert config.hook_pre_commit() == ["echo", "hi"]
 
 
 def test_hooks_single_string_command_splits_to_argv(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = "echo hi"
-    """)
+    """,
+    )
     assert config.hook_pre_commit() == ["echo", "hi"]
 
 
 def test_hooks_single_string_without_args_is_single_element(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = "./scripts/check.sh"
-    """)
+    """,
+    )
     assert config.hook_pre_commit() == ["./scripts/check.sh"]
 
 
 def test_hooks_single_string_keeps_quoted_path_together(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = '"/opt/my tools/check.sh" --strict'
-    """)
+    """,
+    )
     assert config.hook_pre_commit() == ["/opt/my tools/check.sh", "--strict"]
 
 
 def test_hooks_single_string_unbalanced_quotes_returns_none(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = "echo 'hi"
-    """)
+    """,
+    )
     assert config.hook_pre_commit() is None
 
 
 def test_hooks_single_string_blank_returns_none(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = "   "
-    """)
+    """,
+    )
     assert config.hook_pre_commit() is None
 
 
 def test_hooks_empty_list_returns_none(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = []
-    """)
+    """,
+    )
     assert config.hook_pre_commit() is None
 
 
 def test_hooks_invalid_shape_returns_none(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [hooks.pre_commit]
         command = 123
-    """)
+    """,
+    )
     assert config.hook_pre_commit() is None
 
 
 # ---- run_hook -------------------------------------------------------------
+
 
 def test_run_hook_success(monkeypatch):
     with mock.patch("subprocess.run") as m:
@@ -182,6 +229,7 @@ def test_run_hook_argv_as_list_no_shell_injection(monkeypatch):
 
 # ---- orchestrator integration ---------------------------------------------
 
+
 class StubAI:
     def __init__(self):
         self.calls = []
@@ -211,7 +259,9 @@ def _make_git():
 def test_orchestrator_runs_pre_commit_before_commit(monkeypatch):
     from relay.orchestrator import Orchestrator
 
-    _write(monkeypatch, mock.MagicMock(), "")  # ensure no previous file influences? we set env later
+    _write(
+        monkeypatch, mock.MagicMock(), ""
+    )  # ensure no previous file influences? we set env later
     # Use monkeypatch to mock hook to avoid real subprocess
     with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]):
         with mock.patch("relay.orchestrator.run_hook") as mh:
@@ -256,7 +306,9 @@ def test_orchestrator_post_push_failure_is_warning(monkeypatch, capsys):
 
     with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=None):
         with mock.patch("relay.orchestrator.get_post_push_hook", return_value=["false"]):
-            with mock.patch("relay.orchestrator.run_hook", side_effect=GitError("hook failed", stderr="err")):
+            with mock.patch(
+                "relay.orchestrator.run_hook", side_effect=GitError("hook failed", stderr="err")
+            ):
                 ai = StubAI()
                 git = _make_git()
                 orch = Orchestrator(git=git, provider=ai, yes=True, no_push=False)
@@ -282,7 +334,9 @@ def test_no_verify_skips_the_pre_commit_hook(monkeypatch):
     """--no-verify must skip Relay's own pre_commit hook, not only git's."""
     from relay.orchestrator import Orchestrator
 
-    with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]) as lookup:
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]
+    ) as lookup:
         with mock.patch("relay.orchestrator.run_hook") as mh:
             ai = StubAI()
             git = _make_git()
@@ -297,14 +351,14 @@ def test_no_verify_skips_the_pre_commit_hook_for_amend(monkeypatch):
     """The amend path honors --no-verify too (it used to run the hook anyway)."""
     from relay.orchestrator import Orchestrator
 
-    with mock.patch("relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]) as lookup:
+    with mock.patch(
+        "relay.orchestrator.get_pre_commit_hook", return_value=["echo", "pre"]
+    ) as lookup:
         with mock.patch("relay.orchestrator.run_hook") as mh:
             ai = StubAI()
             git = _make_git()
             git.has_staged_changes.return_value = False
-            orch = Orchestrator(
-                git=git, provider=ai, yes=True, mode="amend", no_verify=True
-            )
+            orch = Orchestrator(git=git, provider=ai, yes=True, mode="amend", no_verify=True)
             assert orch.run() == 0
             mh.assert_not_called()
             lookup.assert_not_called()

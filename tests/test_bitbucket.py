@@ -3,6 +3,7 @@
 urllib.request.urlopen is mocked so no real network request is ever made; the
 suite stays hermetic and offline-safe.
 """
+
 import base64
 import io
 import json
@@ -76,7 +77,16 @@ class TestAuth:
 class TestFindOpenPull:
     @mock.patch("relay.bitbucket.urllib.request.urlopen")
     def test_queries_open_prs_for_source_branch(self, mock_urlopen):
-        payload = {"values": [{"id": 9, "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/9"}}}]}
+        payload = {
+            "values": [
+                {
+                    "id": 9,
+                    "links": {
+                        "html": {"href": "https://bitbucket.org/acme/widget/pull-requests/9"}
+                    },
+                }
+            ]
+        }
         mock_urlopen.return_value.__enter__.return_value = fake_http(payload)
 
         result = make_client().find_open_pull(source_branch="feat/login")
@@ -95,9 +105,7 @@ class TestFindOpenPull:
 
     @mock.patch("relay.bitbucket.urllib.request.urlopen")
     def test_raises_with_status_on_http_error(self, mock_urlopen):
-        error = urllib.error.HTTPError(
-            "url", 401, "Unauthorized", {}, None
-        )
+        error = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
         error.read = lambda *args: b'{"error":{"message":"Bad credentials"}}'
         mock_urlopen.side_effect = error
         with pytest.raises(BitbucketError) as exc_info:
@@ -109,12 +117,17 @@ class TestFindOpenPull:
 class TestOpenPull:
     @mock.patch("relay.bitbucket.urllib.request.urlopen")
     def test_posts_payload_with_source_and_destination(self, mock_urlopen):
-        payload = {"id": 7, "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/7"}}}
+        payload = {
+            "id": 7,
+            "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/7"}},
+        }
         mock_urlopen.return_value.__enter__.return_value = fake_http(payload)
 
         result = make_client().open_pull(
-            title="Add login", source_branch="feat/login",
-            destination_branch="main", description="Details",
+            title="Add login",
+            source_branch="feat/login",
+            destination_branch="main",
+            description="Details",
         )
 
         request = mock_urlopen.call_args.args[0]
@@ -140,7 +153,9 @@ class TestOpenPull:
 
     def test_400_duplicate_raises_duplicate_error(self):
         err = urllib.error.HTTPError("https://api.bitbucket.org", 400, "Bad Request", {}, None)
-        err.read = lambda *args: b'{"error":{"message":"A pull request for source branch \'feat/login\' already exists"}}'
+        err.read = lambda *args: (
+            b'{"error":{"message":"A pull request for source branch \'feat/login\' already exists"}}'
+        )
         with mock.patch("relay.bitbucket.urllib.request.urlopen", side_effect=err):
             with pytest.raises(DuplicatePullRequestError) as exc_info:
                 make_client().open_pull(title="t", source_branch="feat/login")
@@ -156,7 +171,9 @@ class TestOpenPull:
         assert "Invalid source branch" in exc_info.value.reason
 
     def test_errors_list_shape_is_extracted(self):
-        err = urllib.error.HTTPError("https://api.bitbucket.org", 422, "Unprocessable Entity", {}, None)
+        err = urllib.error.HTTPError(
+            "https://api.bitbucket.org", 422, "Unprocessable Entity", {}, None
+        )
         err.read = lambda *args: b'{"errors":[{"message":"Destination branch does not exist"}]}'
         with mock.patch("relay.bitbucket.urllib.request.urlopen", side_effect=err):
             with pytest.raises(BitbucketError) as exc_info:
@@ -166,7 +183,9 @@ class TestOpenPull:
     def test_error_body_read_is_capped_at_10kib(self):
         from relay.bitbucket import _MAX_ERROR_BODY_BYTES
 
-        err = urllib.error.HTTPError("https://api.bitbucket.org", 500, "Internal Server Error", {}, None)
+        err = urllib.error.HTTPError(
+            "https://api.bitbucket.org", 500, "Internal Server Error", {}, None
+        )
         err.read = lambda n=0: (b"x" * (_MAX_ERROR_BODY_BYTES + 100))[:n]
         with mock.patch("relay.bitbucket.urllib.request.urlopen", side_effect=err):
             with pytest.raises(BitbucketError) as exc_info:
@@ -174,7 +193,9 @@ class TestOpenPull:
         assert len(exc_info.value.body) <= _MAX_ERROR_BODY_BYTES
 
     def test_connection_error_surfaces_clearly(self):
-        with mock.patch("relay.bitbucket.urllib.request.urlopen", side_effect=urllib.error.URLError("timed out")):
+        with mock.patch(
+            "relay.bitbucket.urllib.request.urlopen", side_effect=urllib.error.URLError("timed out")
+        ):
             with pytest.raises(BitbucketError, match="cannot reach Bitbucket"):
                 make_client().open_pull(title="t", source_branch="b")
 
@@ -203,7 +224,13 @@ class TestVerboseLogging:
         success_resp = mock.MagicMock()
         success_resp.read.return_value = b'{"id": 10, "links": {"html": {"href": "https://bitbucket.org/acme/widget/pull-requests/10"}}}'
         with mock.patch("relay.forge_http.time.sleep") as mock_sleep:
-            with mock.patch("urllib.request.urlopen", side_effect=[err_502, mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp))]) as mock_urlopen:
+            with mock.patch(
+                "urllib.request.urlopen",
+                side_effect=[
+                    err_502,
+                    mock.MagicMock(__enter__=mock.MagicMock(return_value=success_resp)),
+                ],
+            ) as mock_urlopen:
                 client = make_client()
                 res = client.open_pull(title="t", source_branch="b", destination_branch="main")
                 assert res["id"] == 10
@@ -245,5 +272,3 @@ def test_extract_reason_empty_payload():
 def test_extract_reason_unusable_errors_list_falls_through():
     """An errors list with no usable message yields an empty reason."""
     assert _extract_reason({"errors": ["raw", {"message": 42}]}) == ""
-
-

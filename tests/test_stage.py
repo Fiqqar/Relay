@@ -1,4 +1,5 @@
 """Unit tests for `relay stage` (relay/stage.py) selection parsing and routing."""
+
 from unittest import mock
 
 import pytest
@@ -12,9 +13,7 @@ class FakeGit:
     def __init__(self, files=("app.py", "notes.md", "scratch.txt"), badges=None):
         self.files = list(files)
         self.badges = (
-            badges
-            if badges is not None
-            else {"app.py": "M", "notes.md": "M", "scratch.txt": "?"}
+            badges if badges is not None else {"app.py": "M", "notes.md": "M", "scratch.txt": "?"}
         )
         self.staged = []
         self.add_interactive_calls = 0
@@ -44,6 +43,7 @@ def git():
 
 
 # ---- selection parsing ------------------------------------------------------
+
 
 class TestParseSelection:
     def test_all_selects_everything(self):
@@ -80,6 +80,7 @@ class TestParseSelection:
 
 
 # ---- run_stage ----------------------------------------------------------------
+
 
 def test_stage_requires_a_repo(git):
     git._is_repo = False
@@ -127,6 +128,7 @@ def test_stage_nothing_to_do(git, capsys):
 
 # ---- CLI routing --------------------------------------------------------------
 
+
 def test_parser_stage_defaults():
     args = build_parser().parse_args(["stage"])
     assert args.command == "stage"
@@ -156,6 +158,7 @@ def test_main_stage_error_maps_to_exit_1():
 
 
 # ---- coverage: stage.py edge branches ---------------------------------------
+
 
 def test_parse_selection_empty_chunks_and_no_selection():
     from relay.stage import _parse_selection
@@ -261,4 +264,3 @@ def test_main_forwards_allow_sensitive_given_before_subcommand():
     with mock.patch("relay.cli.run_stage", return_value=0) as run:
         main(["--allow-sensitive", "stage"])
     assert run.call_args.kwargs["allow_sensitive"] is True
-

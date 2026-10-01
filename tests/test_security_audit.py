@@ -3,6 +3,7 @@
 NFR-3: Secrets are environment-only, never read from config files, never logged.
 Subprocesses must always use shell=False and argv-as-list.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -118,5 +119,3 @@ def test_api_redirects_are_rejected_to_prevent_credential_leakage():
     req = urllib.request.Request("https://example.com/api")
     # redirect_request returning None causes urllib to raise HTTPError instead of redirecting
     assert handler.redirect_request(req, None, 302, "Found", {}, "https://evil.com/leak") is None
-
-

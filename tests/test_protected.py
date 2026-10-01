@@ -1,4 +1,5 @@
 """Unit tests for the default-branch safety rule (relay/protected.py)."""
+
 from unittest import mock
 
 import pytest
@@ -176,9 +177,7 @@ def test_solo_mode_keeps_committing_to_any_branch(git):
     """Solo convention: committing to the current branch is never blocked."""
     ai = StubAI()
     with mock.patch("builtins.input", return_value="a"):
-        code = make_orchestrator(
-            git, provider=ai, mode="solo", protected_branches=["main"]
-        ).run()
+        code = make_orchestrator(git, provider=ai, mode="solo", protected_branches=["main"]).run()
     assert code == 0
     git.commit.assert_called_once()  # on "main" — solo convention preserved
 

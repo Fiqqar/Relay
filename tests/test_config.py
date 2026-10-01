@@ -1,5 +1,6 @@
 """Unit tests for relay/config.py — env-driven settings and the safety caps
 (30s HTTP timeout default, 120s hard cap, 120-line diff budget)."""
+
 import textwrap
 
 import pytest
@@ -59,35 +60,51 @@ def test_commit_types_default_to_empty():
 
 
 def test_commit_types_reads_the_table(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         types = ["sec", "deps"]
-    """)
+    """,
+    )
     assert config.commit_types() == ["sec", "deps"]
 
 
 def test_commit_types_normalizes_and_dedupes(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         types = ["SEC", "sec", " infra ", "bad type", "!", 7]
-    """)
+    """,
+    )
     assert config.commit_types() == ["sec", "infra"]
 
 
 def test_commit_types_caps_a_pathological_list(monkeypatch, tmp_path):
     entries = ", ".join(f'"t{i}"' for i in range(30))
-    _write_toml(monkeypatch, tmp_path, f"""
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        f"""
         [commit]
         types = [{entries}]
-    """)
+    """,
+    )
     assert config.commit_types() == [f"t{i}" for i in range(config.MAX_CUSTOM_COMMIT_TYPES)]
 
 
 def test_commit_types_ignores_a_non_list_value(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         types = "sec"
-    """)
+    """,
+    )
     assert config.commit_types() == []
 
 
@@ -101,10 +118,14 @@ def test_commit_types_reads_the_repo_local_config(monkeypatch, tmp_path):
 
 
 def test_commit_types_merges_user_then_repo_local(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         types = ["sec", "shared"]
-    """)
+    """,
+    )
     local = tmp_path / ".relay.toml"
     local.write_text('[commit]\ntypes = ["shared", "deps2"]\n', encoding="utf-8")
     monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
@@ -114,9 +135,7 @@ def test_commit_types_merges_user_then_repo_local(monkeypatch, tmp_path):
 def test_commit_types_never_reads_signoff_from_a_repo_local_config(monkeypatch, tmp_path):
     """Security: sign-off is a signing identity, so a clone can never set it."""
     local = tmp_path / ".relay.toml"
-    local.write_text(
-        '[commit]\nsignoff = true\ntypes = ["sec"]\n', encoding="utf-8"
-    )
+    local.write_text('[commit]\nsignoff = true\ntypes = ["sec"]\n', encoding="utf-8")
     monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local))
     monkeypatch.setenv("RELAY_CONFIG", str(tmp_path / "absent.toml"))
     assert config.commit_signoff() is False
@@ -136,10 +155,14 @@ def test_pr_base_branch_reads_the_env_var(monkeypatch):
 
 
 def test_pr_base_branch_reads_the_user_config(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         pr_base = "staging"
-    """)
+    """,
+    )
     assert config.pr_base_branch() == "staging"
 
 
@@ -163,10 +186,14 @@ def test_pr_base_branch_precedence_env_beats_repo_beats_user(monkeypatch, tmp_pa
 
 def test_pr_base_branch_ignores_blank_and_non_string_values(monkeypatch, tmp_path):
     monkeypatch.setenv("RELAY_PR_BASE", "   ")
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         pr_base = 7
-    """)
+    """,
+    )
     assert config.pr_base_branch() == "main"
 
 
@@ -190,10 +217,14 @@ def test_gemini_base_url_reads_the_env(monkeypatch):
 
 def test_gemini_base_url_is_env_only(monkeypatch, tmp_path):
     """Security: a config file must not be able to redirect the API key."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         gemini_base_url = "https://attacker.example"
-    """)
+    """,
+    )
     assert config.gemini_base_url() == "https://generativelanguage.googleapis.com"
 
 
@@ -205,26 +236,38 @@ def test_commit_signoff_defaults_to_off():
 
 
 def test_commit_signoff_reads_the_commit_table(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         signoff = true
-    """)
+    """,
+    )
     assert config.commit_signoff() is True
 
 
 def test_commit_signoff_explicit_false_stays_off(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         signoff = false
-    """)
+    """,
+    )
     assert config.commit_signoff() is False
 
 
 def test_commit_signoff_env_beats_the_file(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         signoff = false
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_COMMIT_SIGNOFF", "1")
     assert config.commit_signoff() is True
 
@@ -235,10 +278,14 @@ def test_commit_signoff_env_falsy_value_is_off(monkeypatch):
 
 
 def test_commit_signoff_accepts_string_values(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [commit]
         signoff = "yes"
-    """)
+    """,
+    )
     assert config.commit_signoff() is True
 
 
@@ -293,10 +340,14 @@ def test_max_diff_lines_default_and_override(monkeypatch):
 
 
 def test_file_timeout_is_still_clamped(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         ai_timeout = 99999
-    """)
+    """,
+    )
     assert config.ai_timeout() == 120
 
 
@@ -346,14 +397,18 @@ def test_xai_settings_defaults_then_env(monkeypatch):
 
 
 def test_api_keys_are_env_only(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         openai_api_key = "leaked"
         anthropic_api_key = "leaked"
         mistral_api_key = "leaked"
         groq_api_key = "leaked"
         xai_api_key = "leaked"
-    """)
+    """,
+    )
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
@@ -368,7 +423,10 @@ def test_api_keys_are_env_only(monkeypatch, tmp_path):
 
 def test_base_urls_are_env_only(monkeypatch, tmp_path):
     """Credential-bearing base URLs must never be read from an untrusted config file."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         ollama_base_url = "http://evil.example"
         openai_base_url = "http://evil.example"
@@ -376,7 +434,8 @@ def test_base_urls_are_env_only(monkeypatch, tmp_path):
         mistral_base_url = "http://evil.example"
         groq_base_url = "http://evil.example"
         xai_base_url = "http://evil.example"
-    """)
+    """,
+    )
     for key in (
         "OLLAMA_BASE_URL",
         "OPENAI_BASE_URL",
@@ -413,16 +472,24 @@ def test_max_diff_lines_wrong_typed_config_value_falls_back(monkeypatch, tmp_pat
     """Regression: a non-int TOML entry (bool / list) used to raise TypeError
     (uncaught, since only ValueError was caught) and crashed instead of falling
     back to the default — mirroring ai_timeout()'s tolerant parse."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         max_diff_lines = [1, 2]
-    """)
+    """,
+    )
     assert config.max_diff_lines() == 120
 
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         max_diff_lines = true
-    """)
+    """,
+    )
     assert config.max_diff_lines() == 120
 
 
@@ -439,19 +506,27 @@ def test_protected_branches_read_from_env(monkeypatch):
 
 
 def test_protected_branches_env_beats_file(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [team.protected]
         branches = ["release"]
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_PROTECTED_BRANCHES", "main")
     assert config.protected_branches() == ["main"]
 
 
 def test_protected_branches_read_from_toml(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [team.protected]
         branches = ["main", "develop"]
-    """)
+    """,
+    )
     assert config.protected_branches() == ["main", "develop"]
 
 
@@ -461,20 +536,28 @@ def test_protected_branches_empty_env_falls_back_to_default(monkeypatch):
 
 
 def test_protected_branches_absent_file_falls_back_to_default(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         provider = "ollama"
-    """)
+    """,
+    )
     assert config.protected_branches() == ["main", "master"]
 
 
 def test_protected_branches_empty_file_list_falls_back_to_default(monkeypatch, tmp_path):
     """A config file that explicitly lists zero branches means 'no override',
     so the built-in default (main, master) still applies."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [team.protected]
         branches = []
-    """)
+    """,
+    )
     assert config.protected_branches() == ["main", "master"]
 
 
@@ -485,12 +568,16 @@ def test_forge_tokens_are_env_only(monkeypatch, tmp_path):
     from relay.github import github_token
     from relay.gitlab import gitlab_token
 
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         github_token = "leaked"
         gitlab_token = "leaked"
         bitbucket_token = "leaked"
-    """)
+    """,
+    )
     for key in ("GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN", "BITBUCKET_TOKEN"):
         monkeypatch.delenv(key, raising=False)
     assert github_token() is None
@@ -508,9 +595,7 @@ def test_trusted_gitlab_hosts_defaults_to_gitlab_com():
 def test_trusted_gitlab_hosts_env_is_additive(monkeypatch):
     """gitlab.com stays trusted; the env var only adds hosts, so a mis-set
     value can never accidentally break the canonical host."""
-    monkeypatch.setenv(
-        "RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com, git.company.io"
-    )
+    monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com, git.company.io")
     assert config.trusted_gitlab_hosts() == [
         "gitlab.com",
         "gitlab.example.com",
@@ -528,18 +613,26 @@ def test_trusted_gitlab_hosts_env_lowercases_and_dedupes(monkeypatch):
 def test_trusted_gitlab_hosts_config_file_is_ignored(monkeypatch, tmp_path):
     """Config-file `trusted_gitlab_hosts` is ignored (env-only) so an untrusted
     repo-local config cannot expand credential destinations."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         trusted_gitlab_hosts = ["gitlab.internal.example", "gitlab.example.com"]
-    """)
+    """,
+    )
     assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
 def test_trusted_gitlab_hosts_env_beats_file(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         trusted_gitlab_hosts = ["gitlab.internal.example"]
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_TRUSTED_GITLAB_HOSTS", "gitlab.example.com")
     assert config.trusted_gitlab_hosts() == ["gitlab.com", "gitlab.example.com"]
 
@@ -550,19 +643,27 @@ def test_trusted_gitlab_hosts_empty_env_falls_back_to_default(monkeypatch):
 
 
 def test_trusted_gitlab_hosts_absent_file_falls_back_to_default(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         provider = "ollama"
-    """)
+    """,
+    )
     assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
 def test_trusted_gitlab_hosts_empty_file_list_is_ignored(monkeypatch, tmp_path):
     """An explicit empty list means 'no extra hosts', not 'trust nothing'."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         trusted_gitlab_hosts = []
-    """)
+    """,
+    )
     assert config.trusted_gitlab_hosts() == ["gitlab.com"]
 
 
@@ -571,9 +672,7 @@ def test_trusted_github_hosts_defaults_to_github_com():
 
 
 def test_trusted_github_hosts_env_is_additive(monkeypatch):
-    monkeypatch.setenv(
-        "RELAY_TRUSTED_GITHUB_HOSTS", "github.internal.net, gh.enterprise.io"
-    )
+    monkeypatch.setenv("RELAY_TRUSTED_GITHUB_HOSTS", "github.internal.net, gh.enterprise.io")
     assert config.trusted_github_hosts() == [
         "github.com",
         "github.internal.net",
@@ -588,42 +687,57 @@ def test_trusted_github_hosts_env_lowercases_and_dedupes(monkeypatch):
     assert config.trusted_github_hosts() == ["github.com", "github.internal.net"]
 
 
-
 def test_ai_default_supplies_provider_from_file(monkeypatch, tmp_path):
     """The [ai] table is a dedicated knob for the default provider."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [ai]
         default = "ollama"
-    """)
+    """,
+    )
     assert config.provider_from_env() == "ollama"
 
 
 def test_relay_provider_beats_ai_default(monkeypatch, tmp_path):
     """The existing [relay] provider key stays the higher-precedence file knob."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         provider = "gemini"
 
         [ai]
         default = "ollama"
-    """)
+    """,
+    )
     assert config.provider_from_env() == "gemini"
 
 
 def test_env_beats_ai_default(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [ai]
         default = "ollama"
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_AI_PROVIDER", "openai")
     assert config.provider_from_env() == "openai"
 
 
 def test_ai_default_absent_falls_back_to_builtin(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [team.protected]
         branches = ["main"]
-    """)
+    """,
+    )
     assert config.provider_from_env() == config.DEFAULT_PROVIDER
 
 
@@ -636,7 +750,10 @@ def test_no_config_file_uses_defaults(monkeypatch, tmp_path):
 
 
 def test_file_supplies_values_when_env_unset(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         provider = "ollama"
         branch_template = "release/<feature>"
@@ -644,7 +761,8 @@ def test_file_supplies_values_when_env_unset(monkeypatch, tmp_path):
         ai_timeout = 55
         max_diff_lines = 250
         pr_open = true
-    """)
+    """,
+    )
     assert config.provider_from_env() == "ollama"
     assert config.branch_template() == "release/<feature>"
     assert config.gemini_model() == "gemini-other"
@@ -654,19 +772,27 @@ def test_file_supplies_values_when_env_unset(monkeypatch, tmp_path):
 
 
 def test_env_beats_file(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         ai_timeout = 55
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_AI_TIMEOUT", "10")
     assert config.ai_timeout() == 10
 
 
 def test_secret_keys_never_read_from_file(monkeypatch, tmp_path):
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         gemini_api_key = "leaked"
-    """)
+    """,
+    )
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     assert config.gemini_api_key() is None
 
@@ -709,12 +835,16 @@ def test_config_file_is_read_once_per_state(monkeypatch, tmp_path):
 
     from relay import config as cfg
 
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         provider = "ollama"
         ai_timeout = 55
         branch_template = "release/<feature>"
-    """)
+    """,
+    )
     opened = []
     real_open = builtins.open
 
@@ -734,17 +864,25 @@ def test_config_file_is_read_once_per_state(monkeypatch, tmp_path):
 
 def test_config_file_cache_invalidates_on_change(monkeypatch, tmp_path):
     """Rewriting the file (different mtime/size) must re-parse it."""
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         ai_timeout = 55
-    """)
+    """,
+    )
     assert config.ai_timeout() == 55
 
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         ai_timeout = 77
         max_diff_lines = 200
-    """)
+    """,
+    )
     assert config.ai_timeout() == 77
     assert config.max_diff_lines() == 200
 
@@ -752,20 +890,26 @@ def test_config_file_cache_invalidates_on_change(monkeypatch, tmp_path):
 def test_repo_local_config_precedence(monkeypatch, tmp_path):
     """Repo-local .relay.toml overrides user config.toml, but env vars win over both."""
     user_cfg = tmp_path / "user_config.toml"
-    user_cfg.write_text(textwrap.dedent("""
+    user_cfg.write_text(
+        textwrap.dedent("""
         [relay]
         provider = "gemini"
         ai_timeout = 40
         branch_template = "user/<feature>"
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("RELAY_CONFIG", str(user_cfg))
 
     local_cfg = tmp_path / ".relay.toml"
-    local_cfg.write_text(textwrap.dedent("""
+    local_cfg.write_text(
+        textwrap.dedent("""
         [relay]
         provider = "openai"
         ai_timeout = 50
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local_cfg))
 
     assert config.provider_from_env() == "openai"
@@ -779,10 +923,13 @@ def test_repo_local_config_precedence(monkeypatch, tmp_path):
     assert config.ai_timeout() == 60
 
 
-def test_repo_local_config_security_allowlist_blocks_hooks_and_endpoints(monkeypatch, tmp_path, capsys):
+def test_repo_local_config_security_allowlist_blocks_hooks_and_endpoints(
+    monkeypatch, tmp_path, capsys
+):
     """Security boundary: .relay.toml must never allow hooks, base URLs, or secrets."""
     local_cfg = tmp_path / ".relay.toml"
-    local_cfg.write_text(textwrap.dedent("""
+    local_cfg.write_text(
+        textwrap.dedent("""
         [hooks.pre_commit]
         command = ["malicious", "command"]
 
@@ -793,7 +940,9 @@ def test_repo_local_config_security_allowlist_blocks_hooks_and_endpoints(monkeyp
 
         [ai]
         openai_model = "gpt-4o"
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local_cfg))
 
     # Hooks must remain None
@@ -811,13 +960,16 @@ def test_repo_local_config_security_allowlist_blocks_hooks_and_endpoints(monkeyp
 def test_repo_local_config_ignore_paths_and_protected_branches(monkeypatch, tmp_path):
     """Repo-local ignore paths and protected branches are loaded safely."""
     local_cfg = tmp_path / ".relay.toml"
-    local_cfg.write_text(textwrap.dedent("""
+    local_cfg.write_text(
+        textwrap.dedent("""
         [relay.ignore]
         paths = ["*.min.js", "dist/*"]
 
         [team.protected]
         branches = ["production", "release"]
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("RELAY_LOCAL_CONFIG", str(local_cfg))
 
     assert config.ignore_paths() == ["*.min.js", "dist/*"]
@@ -831,10 +983,14 @@ def test_validate_manual_defaults_off_then_env_and_file(monkeypatch, tmp_path):
     monkeypatch.setenv("RELAY_VALIDATE_MANUAL", "1")
     assert config.validate_manual_messages() is True
     monkeypatch.delenv("RELAY_VALIDATE_MANUAL", raising=False)
-    _write_toml(monkeypatch, tmp_path, """
+    _write_toml(
+        monkeypatch,
+        tmp_path,
+        """
         [relay]
         validate_manual = true
-    """)
+    """,
+    )
     assert config.validate_manual_messages() is True
 
 
@@ -857,4 +1013,3 @@ def test_provider_resolution_follows_layer_order(monkeypatch):
     assert config.provider_from_env() == config.DEFAULT_PROVIDER
     monkeypatch.setenv("RELAY_AI_PROVIDER", "Anthropic")
     assert config.provider_from_env() == "anthropic"
-

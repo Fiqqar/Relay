@@ -3,6 +3,7 @@
 urllib.request.urlopen is mocked so no real network request is ever made; the
 suite stays hermetic and offline-safe.
 """
+
 import io
 import json
 import os
@@ -51,7 +52,6 @@ class TestPullsUrl:
         assert client.pulls_url == (
             "https://github.internal.mycompany.com/api/v3/repos/acme/widget/pulls"
         )
-
 
 
 class TestFindOpenPr:
@@ -118,9 +118,7 @@ class TestFindOpenPr:
         from relay.github import _MAX_ERROR_BODY_BYTES
 
         body = b"x" * (_MAX_ERROR_BODY_BYTES + 500)
-        error = urllib.error.HTTPError(
-            "url", 500, "Internal Server Error", {}, io.BytesIO(body)
-        )
+        error = urllib.error.HTTPError("url", 500, "Internal Server Error", {}, io.BytesIO(body))
         mock_urlopen.side_effect = error
         client = GitHubClient("acme", "widget", token="t")
         with pytest.raises(GitHubError) as exc_info:
@@ -132,8 +130,8 @@ class TestFindOpenPr:
         """A healthy-looking but huge 2xx body must not be slurped whole."""
         from relay.github import MAX_RESPONSE_BYTES
 
-        mock_urlopen.return_value.__enter__.return_value.read.return_value = (
-            b"x" * (MAX_RESPONSE_BYTES + 1)
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = b"x" * (
+            MAX_RESPONSE_BYTES + 1
         )
         client = GitHubClient("acme", "widget", token="t")
         with pytest.raises(GitHubError, match="byte limit"):
@@ -224,7 +222,9 @@ class TestErrorDetail:
         assert error.reason == (
             "Validation Failed (A pull request already exists for acme:feat/login.)"
         )
-        assert "Validation Failed (A pull request already exists for acme:feat/login.)" in str(error)
+        assert "Validation Failed (A pull request already exists for acme:feat/login.)" in str(
+            error
+        )
 
     @mock.patch("relay.github.urllib.request.urlopen")
     def test_non_json_body_falls_back_to_raw_text(self, mock_urlopen):
@@ -317,9 +317,7 @@ class TestOpenPull:
     @mock.patch("relay.github.urllib.request.urlopen")
     def test_open_pull_forwards_draft_true(self, mock_urlopen):
         mock_urlopen.return_value.__enter__.return_value.read.return_value = b"{}"
-        GitHubClient("acme", "widget", token="t").open_pull(
-            title="x", head="h", draft=True
-        )
+        GitHubClient("acme", "widget", token="t").open_pull(title="x", head="h", draft=True)
         request = mock_urlopen.call_args.args[0]
         assert json.loads(request.data)["draft"] is True
 
@@ -366,7 +364,9 @@ class TestOpenPull:
     def test_transient_http_errors_retry_and_recover(self, mock_urlopen, mock_sleep):
         err_429 = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, io.BytesIO(b"{}"))
         success_resp = mock.MagicMock()
-        success_resp.__enter__.return_value.read.return_value = b'{"number": 1, "html_url": "https://github.com/acme/widget/pull/1"}'
+        success_resp.__enter__.return_value.read.return_value = (
+            b'{"number": 1, "html_url": "https://github.com/acme/widget/pull/1"}'
+        )
         mock_urlopen.side_effect = [err_429, success_resp]
 
         client = GitHubClient("acme", "widget", token="t")
@@ -375,4 +375,3 @@ class TestOpenPull:
         assert mock_urlopen.call_count == 2
         assert mock_sleep.call_count == 1
         assert 1.0 <= mock_sleep.call_args.args[0] <= 1.6
-

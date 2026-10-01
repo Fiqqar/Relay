@@ -5,6 +5,7 @@ capped reads, transient (429/5xx) retry with backoff+jitter, and normalized
 errors. These tests pin that shared contract once, so the per-forge suites
 only need to cover their own payload shapes.
 """
+
 import io
 import urllib.error
 import urllib.request
@@ -60,9 +61,7 @@ def test_success_returns_parsed_json():
 def test_success_body_with_non_utf8_bytes_uses_replacement():
     """A stray non-UTF-8 byte in a success body must not crash decoding."""
     req = urllib.request.Request("https://api.example.com/x", method="GET")
-    with mock.patch(
-        "urllib.request.urlopen", return_value=fake_http(b'{"note": "\xff ok"}')
-    ):
+    with mock.patch("urllib.request.urlopen", return_value=fake_http(b'{"note": "\xff ok"}')):
         assert call_helper(req) == {"note": "� ok"}
 
 
@@ -144,9 +143,10 @@ def test_join_error_messages_collects_dict_and_string_entries():
 
 def test_join_error_messages_skips_unusable_entries():
     assert join_error_messages(["raw", {"message": 42}, {"other": 1}, None]) == ""
-    assert join_error_messages(
-        ["raw", {"message": 42}, {"other": 1}, None], bare_strings=True
-    ) == "raw"
+    assert (
+        join_error_messages(["raw", {"message": 42}, {"other": 1}, None], bare_strings=True)
+        == "raw"
+    )
 
 
 def test_join_error_messages_empty_and_non_list():

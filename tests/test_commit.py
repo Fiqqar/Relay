@@ -1,5 +1,6 @@
 """Unit tests for relay/commit.py — the message sanitizer, the Conventional
 Commit validator, and the team-mode branch-name builder."""
+
 import pytest
 
 from relay.commit import (
@@ -42,7 +43,10 @@ class TestSanitizeAIMessage:
     def test_keeps_first_nonempty_line(self):
         # Preamble text means the sanitizer keeps the first line; the VALIDATOR
         # is what rejects that garbage and triggers the manual fallback.
-        assert sanitize_ai_message("sure, here you go:\n\ndocs: real message\n") == "sure, here you go:"
+        assert (
+            sanitize_ai_message("sure, here you go:\n\ndocs: real message\n")
+            == "sure, here you go:"
+        )
 
     def test_empty_and_whitespace_only_input(self):
         assert sanitize_ai_message("") == ""
@@ -78,7 +82,7 @@ class TestValidateConventional:
             "feat:",
             "feat: ",
             "chore:  ",
-            "bogus: something",       # unknown type
+            "bogus: something",  # unknown type
             "fix(api",
             "feat(auth):",
         ],
@@ -150,8 +154,12 @@ class TestBuildBranchName:
         assert build_branch_name("status/<feature>", "payments") == "status/payments"
 
     def test_type_placeholder_uses_commit_type(self):
-        assert build_branch_name("<type>/<feature>", "payments", commit_type="fix") == "fix/payments"
-        assert build_branch_name("<type>/<feature>", "payments", commit_type="docs") == "docs/payments"
+        assert (
+            build_branch_name("<type>/<feature>", "payments", commit_type="fix") == "fix/payments"
+        )
+        assert (
+            build_branch_name("<type>/<feature>", "payments", commit_type="docs") == "docs/payments"
+        )
 
     def test_type_placeholder_defaults_to_feat(self):
         assert build_branch_name("<type>/<feature>", "payments") == "feat/payments"
@@ -169,7 +177,10 @@ class TestBuildBranchName:
         )
 
     def test_commit_type_is_sanitized(self):
-        assert build_branch_name("<type>/<feature>", "payments", commit_type="Bug Fix") == "bug-fix/payments"
+        assert (
+            build_branch_name("<type>/<feature>", "payments", commit_type="Bug Fix")
+            == "bug-fix/payments"
+        )
 
     def test_uppercase_and_spaces_are_slugified(self):
         assert build_branch_name("status/<feature>", "Payments API") == "status/payments-api"

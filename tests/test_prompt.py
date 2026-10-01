@@ -3,6 +3,7 @@
 The whole point of this module is to make the `a` (Accept) vs `A` (Abort)
 distinction strict, so the case-sensitive edge cases are covered exhaustively.
 """
+
 import os
 from unittest import mock
 
@@ -170,9 +171,7 @@ class TestOpenInEditorEdgeCases:
 
         with mock.patch("sys.stdin.isatty", return_value=True):
             with mock.patch("sys.platform", "win32"):
-                with mock.patch.dict(
-                    "os.environ", {"GIT_EDITOR": "C:\\tools\\ed.exe"}, clear=True
-                ):
+                with mock.patch.dict("os.environ", {"GIT_EDITOR": "C:\\tools\\ed.exe"}, clear=True):
                     with mock.patch("os.path.isfile", return_value=True):
                         with mock.patch("subprocess.run", side_effect=fake_run):
                             result = open_in_editor("draft")
@@ -188,9 +187,7 @@ class TestOpenInEditorEdgeCases:
 
         with mock.patch("sys.stdin.isatty", return_value=True):
             with mock.patch("sys.platform", "linux"):
-                with mock.patch.dict(
-                    "os.environ", {"EDITOR": "code --wait"}, clear=True
-                ):
+                with mock.patch.dict("os.environ", {"EDITOR": "code --wait"}, clear=True):
                     with mock.patch("subprocess.run", side_effect=fake_run):
                         # Editor left the file untouched, so the draft is returned.
                         assert open_in_editor("draft") == "draft"
@@ -200,9 +197,7 @@ class TestOpenInEditorEdgeCases:
     def test_editor_spawn_failure_returns_none(self):
         with mock.patch("sys.stdin.isatty", return_value=True):
             with mock.patch.dict("os.environ", {"EDITOR": "dummy-editor"}):
-                with mock.patch(
-                    "subprocess.run", side_effect=FileNotFoundError("no editor")
-                ):
+                with mock.patch("subprocess.run", side_effect=FileNotFoundError("no editor")):
                     assert open_in_editor("draft") is None
 
     def test_cleanup_failure_still_returns_content(self):

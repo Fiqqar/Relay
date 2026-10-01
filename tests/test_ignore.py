@@ -1,4 +1,5 @@
 """Tests for AI diff ignore paths — [relay.ignore] + RELAY_IGNORE_PATHS."""
+
 import textwrap
 from unittest import mock
 
@@ -23,6 +24,7 @@ def _write(monkeypatch, tmp_path, body: str):
 
 # ---- config: ignore_paths -------------------------------------------------
 
+
 def test_ignore_paths_defaults_to_empty():
     assert config.ignore_paths() == []
 
@@ -38,44 +40,64 @@ def test_ignore_paths_env_strips_and_drops_empty(monkeypatch):
 
 
 def test_ignore_paths_env_beats_file(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [relay.ignore]
         paths = ["from-file.txt"]
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_IGNORE_PATHS", "from-env.txt")
     assert config.ignore_paths() == ["from-env.txt"]
 
 
 def test_ignore_paths_read_from_file(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [relay.ignore]
         paths = ["dist/*", "*.lock"]
-    """)
+    """,
+    )
     assert config.ignore_paths() == ["dist/*", "*.lock"]
 
 
 def test_ignore_paths_empty_file_falls_back(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [relay.ignore]
         paths = []
-    """)
+    """,
+    )
     assert config.ignore_paths() == []
 
 
 def test_ignore_paths_empty_env_falls_back(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [relay.ignore]
         paths = ["keep.txt"]
-    """)
+    """,
+    )
     monkeypatch.setenv("RELAY_IGNORE_PATHS", "   ")
     assert config.ignore_paths() == ["keep.txt"]
 
 
 def test_ignore_paths_file_with_spaces_stripped(monkeypatch, tmp_path):
-    _write(monkeypatch, tmp_path, """
+    _write(
+        monkeypatch,
+        tmp_path,
+        """
         [relay.ignore]
         paths = ["  dist/*  ", "  a.py"]
-    """)
+    """,
+    )
     assert config.ignore_paths() == ["dist/*", "a.py"]
 
 
@@ -167,6 +189,7 @@ def test_filter_stat_all_ignored_removes_file_lines():
 
 # ---- orchestrator integration ---------------------------------------------
 
+
 class StubAI:
     def __init__(self):
         self.calls = []
@@ -218,9 +241,7 @@ def test_orchestrator_all_ignored_falls_back_to_manual(monkeypatch):
         orch = Orchestrator(git=git, provider=ai, yes=False, no_push=True)
         orch.run()
     assert ai.calls == []  # AI should not be called when filtered diff empty
-    git.commit.assert_called_once_with(
-        "feat: manual after ignore", no_verify=False, signoff=False
-    )
+    git.commit.assert_called_once_with("feat: manual after ignore", no_verify=False, signoff=False)
 
 
 def test_orchestrator_no_ignore_passes_full_diff(monkeypatch):
