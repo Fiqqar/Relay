@@ -10,6 +10,7 @@ enforced as code instead of folklore.
 - No dynamic imports (``__import__`` / ``importlib``) that could smuggle a
   dependency past the static scan.
 """
+
 import ast
 import sys
 import tomllib
@@ -24,8 +25,7 @@ def test_pyproject_runtime_dependencies_stay_empty():
     with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
         data = tomllib.load(fh)
     assert data["project"]["dependencies"] == [], (
-        "runtime dependencies must stay empty (stdlib only); "
-        "discuss first per WORKING_RULES rule 3"
+        "runtime dependencies must stay empty (stdlib only); discuss first per WORKING_RULES rule 3"
     )
 
 
@@ -75,6 +75,8 @@ def test_no_dynamic_imports():
                 violations.append(f"{path.relative_to(REPO_ROOT)}:{node.lineno}: {func}")
             if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("importlib"):
                 violations.append(f"{path.relative_to(REPO_ROOT)}:{node.lineno}: importlib")
-            if isinstance(node, ast.Import) and any(a.name.split(".")[0] == "importlib" for a in node.names):
+            if isinstance(node, ast.Import) and any(
+                a.name.split(".")[0] == "importlib" for a in node.names
+            ):
                 violations.append(f"{path.relative_to(REPO_ROOT)}:{node.lineno}: importlib")
     assert violations == [], f"dynamic imports slipped in: {violations}"

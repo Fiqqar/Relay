@@ -16,6 +16,7 @@ The parsed config file is cached per (path, mtime, size) so a CLI run reads it
 at most once even though individual getters (provider, model, branch template,
 timeouts, protected branches) each resolve through it.
 """
+
 from __future__ import annotations
 
 import os
@@ -579,7 +580,6 @@ def trusted_github_hosts() -> list[str]:
     if env_raw is not None and env_raw.strip():
         extra = _split_branch_list(env_raw)
     return _normalize_hosts([*DEFAULT_TRUSTED_GITHUB_HOSTS, *extra])
-
 
 
 def _load_hooks() -> dict:

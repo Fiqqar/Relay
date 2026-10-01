@@ -14,6 +14,7 @@ Usage:
     relay completions fish > ~/.config/fish/completions/relay.fish
     relay completions powershell > relay-completion.ps1
 """
+
 from __future__ import annotations
 
 # The single source of truth for what the completion scripts advertise. Kept in
@@ -23,18 +24,41 @@ from __future__ import annotations
 # maintainer-only subcommand (argparse.SUPPRESS in cli.py), so tab-completion
 # must not advertise it to end users.
 SUBCOMMANDS = [
-    "amend", "completions", "doctor", "man", "pr", "squash", "stage",
-    "telemetry", "undo",
+    "amend",
+    "completions",
+    "doctor",
+    "man",
+    "pr",
+    "squash",
+    "stage",
+    "telemetry",
+    "undo",
 ]
 
 # Subcommands that exist in the parser but are hidden from users.
 HIDDEN_SUBCOMMANDS = ("verify-release",)
 
 GLOBAL_FLAGS = [
-    "--version", "--solo", "--team", "-m", "--message", "--provider",
-    "--timeout", "--yes", "--dry-run", "--no-push", "--staged", "--no-verify",
-    "-s", "--signoff", "--allow-protected", "--hunks", "--repo", "--verbose",
-    "--validate-manual", "--allow-sensitive",
+    "--version",
+    "--solo",
+    "--team",
+    "-m",
+    "--message",
+    "--provider",
+    "--timeout",
+    "--yes",
+    "--dry-run",
+    "--no-push",
+    "--staged",
+    "--no-verify",
+    "-s",
+    "--signoff",
+    "--allow-protected",
+    "--hunks",
+    "--repo",
+    "--verbose",
+    "--validate-manual",
+    "--allow-sensitive",
 ]
 
 # Per-subcommand flags, one table for every shell. Values are the flag
@@ -236,8 +260,7 @@ def fish_script() -> str:
             long = "" if short else flag[2:]
             spec = f"-s {short}" if short else f"-l {long}"
             lines.append(
-                "complete -c relay -n "
-                f"'__fish_seen_subcommand_from {sub}' {spec} -d '{desc}'"
+                f"complete -c relay -n '__fish_seen_subcommand_from {sub}' {spec} -d '{desc}'"
             )
     lines += [
         "complete -c relay -n '__fish_use_subcommand' -l solo -d 'commit on the current branch'",
@@ -313,9 +336,7 @@ def generate(shell: str) -> str:
     """Return the completion script for ``shell``; raises ValueError otherwise."""
     normalized = shell.lower()
     if normalized not in SHELLS:
-        raise ValueError(
-            f"unsupported shell '{shell}'; choose from: {', '.join(SHELLS)}"
-        )
+        raise ValueError(f"unsupported shell '{shell}'; choose from: {', '.join(SHELLS)}")
     return {
         "bash": bash_script,
         "zsh": zsh_script,

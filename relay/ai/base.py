@@ -9,6 +9,7 @@ The Orchestrator only ever sees the ``AIManager`` interface and never knows
 which provider is behind it — which is exactly what makes the fallback logic
 provider-independent.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -96,6 +97,7 @@ def normalize_transport_error(exc: BaseException, *, provider: str, timeout: int
         return AIError(provider, "unavailable", f"network error: {exc}")
     return AIError(provider, "unavailable", f"connection error: {exc}")
 
+
 # Byte budget for the diff sent to the LLM. Even if line-count is within cap,
 # a single line (e.g. minified file) could be huge.
 MAX_DIFF_BYTES = 512 * 1024  # 512 KiB
@@ -136,6 +138,7 @@ def decode_provider_json(body: bytes, provider: str) -> dict:
     if not isinstance(data, dict):
         raise AIError(provider, "bad_response", f"unexpected JSON payload: {str(data)[:200]}")
     return data
+
 
 # The single source of truth for how the AI must write commit messages.
 # It lives here (not inside a provider) so every provider produces the same
@@ -272,7 +275,6 @@ def split_diff_by_file(diff: str) -> list[tuple[str, str]]:
     return blocks
 
 
-
 def truncate_diff(diff: str, max_lines: int | None = None, max_bytes: int | None = None):
     """Cap a staged diff to ``max_lines`` lines and ``max_bytes`` bytes.
 
@@ -369,7 +371,9 @@ class AIManager(ABC):
         diff, was_truncated = truncate_diff(diff, max_lines)
         stat = truncate_stat(stat)
         cap = max_lines if max_lines is not None else max_diff_lines()
-        notice = f"\nNote: the diff was truncated to its first {cap} lines.\n" if was_truncated else ""
+        notice = (
+            f"\nNote: the diff was truncated to its first {cap} lines.\n" if was_truncated else ""
+        )
         recent_section = ""
         if recent_commits:
             items = "\n".join(f"- {c}" for c in recent_commits[:5] if c.strip())
@@ -437,7 +441,5 @@ class AIManager(ABC):
         except Exception as exc:  # noqa: BLE001 - provider internals are opaque
             raise AIError(self.provider_name, "unexpected", str(exc)) from exc
         if not isinstance(result, str) or not result.strip():
-            raise AIError(
-                self.provider_name, "bad_response", "empty response from provider"
-            )
+            raise AIError(self.provider_name, "bad_response", "empty response from provider")
         return result

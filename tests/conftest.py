@@ -3,6 +3,7 @@
 These fixtures are deliberately small and dependency-free (only pytest + the
 stdlib), mirroring the zero-dependency philosophy of the tool itself.
 """
+
 import subprocess
 
 import pytest

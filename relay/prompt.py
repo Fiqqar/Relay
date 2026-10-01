@@ -15,6 +15,7 @@ offline fallback prompt). They live here instead of the Orchestrator so the
 workflow driver stays a thin state machine and the prompting logic can be
 tested without building an Orchestrator.
 """
+
 from __future__ import annotations
 
 import os

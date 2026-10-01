@@ -3,6 +3,7 @@
 Every exception in the app inherits from RelayError so the CLI layer has a
 single place to turn failures into actionable messages and process exit codes.
 """
+
 import re as _re
 
 

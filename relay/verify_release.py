@@ -9,6 +9,7 @@ Pure stdlib only, matching the zero-dependency philosophy of the rest of the
 tool. Read-only: verifies, never mutates. Every failure degrades to a FAIL
 row — this command never tracebacks.
 """
+
 from __future__ import annotations
 
 import base64
@@ -27,12 +28,8 @@ from . import __version__
 from .errors import RelayError, sanitize_terminal
 from .github import github_token
 
-_RELEASE_TAG_URL = (
-    "https://api.github.com/repos/Fiqqar/Relay/releases/tags/{tag}"
-)
-_FORMULA_CONTENTS_URL = (
-    "https://api.github.com/repos/Fiqqar/homebrew-Relay/contents/relay.rb"
-)
+_RELEASE_TAG_URL = "https://api.github.com/repos/Fiqqar/Relay/releases/tags/{tag}"
+_FORMULA_CONTENTS_URL = "https://api.github.com/repos/Fiqqar/homebrew-Relay/contents/relay.rb"
 
 # A release payload is a few KiB; SHA256SUMS is smaller still. The wheel is a
 # few hundred KiB — 64 MiB is generous headroom, not an invitation.
@@ -120,9 +117,7 @@ def _headers(accept: str) -> dict[str, str]:
 
 def _fetch_json(url: str, timeout: int = 30) -> Any:
     """GET a GitHub API URL and decode its JSON body (size-capped)."""
-    req = urllib.request.Request(
-        url, headers=_headers("application/vnd.github+json")
-    )
+    req = urllib.request.Request(url, headers=_headers("application/vnd.github+json"))
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
         body = resp.read(_MAX_JSON_BYTES + 1)
     if len(body) > _MAX_JSON_BYTES:
@@ -139,9 +134,7 @@ def _fetch_public_body(url: str, timeout: int, max_bytes: int, kind: str) -> byt
     """
     current = url
     for _ in range(_MAX_REDIRECTS):
-        req = urllib.request.Request(
-            current, headers={"User-Agent": "relay-cli", "Accept": "*/*"}
-        )
+        req = urllib.request.Request(current, headers={"User-Agent": "relay-cli", "Accept": "*/*"})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
                 body = resp.read(max_bytes + 1)
@@ -186,9 +179,7 @@ def _decode_formula_payload(payload: Any) -> str:
         raise VerifyError(f"Homebrew formula payload is corrupt ({exc})") from exc
 
 
-def _report(
-    ver: str, tag: str, checks: list[Check], json_output: bool
-) -> int:
+def _report(ver: str, tag: str, checks: list[Check], json_output: bool) -> int:
     failed = sum(1 for c in checks if c.status == "fail")
     passed = sum(1 for c in checks if c.status == "ok")
     skipped = sum(1 for c in checks if c.status == "skip")
@@ -264,18 +255,14 @@ def run_verify_release(
         if exc.code == 404:
             checks.append(Check("Release tag", "fail", f"{tag} not found on GitHub"))
         else:
-            checks.append(
-                Check("Release tag", "fail", f"GitHub API HTTP {exc.code}")
-            )
+            checks.append(Check("Release tag", "fail", f"GitHub API HTTP {exc.code}"))
         return _report(ver, tag, checks, json_output)
     except Exception as exc:  # noqa: BLE001 - verify must never traceback
         checks.append(Check("Release tag", "fail", f"cannot reach GitHub ({exc})"))
         return _report(ver, tag, checks, json_output)
     if not isinstance(release, dict) or release.get("tag_name") != tag:
         found = release.get("tag_name") if isinstance(release, dict) else None
-        checks.append(
-            Check("Release tag", "fail", f"tag_name is {found!r}, expected {tag!r}")
-        )
+        checks.append(Check("Release tag", "fail", f"tag_name is {found!r}, expected {tag!r}"))
         return _report(ver, tag, checks, json_output)
     # The API calls the release title `name` (`gh release create --title`
     # maps to it); there is no `title` field.
@@ -285,8 +272,7 @@ def run_verify_release(
             Check(
                 "Release tag",
                 "fail",
-                f"release name is {name!r}, expected {tag!r} "
-                "(must be strictly vx.y.z)",
+                f"release name is {name!r}, expected {tag!r} (must be strictly vx.y.z)",
             )
         )
         return _report(ver, tag, checks, json_output)
@@ -298,18 +284,12 @@ def run_verify_release(
     if isinstance(raw_assets, list):
         for entry in raw_assets:
             if isinstance(entry, dict) and entry.get("name"):
-                assets[str(entry["name"])] = str(
-                    entry.get("browser_download_url") or ""
-                )
+                assets[str(entry["name"])] = str(entry.get("browser_download_url") or "")
     missing = [n for n in (wheel, sdist, "SHA256SUMS") if not assets.get(n)]
     if missing:
-        checks.append(
-            Check("Release assets", "fail", "missing: " + ", ".join(missing))
-        )
+        checks.append(Check("Release assets", "fail", "missing: " + ", ".join(missing)))
         return _report(ver, tag, checks, json_output)
-    checks.append(
-        Check("Release assets", "ok", f"{wheel}, {sdist}, SHA256SUMS present")
-    )
+    checks.append(Check("Release assets", "ok", f"{wheel}, {sdist}, SHA256SUMS present"))
 
     # ---- 3. SHA256SUMS covers the artifacts --------------------------------
     note_fetch(assets["SHA256SUMS"])
@@ -323,9 +303,7 @@ def run_verify_release(
         return _report(ver, tag, checks, json_output)
     uncovered = [n for n in (wheel, sdist) if n not in sums]
     if uncovered:
-        checks.append(
-            Check("SHA256SUMS", "fail", "no entry for: " + ", ".join(uncovered))
-        )
+        checks.append(Check("SHA256SUMS", "fail", "no entry for: " + ", ".join(uncovered)))
         return _report(ver, tag, checks, json_output)
     checks.append(Check("SHA256SUMS", "ok", "covers the wheel + sdist"))
 
@@ -334,9 +312,7 @@ def run_verify_release(
     try:
         manifest = json.loads(scoop_file.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        checks.append(
-            Check("Scoop manifest", "fail", f"{scoop_file} not found")
-        )
+        checks.append(Check("Scoop manifest", "fail", f"{scoop_file} not found"))
         manifest = None
     except (OSError, ValueError) as exc:
         checks.append(Check("Scoop manifest", "fail", f"unreadable ({exc})"))
@@ -351,12 +327,8 @@ def run_verify_release(
                 )
             )
         elif not str(manifest.get("url") or "").endswith(f"v{ver}/{wheel}"):
-            checks.append(
-                Check("Scoop manifest", "fail", f"url is not the {tag} wheel")
-            )
-        elif str(manifest.get("hash") or "").removeprefix("sha256:").lower() != sums[
-            wheel
-        ]:
+            checks.append(Check("Scoop manifest", "fail", f"url is not the {tag} wheel"))
+        elif str(manifest.get("hash") or "").removeprefix("sha256:").lower() != sums[wheel]:
             checks.append(
                 Check(
                     "Scoop manifest",
@@ -365,9 +337,7 @@ def run_verify_release(
                 )
             )
         else:
-            checks.append(
-                Check("Scoop manifest", "ok", f"version {ver}, hash matches")
-            )
+            checks.append(Check("Scoop manifest", "ok", f"version {ver}, hash matches"))
 
     # ---- 5. the Homebrew formula tracks this release ------------------------
     note_fetch(_FORMULA_CONTENTS_URL)
@@ -378,15 +348,11 @@ def run_verify_release(
         checks.append(Check("Homebrew formula", "fail", str(exc)))
         formula_url, formula_sha = "", ""
     except Exception as exc:  # noqa: BLE001 - verify must never traceback
-        checks.append(
-            Check("Homebrew formula", "fail", f"cannot fetch it ({exc})")
-        )
+        checks.append(Check("Homebrew formula", "fail", f"cannot fetch it ({exc})"))
         formula_url, formula_sha = "", ""
     else:
         if not formula_url.endswith(f"v{ver}/{sdist}"):
-            checks.append(
-                Check("Homebrew formula", "fail", f"url is not the {tag} sdist")
-            )
+            checks.append(Check("Homebrew formula", "fail", f"url is not the {tag} sdist"))
         elif formula_sha != sums[sdist]:
             checks.append(
                 Check(
@@ -396,9 +362,7 @@ def run_verify_release(
                 )
             )
         else:
-            checks.append(
-                Check("Homebrew formula", "ok", f"version {ver}, sha256 matches")
-            )
+            checks.append(Check("Homebrew formula", "ok", f"version {ver}, sha256 matches"))
 
     # ---- 6. optional: re-hash the wheel --------------------------------------
     if download:
@@ -406,9 +370,7 @@ def run_verify_release(
         try:
             digest = hashlib.sha256(_fetch_bytes(assets[wheel])).hexdigest()
         except Exception as exc:  # noqa: BLE001 - verify must never traceback
-            checks.append(
-                Check("Download", "fail", f"cannot download the wheel ({exc})")
-            )
+            checks.append(Check("Download", "fail", f"cannot download the wheel ({exc})"))
         else:
             if digest != sums[wheel]:
                 checks.append(
@@ -419,9 +381,7 @@ def run_verify_release(
                     )
                 )
             else:
-                checks.append(
-                    Check("Download", "ok", "wheel bytes match SHA256SUMS")
-                )
+                checks.append(Check("Download", "ok", "wheel bytes match SHA256SUMS"))
 
     return _report(ver, tag, checks, json_output)
 

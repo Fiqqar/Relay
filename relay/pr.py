@@ -25,6 +25,7 @@ Body resolution order (first match wins):
 ``--edit`` opens whichever of those won in ``$EDITOR`` before the request is
 sent, so the description can be reviewed like a commit message.
 """
+
 from __future__ import annotations
 
 import urllib.parse
@@ -118,9 +119,7 @@ def _existing_url(host: str, owner: str, repo: str, existing) -> str:
     return _pr_web_url(host, owner, repo, number)
 
 
-def _exit_existing_pr_host(
-    host: str, owner: str, repo: str, existing, open_browser: bool
-) -> int:
+def _exit_existing_pr_host(host: str, owner: str, repo: str, existing, open_browser: bool) -> int:
     """Report an existing PR/MR (or the best URL we can build) and stop gracefully."""
     url = _existing_url(host, owner, repo, existing)
     print(f"[relay] PR already exists: {sanitize_terminal(url)}")
@@ -148,14 +147,11 @@ def _resolve_title(
         remote_base = f"origin/{base}"
         range_diff = git.diff_range(remote_base, target_head)
         range_stat = git.stat_range(remote_base, target_head)
-        subject = sanitize_ai_message(
-            provider.generate(range_diff, range_stat, target_head)
-        )
+        subject = sanitize_ai_message(provider.generate(range_diff, range_stat, target_head))
         if subject:
             return subject[:_PR_TITLE_MAX]
     raise RelayError(
-        "could not derive a PR title (no --title and no commits to read); "
-        "pass --title"
+        "could not derive a PR title (no --title and no commits to read); pass --title"
     )
 
 
@@ -211,8 +207,7 @@ def _read_body_file(path: str) -> str:
         return Path(path).read_text(encoding="utf-8")
     except OSError as exc:
         raise RelayError(
-            f"cannot read --body-file {sanitize_terminal(path)}: "
-            f"{sanitize_terminal(str(exc))}"
+            f"cannot read --body-file {sanitize_terminal(path)}: {sanitize_terminal(str(exc))}"
         ) from exc
 
 
@@ -241,10 +236,7 @@ def _resolve_body(
         return resolved
     edited = open_in_editor(resolved, git=git)
     if edited is None:
-        print(
-            "[relay] editor unavailable or edit cancelled; "
-            "using the resolved description."
-        )
+        print("[relay] editor unavailable or edit cancelled; using the resolved description.")
         return resolved
     return edited
 
@@ -270,9 +262,7 @@ def _run_github(
     if existing is not None:
         return _exit_existing_pr_host(host, owner, repo, existing, open_browser)
     try:
-        created = client.open_pull(
-            title=title, head=head, base=base, body=body, draft=draft
-        )
+        created = client.open_pull(title=title, head=head, base=base, body=body, draft=draft)
     except DuplicatePullRequestError:
         # Race or a fork-owner head: re-query and exit gracefully instead of a 422.
         existing = client.find_open_pr(head=head)
@@ -308,8 +298,11 @@ def _run_bitbucket(
         return _exit_existing_pr_host("bitbucket.org", owner, repo, existing, open_browser)
     try:
         created = client.open_pull(
-            title=title, source_branch=head, destination_branch=base,
-            description=body, draft=draft,
+            title=title,
+            source_branch=head,
+            destination_branch=base,
+            description=body,
+            draft=draft,
         )
     except BitbucketDuplicateError:
         # Race or a stale lookup: re-query and exit gracefully instead of a 400.
@@ -437,12 +430,13 @@ def run_pr(
     # the exact push command instead of surfacing a confusing 4xx from the API.
     if not git.remote_has_branch(head):
         raise RelayError(
-            f"branch '{head}' has not been pushed to origin; "
-            f"run `git push -u origin {head}` first"
+            f"branch '{head}' has not been pushed to origin; run `git push -u origin {head}` first"
         )
 
     if not base or base.startswith("-") or ".." in base or base.startswith("."):
-        raise RelayError(f"invalid base branch name {base!r} (use --base <branch>, e.g. --base main)")
+        raise RelayError(
+            f"invalid base branch name {base!r} (use --base <branch>, e.g. --base main)"
+        )
 
     # Refresh the remote base so the body reflects commits the host actually
     # knows about, not a stale local branch. A failed fetch is fine —
@@ -481,20 +475,40 @@ def run_pr(
 
     if host in trusted_gh:
         return _run_github(
-            host=host, owner=owner, repo=repo, head=head, base=base,
-            title=pr_title, body=pr_body, draft=draft,
-            open_browser=open_browser, verbose=verbose,
+            host=host,
+            owner=owner,
+            repo=repo,
+            head=head,
+            base=base,
+            title=pr_title,
+            body=pr_body,
+            draft=draft,
+            open_browser=open_browser,
+            verbose=verbose,
         )
     if host in trusted_gl:
         return _run_gitlab(
-            host=host, owner=owner, repo=repo, head=head, base=base,
-            title=pr_title, body=pr_body, draft=draft,
-            open_browser=open_browser, verbose=verbose,
+            host=host,
+            owner=owner,
+            repo=repo,
+            head=head,
+            base=base,
+            title=pr_title,
+            body=pr_body,
+            draft=draft,
+            open_browser=open_browser,
+            verbose=verbose,
         )
     return _run_bitbucket(
-        owner=owner, repo=repo, head=head, base=base,
-        title=pr_title, body=pr_body, draft=draft,
-        open_browser=open_browser, verbose=verbose,
+        owner=owner,
+        repo=repo,
+        head=head,
+        base=base,
+        title=pr_title,
+        body=pr_body,
+        draft=draft,
+        open_browser=open_browser,
+        verbose=verbose,
     )
 
 

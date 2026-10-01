@@ -5,6 +5,7 @@ in the TOML config file. They run via ``subprocess.run(..., shell=False)`` so
 a hook like ``["echo", "hi; rm -rf /"]`` still treats the semicolon as a
 literal argument, never as a shell metacharacter.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -14,9 +15,7 @@ from .errors import GitError, sanitize_terminal
 _HOOK_TIMEOUT = 60.0
 
 
-def run_hook(
-    argv: list[str], *, cwd: str | None = None, verbose: bool = False
-) -> None:
+def run_hook(argv: list[str], *, cwd: str | None = None, verbose: bool = False) -> None:
     """Run a hook argv. Raises GitError if it exits non-zero.
 
     ``cwd`` is the work tree the hook belongs to. Multi-repo runs

@@ -13,6 +13,7 @@ Filenames deliberately avoid ``| : ? * < > "`` so the suite also passes on
 Windows (NTFS forbids those); pipe/command-substitution coverage comes from
 the commit-message payloads instead, which travel via stdin.
 """
+
 from sechelp import run_git
 
 # Payloads crafted so shell interpretation would create a file named "pwned".

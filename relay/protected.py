@@ -17,6 +17,7 @@ committed. ``--yes`` only skips the confirmation prompt — it deliberately does
 not bypass this guard, so a scripted/CI run cannot silently land on a
 protected branch.
 """
+
 from __future__ import annotations
 
 import fnmatch

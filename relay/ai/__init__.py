@@ -1,6 +1,7 @@
 """AI provider registry — the single place that maps a flag/config value to a
 provider class. Add a new provider here and it becomes selectable everywhere.
 """
+
 from __future__ import annotations
 
 from ..errors import ConfigError

@@ -1,4 +1,5 @@
 """Small helpers shared by the security regression modules (importable by name)."""
+
 import subprocess
 
 

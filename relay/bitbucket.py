@@ -11,6 +11,7 @@ it exactly like the other two forges. Only Bitbucket Cloud (``bitbucket.org``)
 is supported; self-hosted Bitbucket Server uses a different REST API and is out
 of scope.
 """
+
 from __future__ import annotations
 
 import base64
@@ -126,9 +127,7 @@ class BitbucketClient:
 
     def _require_token(self) -> str:
         if not self.token:
-            raise BitbucketError(
-                "BITBUCKET_TOKEN is not set; run `relay doctor` for help"
-            )
+            raise BitbucketError("BITBUCKET_TOKEN is not set; run `relay doctor` for help")
         return self.token
 
     def _basic_auth(self, token: str) -> str:
@@ -174,9 +173,7 @@ class BitbucketClient:
         """
         token = self._require_token()
         escaped = source_branch.replace("\\", "\\\\").replace('"', '\\"')
-        query = urllib.parse.urlencode(
-            {"q": f'source.branch.name="{escaped}" AND state="OPEN"'}
-        )
+        query = urllib.parse.urlencode({"q": f'source.branch.name="{escaped}" AND state="OPEN"'})
         request = urllib.request.Request(
             f"{self.pulls_url}?{query}",
             headers={

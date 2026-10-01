@@ -7,6 +7,7 @@ so it composes cleanly with installers and CI smoke tests.
 Pure stdlib only, matching the zero-dependency philosophy of the rest of the
 tool. Every check degrades gracefully and never raises.
 """
+
 from __future__ import annotations
 
 import json
@@ -290,11 +291,7 @@ def _hook_check() -> Check:
     ]
     if not configured:
         return Check("Hooks", "ok", "none configured")
-    missing = [
-        f"{name}: {argv[0]}"
-        for name, argv in configured
-        if not _hook_executable(argv[0])
-    ]
+    missing = [f"{name}: {argv[0]}" for name, argv in configured if not _hook_executable(argv[0])]
     if missing:
         return Check(
             "Hooks",
@@ -407,8 +404,11 @@ def run_doctor(
     chosen = (provider or provider_from_env()).lower()
 
     checks: list[Check] = [
-        Check("Python 3.11+", "ok" if sys.version_info >= (3, 11) else "fail",
-              f"{sys.version.split()[0]}"),
+        Check(
+            "Python 3.11+",
+            "ok" if sys.version_info >= (3, 11) else "fail",
+            f"{sys.version.split()[0]}",
+        ),
         Check("relay on PATH", "skip", ""),
         Check("git installed", "skip", ""),
         Check("inside a git repo", "skip", ""),
@@ -453,7 +453,7 @@ def run_doctor(
         checks[4].status = "fail"
         checks[4].detail = (
             f"not set ({', '.join(missing)}); run "
-            f"`git config --global {missing[0]} \"you@example.com\"`"
+            f'`git config --global {missing[0]} "you@example.com"`'
         )
 
     # provider-specific credential checks
@@ -470,7 +470,9 @@ def run_doctor(
         checks[6].detail = detail
     else:
         checks[6].status = "warn"
-        checks[6].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic|mistral|groq|xai)"
+        checks[
+            6
+        ].detail = f"unknown provider '{chosen}' (expected gemini|ollama|openai|anthropic|mistral|groq|xai)"
 
     # Forge token for `relay pr`. Missing is a warning, not a failure, since
     # `relay pr` is an optional part of the workflow.
@@ -485,9 +487,9 @@ def run_doctor(
         checks[7].detail = "BITBUCKET_TOKEN is set"
     else:
         checks[7].status = "warn"
-        checks[7].detail = (
-            "GITHUB_TOKEN / GITLAB_TOKEN / BITBUCKET_TOKEN is not set; `relay pr` cannot open PRs/MRs"
-        )
+        checks[
+            7
+        ].detail = "GITHUB_TOKEN / GITLAB_TOKEN / BITBUCKET_TOKEN is not set; `relay pr` cannot open PRs/MRs"
 
     # Protected branches: report the configured default-branch safety rules and
     # warn when the current branch is itself protected (a risky state — team
@@ -497,18 +499,14 @@ def run_doctor(
     checks[8].detail = ", ".join(protected) or "none"
     if current and is_protected(current, protected):
         checks[8].status = "warn"
-        checks[8].detail = (
-            f"{', '.join(protected)} — currently on protected branch '{current}'"
-        )
+        checks[8].detail = f"{', '.join(protected)} — currently on protected branch '{current}'"
     else:
         checks[8].status = "ok"
 
     # Config files: a malformed TOML file is silently ignored at runtime, so
     # report the resolved paths and their parse status explicitly. The repo
     # path is resolved the same way `relay.config` resolves it at run time.
-    checks.append(
-        _config_file_check("User config", config_file_path(), absent="using defaults")
-    )
+    checks.append(_config_file_check("User config", config_file_path(), absent="using defaults"))
     checks.append(
         _config_file_check(
             "Repo config", local_config_file_path(), absent="no .relay.toml; using defaults"
@@ -566,9 +564,7 @@ def run_doctor(
 
     verdict = "all good" if counts["fail"] == 0 else f"{counts['fail']} issue(s) need fixing"
     print()
-    print(
-        f"  {counts['ok']} pass, {counts['warn']} warn, {counts['fail']} fail - {verdict}."
-    )
+    print(f"  {counts['ok']} pass, {counts['warn']} warn, {counts['fail']} fail - {verdict}.")
     return exit_code
 
 

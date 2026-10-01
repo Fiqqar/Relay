@@ -13,6 +13,7 @@ Two assertion styles, both against a REAL repo + REAL git:
   ``--`` before the payload, and that git either handles it literally or
   fails closed with GitError (never interprets it as an option).
 """
+
 import pytest
 from sechelp import run_git
 

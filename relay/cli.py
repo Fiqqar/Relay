@@ -8,6 +8,7 @@ Usage:
     relay --provider ollama    # override the AI provider
     relay --dry-run --yes      # show the plan, change nothing
 """
+
 from __future__ import annotations
 
 import argparse
@@ -73,9 +74,7 @@ def _detect_shell() -> str:
         if name in ("bash", "zsh", "fish"):
             return name
     if os.name == "nt" and (
-        os.environ.get("PROMPT")
-        or os.environ.get("COMSPEC")
-        or os.environ.get("ComSpec")
+        os.environ.get("PROMPT") or os.environ.get("COMSPEC") or os.environ.get("ComSpec")
     ):
         return "powershell"
     return "bash"
@@ -96,8 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="relay",
         description=(
-            "Your Git workflow, on autopilot: AI Conventional Commits "
-            "with a manual fallback."
+            "Your Git workflow, on autopilot: AI Conventional Commits with a manual fallback."
         ),
     )
     parser.add_argument("--version", action="version", version=f"relay {__version__}")
@@ -105,8 +103,9 @@ def build_parser() -> argparse.ArgumentParser:
     # Mutually exclusive mode switch. `--team` uses nargs='?' so it accepts an
     # optional feature name:  `relay --team "payments"`.
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--solo", action="store_true",
-                       help="stage, commit and push to the current branch")
+    group.add_argument(
+        "--solo", action="store_true", help="stage, commit and push to the current branch"
+    )
     group.add_argument(
         "--team",
         nargs="?",
@@ -115,37 +114,69 @@ def build_parser() -> argparse.ArgumentParser:
         help="create & checkout <type>/<feature>, commit, and push it (feature optional)",
     )
 
-    parser.add_argument("-m", "--message", metavar="MESSAGE",
-                        help="use this commit message instead of generating one with AI")
-    parser.add_argument("--provider", choices=PROVIDER_NAMES,
-                        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
-    parser.add_argument("--timeout", type=int, metavar="SECONDS",
-                        help="seconds to wait for the AI response (default: 30, max: 120)")
-    parser.add_argument("--yes", action="store_true",
-                        help="skip the confirmation prompt")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="show the plan; change nothing")
-    parser.add_argument("--no-push", action="store_true",
-                        help="commit but do not push")
-    parser.add_argument("--staged", action="store_true",
-                        help="only commit what is already staged (skip `git add .`)")
-    parser.add_argument("--no-verify", action="store_true",
-                        help="skip git pre-commit and commit-msg hooks")
-    parser.add_argument("--signoff", "-s", action="store_true",
-                        help="add a Signed-off-by trailer to the commit (git commit -s)")
-    parser.add_argument("--allow-protected", action="store_true",
-                        help="allow team mode to target a protected branch (default-branch safety override)")
-    parser.add_argument("--repo", action="append", default=None, dest="repo",
-                        metavar="PATH",
-                        help="run on this repo path (repeatable; defaults to current dir; also [repos] in config / RELAY_REPOS)")
-    parser.add_argument("--hunks", action="store_true",
-                        help="generate multi-part AI message per file/hunk (hunk-level AI messages)")
-    parser.add_argument("--validate-manual", action="store_true",
-                        help="warn when a manually typed message is not a Conventional Commit")
-    parser.add_argument("--allow-sensitive", action="store_true",
-                        help="stage potentially sensitive files without prompting")
-    parser.add_argument("--verbose", action="store_true",
-                        help="print the git commands being run")
+    parser.add_argument(
+        "-m",
+        "--message",
+        metavar="MESSAGE",
+        help="use this commit message instead of generating one with AI",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=PROVIDER_NAMES,
+        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        metavar="SECONDS",
+        help="seconds to wait for the AI response (default: 30, max: 120)",
+    )
+    parser.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    parser.add_argument("--dry-run", action="store_true", help="show the plan; change nothing")
+    parser.add_argument("--no-push", action="store_true", help="commit but do not push")
+    parser.add_argument(
+        "--staged",
+        action="store_true",
+        help="only commit what is already staged (skip `git add .`)",
+    )
+    parser.add_argument(
+        "--no-verify", action="store_true", help="skip git pre-commit and commit-msg hooks"
+    )
+    parser.add_argument(
+        "--signoff",
+        "-s",
+        action="store_true",
+        help="add a Signed-off-by trailer to the commit (git commit -s)",
+    )
+    parser.add_argument(
+        "--allow-protected",
+        action="store_true",
+        help="allow team mode to target a protected branch (default-branch safety override)",
+    )
+    parser.add_argument(
+        "--repo",
+        action="append",
+        default=None,
+        dest="repo",
+        metavar="PATH",
+        help="run on this repo path (repeatable; defaults to current dir; also [repos] in config / RELAY_REPOS)",
+    )
+    parser.add_argument(
+        "--hunks",
+        action="store_true",
+        help="generate multi-part AI message per file/hunk (hunk-level AI messages)",
+    )
+    parser.add_argument(
+        "--validate-manual",
+        action="store_true",
+        help="warn when a manually typed message is not a Conventional Commit",
+    )
+    parser.add_argument(
+        "--allow-sensitive",
+        action="store_true",
+        help="stage potentially sensitive files without prompting",
+    )
+    parser.add_argument("--verbose", action="store_true", help="print the git commands being run")
 
     # `relay doctor` is a separate subcommand; every other invocation runs the
     # solo/team workflow. Subparsers are optional, so existing flags keep working.
@@ -155,109 +186,151 @@ def build_parser() -> argparse.ArgumentParser:
         help="diagnose this Relay installation (PATH, git, AI credentials)",
         description="Read-only self-diagnostic. Exits 0 when healthy, 1 when a fix is needed.",
     )
-    doctor.add_argument("--provider", choices=PROVIDER_NAMES,
-                        help="AI provider to check (default: gemini, or RELAY_AI_PROVIDER)")
-    doctor.add_argument("--probe", action="store_true",
-                        help="actively probe AI provider and forge authentication endpoints")
-    doctor.add_argument("--verbose", action="store_true",
-                        help="print the git commands being run")
-    doctor.add_argument("--json", action="store_true", dest="json_output",
-                        help="print the report as JSON instead of an aligned table")
+    doctor.add_argument(
+        "--provider",
+        choices=PROVIDER_NAMES,
+        help="AI provider to check (default: gemini, or RELAY_AI_PROVIDER)",
+    )
+    doctor.add_argument(
+        "--probe",
+        action="store_true",
+        help="actively probe AI provider and forge authentication endpoints",
+    )
+    doctor.add_argument("--verbose", action="store_true", help="print the git commands being run")
+    doctor.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="print the report as JSON instead of an aligned table",
+    )
 
     pr = subparsers.add_parser(
         "pr",
         help="open a pull request / merge request for the current branch",
         description="Opens a PR against --base (default: main). Title falls back to "
-                    "the latest commit message; requires GITHUB_TOKEN.",
+        "the latest commit message; requires GITHUB_TOKEN.",
     )
-    pr.add_argument("--base", default=pr_base_branch(),
-                    help="base branch to merge into (default: main)")
-    pr.add_argument("--title", metavar="TITLE",
-                    help="PR title (default: latest commit message)")
-    pr.add_argument("-o", "--open", action="store_true",
-                    help="open the PR in the default web browser")
-    pr.add_argument("-d", "--draft", action="store_true",
-                    help="create the PR as a draft (visible, not ready for review)")
-    pr.add_argument("--body", metavar="TEXT",
-                    help="description to post verbatim (wins over --body-file and templates)")
-    pr.add_argument("--body-file", metavar="PATH",
-                    help="read the description from this file")
-    pr.add_argument("-e", "--edit", action="store_true",
-                    help="open the resolved description in $EDITOR before posting")
-    pr.add_argument("--yes", action="store_true",
-                    help="act without prompting (implies --open)")
-    pr.add_argument("--provider", choices=PROVIDER_NAMES,
-                    help="AI provider for a generated title (used when --title is absent)")
-    pr.add_argument("--dry-run", action="store_true",
-                    help="show the PR plan (host, base, title, body); open nothing")
-    pr.add_argument("--verbose", action="store_true",
-                    help="print the git commands being run")
+    pr.add_argument(
+        "--base", default=pr_base_branch(), help="base branch to merge into (default: main)"
+    )
+    pr.add_argument("--title", metavar="TITLE", help="PR title (default: latest commit message)")
+    pr.add_argument(
+        "-o", "--open", action="store_true", help="open the PR in the default web browser"
+    )
+    pr.add_argument(
+        "-d",
+        "--draft",
+        action="store_true",
+        help="create the PR as a draft (visible, not ready for review)",
+    )
+    pr.add_argument(
+        "--body",
+        metavar="TEXT",
+        help="description to post verbatim (wins over --body-file and templates)",
+    )
+    pr.add_argument("--body-file", metavar="PATH", help="read the description from this file")
+    pr.add_argument(
+        "-e",
+        "--edit",
+        action="store_true",
+        help="open the resolved description in $EDITOR before posting",
+    )
+    pr.add_argument("--yes", action="store_true", help="act without prompting (implies --open)")
+    pr.add_argument(
+        "--provider",
+        choices=PROVIDER_NAMES,
+        help="AI provider for a generated title (used when --title is absent)",
+    )
+    pr.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show the PR plan (host, base, title, body); open nothing",
+    )
+    pr.add_argument("--verbose", action="store_true", help="print the git commands being run")
 
     squash = subparsers.add_parser(
         "squash",
         help="fold the last N commits into a single one (local, never pushes)",
         description="Soft-resets the last N commits and re-commits their combined "
-                    "diff as one Conventional Commit (AI message with a "
-                    "manual fallback). Working tree is untouched; never pushes.",
+        "diff as one Conventional Commit (AI message with a "
+        "manual fallback). Working tree is untouched; never pushes.",
     )
-    squash.add_argument("--count", type=int, default=2, metavar="N",
-                        help="how many commits to squash (default: 2)")
-    squash.add_argument("--message", metavar="MESSAGE",
-                        help="use this message instead of generating one")
-    squash.add_argument("--provider", choices=PROVIDER_NAMES,
-                        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
-    squash.add_argument("--timeout", type=int, metavar="SECONDS",
-                        help="seconds to wait for the AI response (default: 30, max: 120)")
-    squash.add_argument("--yes", action="store_true",
-                        help="skip the confirmation prompt")
-    squash.add_argument("--dry-run", action="store_true",
-                        help="show the plan; change nothing")
-    squash.add_argument("--signoff", "-s", action="store_true",
-                        help="add a Signed-off-by trailer to the squashed commit")
+    squash.add_argument(
+        "--count", type=int, default=2, metavar="N", help="how many commits to squash (default: 2)"
+    )
+    squash.add_argument(
+        "--message", metavar="MESSAGE", help="use this message instead of generating one"
+    )
+    squash.add_argument(
+        "--provider",
+        choices=PROVIDER_NAMES,
+        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)",
+    )
+    squash.add_argument(
+        "--timeout",
+        type=int,
+        metavar="SECONDS",
+        help="seconds to wait for the AI response (default: 30, max: 120)",
+    )
+    squash.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    squash.add_argument("--dry-run", action="store_true", help="show the plan; change nothing")
+    squash.add_argument(
+        "--signoff",
+        "-s",
+        action="store_true",
+        help="add a Signed-off-by trailer to the squashed commit",
+    )
     # SUPPRESS keeps the parent parser's value when the flag is given before the
     # subcommand (`relay --no-verify squash`).
-    squash.add_argument("--no-verify", action="store_true",
-                        default=argparse.SUPPRESS,
-                        help="skip the configured pre_commit hook and git hooks")
-    squash.add_argument("--verbose", action="store_true",
-                        help="print the git commands being run")
+    squash.add_argument(
+        "--no-verify",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="skip the configured pre_commit hook and git hooks",
+    )
+    squash.add_argument("--verbose", action="store_true", help="print the git commands being run")
 
     undo = subparsers.add_parser(
         "undo",
         help="undo the last commit (soft reset; changes stay staged)",
         description="Moves HEAD back one commit with `git reset --soft HEAD~1`.",
     )
-    undo.add_argument("--allow-staged", action="store_true",
-                      help="undo even when the index already has staged changes "
-                           "(they are mixed into the undone commit)")
-    undo.add_argument("--verbose", action="store_true",
-                      help="print the git commands being run")
+    undo.add_argument(
+        "--allow-staged",
+        action="store_true",
+        help="undo even when the index already has staged changes "
+        "(they are mixed into the undone commit)",
+    )
+    undo.add_argument("--verbose", action="store_true", help="print the git commands being run")
 
     stage = subparsers.add_parser(
         "stage",
         help="interactively stage a subset of changed files (or hunks)",
         description="Lists unstaged/untracked files and stages the ones you "
-                    "select (`git add --`). `-p` launches git's real `git add "
-                    "-p` hunk picker, so you can stage individual hunks of a "
-                    "file before a normal `relay` run commits them.",
+        "select (`git add --`). `-p` launches git's real `git add "
+        "-p` hunk picker, so you can stage individual hunks of a "
+        "file before a normal `relay` run commits them.",
     )
-    stage.add_argument("-p", "--patch", action="store_true",
-                       help="run git's interactive patch (hunk) picker")
+    stage.add_argument(
+        "-p", "--patch", action="store_true", help="run git's interactive patch (hunk) picker"
+    )
     # SUPPRESS keeps the parent parser's value when the flag is given before
     # the subcommand (`relay --allow-sensitive stage`); without it the
     # subparser's default would silently discard it.
-    stage.add_argument("--allow-sensitive", action="store_true",
-                       default=argparse.SUPPRESS,
-                       help="stage potentially sensitive files without prompting")
-    stage.add_argument("--verbose", action="store_true",
-                       help="print the git commands being run")
+    stage.add_argument(
+        "--allow-sensitive",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="stage potentially sensitive files without prompting",
+    )
+    stage.add_argument("--verbose", action="store_true", help="print the git commands being run")
 
     completions = subparsers.add_parser(
         "completions",
         help="print a shell completion script (bash/zsh/fish/powershell)",
         description="Generates a completion script for the requested shell. "
-                    "Pipe the output into your shell's completion directory, "
-                    "e.g. `relay completions bash > ~/.bash_completion.d/relay`.",
+        "Pipe the output into your shell's completion directory, "
+        "e.g. `relay completions bash > ~/.bash_completion.d/relay`.",
     )
     completions.add_argument(
         "shell",
@@ -271,18 +344,18 @@ def build_parser() -> argparse.ArgumentParser:
         "man",
         help="print the relay(1) manual page (roff) to stdout",
         description="Prints the man page source for `relay`. Pipe it through "
-                    "`gzip` into a man directory (e.g. "
-                    "`relay man | gzip -9 > /usr/local/share/man/man1/relay.1.gz`) "
-                    "to get `man relay`.",
+        "`gzip` into a man directory (e.g. "
+        "`relay man | gzip -9 > /usr/local/share/man/man1/relay.1.gz`) "
+        "to get `man relay`.",
     )
 
     telemetry = subparsers.add_parser(
         "telemetry",
         help="view or change opt-in usage telemetry",
         description="Relay is telemetry-free by default. `relay telemetry on` "
-                    "opts in to anonymous usage reporting (mode, provider, "
-                    "outcome — never diffs or messages). Off by default; "
-                    "reporting additionally needs RELAY_TELEMETRY_URL.",
+        "opts in to anonymous usage reporting (mode, provider, "
+        "outcome — never diffs or messages). Off by default; "
+        "reporting additionally needs RELAY_TELEMETRY_URL.",
     )
     telemetry.add_argument(
         "action",
@@ -296,36 +369,52 @@ def build_parser() -> argparse.ArgumentParser:
         "amend",
         help="rewrite the last commit's message with a freshly generated one",
         description="Amends the last commit (never pushes; syncing a pushed "
-                    "commit needs `git push --force-with-lease`).",
+        "commit needs `git push --force-with-lease`).",
     )
-    amend.add_argument("-m", "--message", metavar="MESSAGE",
-                       help="use this message instead of generating one with AI")
-    amend.add_argument("--provider", choices=PROVIDER_NAMES,
-                       help="AI provider (default: gemini, or RELAY_AI_PROVIDER)")
-    amend.add_argument("--timeout", type=int, metavar="SECONDS",
-                       help="seconds to wait for the AI response (default: 30, max: 120)")
-    amend.add_argument("--yes", action="store_true",
-                       help="skip the confirmation prompt")
-    amend.add_argument("--staged", action="store_true",
-                       help="fold already-staged changes into the amended commit (default is message-only)")
-    amend.add_argument("--dry-run", action="store_true",
-                       help="show the plan; change nothing")
-    amend.add_argument("--no-verify", action="store_true",
-                       help="skip git pre-commit and commit-msg hooks")
-    amend.add_argument("--signoff", "-s", action="store_true",
-                       help="add a Signed-off-by trailer to the amended commit")
-    amend.add_argument("--verbose", action="store_true",
-                       help="print the git commands being run")
+    amend.add_argument(
+        "-m",
+        "--message",
+        metavar="MESSAGE",
+        help="use this message instead of generating one with AI",
+    )
+    amend.add_argument(
+        "--provider",
+        choices=PROVIDER_NAMES,
+        help="AI provider (default: gemini, or RELAY_AI_PROVIDER)",
+    )
+    amend.add_argument(
+        "--timeout",
+        type=int,
+        metavar="SECONDS",
+        help="seconds to wait for the AI response (default: 30, max: 120)",
+    )
+    amend.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    amend.add_argument(
+        "--staged",
+        action="store_true",
+        help="fold already-staged changes into the amended commit (default is message-only)",
+    )
+    amend.add_argument("--dry-run", action="store_true", help="show the plan; change nothing")
+    amend.add_argument(
+        "--no-verify", action="store_true", help="skip git pre-commit and commit-msg hooks"
+    )
+    amend.add_argument(
+        "--signoff",
+        "-s",
+        action="store_true",
+        help="add a Signed-off-by trailer to the amended commit",
+    )
+    amend.add_argument("--verbose", action="store_true", help="print the git commands being run")
 
     verify_release = subparsers.add_parser(
         "verify-release",
         help=argparse.SUPPRESS,
         description="Maintainer-only release check: the vx.y.z tag exists, "
-                    "the sdist and wheel match SHA256SUMS, and the Scoop "
-                    "manifest plus the Homebrew formula point at the same "
-                    "version and hashes. Hidden from --help; still runnable "
-                    "as `relay verify-release`. Exits 0 when everything "
-                    "matches, 1 otherwise.",
+        "the sdist and wheel match SHA256SUMS, and the Scoop "
+        "manifest plus the Homebrew formula point at the same "
+        "version and hashes. Hidden from --help; still runnable "
+        "as `relay verify-release`. Exits 0 when everything "
+        "matches, 1 otherwise.",
     )
     verify_release.add_argument(
         "version",
@@ -334,12 +423,18 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="VERSION",
         help="release to verify, e.g. 2.5.0 or v2.5.0 (default: installed version)",
     )
-    verify_release.add_argument("--json", action="store_true", dest="json_output",
-                                help="print the report as JSON instead of an aligned table")
-    verify_release.add_argument("--download", action="store_true",
-                                help="download the wheel and re-hash it locally")
-    verify_release.add_argument("--verbose", action="store_true",
-                                help="print the requests being made")
+    verify_release.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="print the report as JSON instead of an aligned table",
+    )
+    verify_release.add_argument(
+        "--download", action="store_true", help="download the wheel and re-hash it locally"
+    )
+    verify_release.add_argument(
+        "--verbose", action="store_true", help="print the requests being made"
+    )
     # help=SUPPRESS alone still leaks as a literal "==SUPPRESS==" row on
     # Python 3.14's HelpFormatter, so drop the pseudo-action from the
     # help listing while keeping it in choices (still parsable/runnable).
@@ -564,7 +659,9 @@ def _run_workflow(args) -> int:
             allow_protected=args.allow_protected,
             branch_template=branch_template(),
             message=getattr(args, "message", None),
-            validate_manual=bool(getattr(args, "validate_manual", False) or validate_manual_messages()),
+            validate_manual=bool(
+                getattr(args, "validate_manual", False) or validate_manual_messages()
+            ),
             allow_sensitive=bool(getattr(args, "allow_sensitive", False)),
             signoff=_resolve_signoff(args),
         )
@@ -611,7 +708,9 @@ def _handle_workflow_error(exc: BaseException, args) -> int:
         print("\n[relay] aborted.")
         return 130
     if isinstance(exc, EOFError):
-        print("[relay] non-interactive environment — cannot prompt for input (use --yes to skip confirmation).")
+        print(
+            "[relay] non-interactive environment — cannot prompt for input (use --yes to skip confirmation)."
+        )
         return 1
     print(f"[relay] unexpected error: {sanitize_terminal(str(exc))}")
     return 1
